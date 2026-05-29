@@ -1,12 +1,12 @@
+import asyncio
+import base64
 import hashlib
 import hmac
-import base64
 import json
-import time
-import asyncio
 import logging
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -16,19 +16,18 @@ from psycopg2.extras import RealDictCursor
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
-from pyngrok import ngrok, conf
+from pyngrok import ngrok
 from dotenv import load_dotenv
+
+import email_poller
 
 load_dotenv()
 
 # ─── Config ────────────────────────────────────────────────────────────────────
-# อ่านจาก .env ทั้งหมด ไม่มี secret ใน code
 LINE_CHANNEL_ID     = os.getenv("LINE_CHANNEL_ID")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 DIFY_API_URL        = os.getenv("DIFY_API_URL", "http://localhost/v1")
 DIFY_API_KEY        = os.getenv("DIFY_API_KEY")
-OLLAMA_API_URL      = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
-OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 SERVER_PORT         = int(os.getenv("SERVER_PORT", 8000))
 
 DB_CONFIG = {
@@ -39,13 +38,12 @@ DB_CONFIG = {
     "password": os.getenv("DB_PASSWORD"),
 }
 
-# รูปแบบ Report ID เช่น RPT-20260528-0001
-RPT_PATTERN = re.compile(r"^RPT-\d{8}-\d{4}$", re.IGNORECASE)
+# RPT-YYYYMMDD-XXXX ที่อยู่ในข้อความ (ไม่จำเป็นต้องขึ้นต้น)
+RPT_PATTERN = re.compile(r"RPT-\d{8}-\d{4}", re.IGNORECASE)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# cache LINE access token
 _line_token: str = ""
 _line_token_expiry: float = 0.0
 
@@ -75,7 +73,7 @@ def _get_line_token() -> str:
 
 
 def _verify_signature(body: bytes, signature: str) -> bool:
-    """ตรวจสอบว่า webhook request มาจาก LINE จริงๆ ด้วย HMAC-SHA256"""
+    """ตรวจสอบว่า webhook มาจาก LINE จริงด้วย HMAC-SHA256"""
     digest = hmac.new(
         LINE_CHANNEL_SECRET.encode(), body, hashlib.sha256
     ).digest()
@@ -83,7 +81,7 @@ def _verify_signature(body: bytes, signature: str) -> bool:
 
 
 def _line_reply(reply_token: str, text: str) -> None:
-    """ตอบกลับ user ด้วย reply token (ใช้ได้แค่ครั้งเดียว หมดอายุใน 60 วิ)"""
+    """ตอบกลับด้วย reply token (ใช้ได้ครั้งเดียว หมดอายุใน 60 วิ)"""
     if len(text) > 5000:
         text = text[:4997] + "…"
     token = _get_line_token()
@@ -98,7 +96,7 @@ def _line_reply(reply_token: str, text: str) -> None:
 
 
 def _line_push(user_id: str, text: str) -> None:
-    """ส่งข้อความหา user โดยตรงโดยไม่ใช้ reply token"""
+    """ส่งข้อความหา user โดยตรง"""
     if len(text) > 5000:
         text = text[:4997] + "…"
     token = _get_line_token()
@@ -112,183 +110,161 @@ def _line_push(user_id: str, text: str) -> None:
         log.error("LINE push failed %s: %s", resp.status_code, resp.text)
 
 
-# ─── Validation ────────────────────────────────────────────────────────────────
-
-def _build_validation_prompt(user_message: str) -> str:
-    """สร้าง few-shot prompt ให้ Ollama เช็คว่าข้อมูลผู้ป่วยครบ 4 ข้อหรือไม่"""
-    return (
-        "You are a medical intake validator. Check if the patient message contains ALL 4 required fields.\n"
-        "Read carefully and check each field:\n"
-        "Field 1: Age and gender — SATISFIED by any age number + gender word anywhere in the message.\n"
-        "  Examples that SATISFY: 'ชาย 45 ปี', 'หญิง 28 ปี', 'อายุ 30 ปีเพศหญิง', 'ผู้ป่วยชาย 50 ปี'\n"
-        "Field 2: Main symptoms — SATISFIED by any illness, pain, rash, or complaint described.\n"
-        "Field 3: Duration — SATISFIED by any time period (วัน/สัปดาห์/เดือน/ปี or phrases like 'เป็นมา 3 วัน').\n"
-        "Field 4: Drug allergies or underlying diseases — SATISFIED by listing allergies, listing diseases,\n"
-        "  OR explicitly stating none. These ALL satisfy Field 4:\n"
-        "  'ไม่มียาแพ้', 'ไม่แพ้ยา', 'ไม่มีโรคประจำตัว', 'ไม่มี', 'แพ้ยา X', 'มีโรค X'\n\n"
-        "Output ONLY valid JSON with keys 'complete' (bool) and 'missing' (list). No other text.\n\n"
-        "Patient: ผื่นแดงที่หน้า ปวดข้อ เป็นมา 3 เดือน\n"
-        '{"complete": false, "missing": ["อายุและเพศ", "ยาที่แพ้หรือโรคประจำตัว"]}\n\n'
-        "Patient: ผู้ป่วยหญิง อายุ 28 ปี ผื่นแดงรูปผีเสื้อที่หน้า ปวดข้อมือ เป็นมา 3 เดือน ไม่มียาแพ้ ไม่มีโรคประจำตัว\n"
-        '{"complete": true, "missing": []}\n\n'
-        "Patient: ชาย 45 ปี เจ็บหน้าอก หายใจไม่ออก แพ้ยา penicillin\n"
-        '{"complete": false, "missing": ["ระยะเวลาที่มีอาการ"]}\n\n'
-        "Patient: หญิง 35 ปี ไข้สูง ปวดศีรษะ เป็นมา 2 วัน ไม่มียาแพ้\n"
-        '{"complete": true, "missing": []}\n\n'
-        f"Patient: {user_message}\n"
+def _line_push_with_quick_reply(user_id: str, text: str, report_id: str) -> None:
+    """ส่ง notification พร้อม Quick Reply button [🔍 วิเคราะห์] ให้แพทย์กดได้เลย"""
+    if len(text) > 5000:
+        text = text[:4997] + "…"
+    token = _get_line_token()
+    resp = httpx.post(
+        "https://api.line.me/v2/bot/message/push",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={
+            "to": user_id,
+            "messages": [{
+                "type": "text",
+                "text": text,
+                "quickReply": {
+                    "items": [{
+                        "type": "action",
+                        "action": {
+                            "type":  "message",
+                            "label": "🔍 วิเคราะห์",
+                            "text":  f"วิเคราะห์ {report_id}",
+                        },
+                    }],
+                },
+            }],
+        },
+        timeout=10,
     )
-
-
-def _validate_message(user_message: str) -> tuple[bool, list[str]]:
-    """
-    เรียก Ollama โดยตรงเพื่อความเร็ว
-    คืนค่า (ข้อมูลครบไหม, รายการที่ขาด)
-    ถ้า error → fail open ไม่บล็อก user
-    """
-    prompt = _build_validation_prompt(user_message)
-    raw = ""
-    try:
-        resp = httpx.post(
-            f"{OLLAMA_API_URL}/api/chat",
-            json={
-                "model":    OLLAMA_MODEL,
-                "stream":   False,
-                "messages": [{"role": "user", "content": prompt}],
-                "options":  {"temperature": 0},
-            },
-            timeout=60,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["message"]["content"].strip()
-
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-
-        start = raw.find("{")
-        end   = raw.rfind("}") + 1
-        data  = json.loads(raw[start:end])
-        return bool(data.get("complete")), data.get("missing", [])
-
-    except json.JSONDecodeError:
-        log.warning("Validation JSON parse failed, raw: %.200s", raw)
-        return True, []
-    except Exception as exc:
-        log.exception("Validation call failed: %s", exc)
-        return True, []
+    if resp.status_code != 200:
+        log.error("LINE push (quick reply) failed %s: %s", resp.status_code, resp.text)
 
 
 # ─── DB helpers ────────────────────────────────────────────────────────────────
 
 def _get_db():
-    """เปิด connection ไป PostgreSQL hospital_db"""
     return psycopg2.connect(**DB_CONFIG)
 
 
-def _generate_report_id() -> str:
-    """สร้าง Report ID รูปแบบ RPT-YYYYMMDD-XXXX โดยนับจำนวนใน DB วันนั้น"""
-    date_str = datetime.now().strftime("%Y%m%d")
-    with _get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) FROM reports WHERE report_id LIKE %s",
-                (f"RPT-{date_str}-%",)
-            )
-            count = cur.fetchone()[0]
-    return f"RPT-{date_str}-{count + 1:04d}"
-
-
-def _ensure_patient(patient_id: str) -> str | None:
-    """
-    สร้าง patient record ถ้ายังไม่มี
-    auto-assign ให้แพทย์คนแรกใน DB
-    คืนค่า doctor_id ที่ assigned
-    """
-    with _get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT doctor_id FROM patients WHERE patient_id = %s", (patient_id,))
-            row = cur.fetchone()
-            if row:
-                return row[0]
-            cur.execute("SELECT doctor_id FROM doctors LIMIT 1")
-            doctor = cur.fetchone()
-            doctor_id = doctor[0] if doctor else None
-            cur.execute(
-                "INSERT INTO patients (patient_id, doctor_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-                (patient_id, doctor_id),
-            )
-            conn.commit()
-            return doctor_id
-
-
-def _save_report(patient_id: str, conversation_id: str) -> str:
-    """บันทึก report ลง DB และ log audit พร้อมคืน report_id"""
-    report_id = _generate_report_id()
-    with _get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO reports (report_id, patient_id, conversation_id, status) VALUES (%s, %s, %s, 'pending')",
-                (report_id, patient_id, conversation_id),
-            )
-            cur.execute(
-                "INSERT INTO audit_logs (actor_id, actor_type, action, report_id) VALUES (%s, 'patient', 'report_submitted', %s)",
-                (patient_id, report_id),
-            )
-            conn.commit()
-    log.info("Saved report %s for patient %s", report_id, patient_id)
-    return report_id
-
-
-def _get_report(report_id: str) -> dict | None:
-    """ดึงข้อมูล report พร้อม doctor_id ของคนไข้"""
-    with _get_db() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """SELECT r.*, p.doctor_id
-                   FROM reports r
-                   JOIN patients p ON r.patient_id = p.patient_id
-                   WHERE r.report_id = %s""",
-                (report_id,),
-            )
-            return cur.fetchone()
-
-
-def _save_analysis(report_id: str, doctor_id: str, doctor_summary: str, patient_note: str):
-    """บันทึกผลวิเคราะห์ อัพเดต status เป็น analyzed และ log audit"""
-    with _get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO analyses (report_id, doctor_summary, patient_note) VALUES (%s, %s, %s)",
-                (report_id, doctor_summary, patient_note),
-            )
-            cur.execute(
-                "UPDATE reports SET status = 'analyzed' WHERE report_id = %s",
-                (report_id,),
-            )
-            cur.execute(
-                "INSERT INTO audit_logs (actor_id, actor_type, action, report_id) VALUES (%s, 'doctor', 'analysis_triggered', %s)",
-                (doctor_id, report_id),
-            )
-            conn.commit()
-
-
 def _is_doctor(user_id: str) -> bool:
-    """เช็คว่า LINE user_id นี้เป็นแพทย์ที่ลงทะเบียนไว้ใน DB หรือไม่"""
+    """เช็คว่า LINE user_id นี้เป็นแพทย์ที่ลงทะเบียนไว้หรือไม่"""
     with _get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM doctors WHERE doctor_id = %s", (user_id,))
             return cur.fetchone() is not None
 
 
+def _build_patient_context(report_id: str) -> tuple[dict | None, str]:
+    """
+    JOIN ข้อมูลผู้ป่วยครบชุดจาก DB แล้วสร้าง context string สำหรับส่งไป Dify
+    คืน (report_row, context_string) — report_row=None ถ้าไม่พบ
+    """
+    with _get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT r.report_id, r.report_text, r.chief_complaint,
+                          r.report_source, r.report_date, r.status,
+                          p.patient_id, p.name, p.dob, p.sex, p.blood_type
+                   FROM reports r
+                   JOIN patients p ON r.patient_id = p.patient_id
+                   WHERE r.report_id = %s""",
+                (report_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None, ""
+
+            patient_id = row["patient_id"]
+
+            cur.execute(
+                """SELECT condition_name, status, diagnosed_year, diagnosed_at, notes
+                   FROM medical_conditions WHERE patient_id = %s ORDER BY status""",
+                (patient_id,),
+            )
+            conditions = cur.fetchall()
+
+            cur.execute(
+                "SELECT allergen, reaction, severity FROM allergies WHERE patient_id = %s",
+                (patient_id,),
+            )
+            allergies = cur.fetchall()
+
+            cur.execute(
+                """SELECT drug_name, dose, frequency, indication
+                   FROM current_medications WHERE patient_id = %s AND is_active = true""",
+                (patient_id,),
+            )
+            meds = cur.fetchall()
+
+    # คำนวณอายุ
+    age_str = "-"
+    if row["dob"]:
+        age_str = f"{(datetime.now().date() - row['dob']).days // 365} ปี"
+
+    lines = [
+        f"=== ข้อมูลผู้ป่วย | {row['report_id']} ===",
+        f"ชื่อ: {row['name']}  |  เพศ: {row['sex']}  |  อายุ: {age_str}  |  กรุ๊ปเลือด: {row['blood_type'] or '-'}",
+        "",
+    ]
+
+    if allergies:
+        lines.append("⚠️ ยาแพ้ / สิ่งที่แพ้ (ห้ามสั่งยาเหล่านี้):")
+        for a in allergies:
+            lines.append(f"  - {a['allergen']} → {a['reaction']} ({a['severity']})")
+    else:
+        lines.append("⚠️ ยาแพ้: ไม่มีประวัติแพ้ยา")
+
+    lines.append("")
+    if conditions:
+        lines.append("โรคประจำตัว:")
+        for c in conditions:
+            note = f" — {c['notes']}" if c["notes"] else ""
+            year = c["diagnosed_year"] or "-"
+            lines.append(f"  - {c['condition_name']} ({c['status']}, {year}){note}")
+
+    lines.append("")
+    if meds:
+        lines.append("ยาที่ใช้อยู่ปัจจุบัน:")
+        for m in meds:
+            lines.append(f"  - {m['drug_name']} {m['dose']} {m['frequency']}  [{m['indication']}]")
+
+    lines += [
+        "",
+        f"=== ผลการตรวจ ({'เรื่อง: ' + row['chief_complaint'] if row['chief_complaint'] else 'ไม่ระบุ'}) ===",
+        f"แหล่งตรวจ: {row['report_source'] or 'ไม่ระบุ'}",
+        "",
+        row["report_text"] or "ไม่มีข้อมูล",
+    ]
+
+    return dict(row), "\n".join(lines)
+
+
+def _save_analysis(report_id: str, doctor_id: str, conv_id: str, summary_text: str) -> None:
+    """บันทึกผลวิเคราะห์ อัพเดต status และ log audit"""
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO analyses (report_id, dify_conversation_id, summary_text)
+                   VALUES (%s, %s, %s)""",
+                (report_id, conv_id, summary_text),
+            )
+            cur.execute(
+                "UPDATE reports SET status = 'analyzed' WHERE report_id = %s",
+                (report_id,),
+            )
+            cur.execute(
+                """INSERT INTO audit_logs (actor_id, actor_type, action, report_id)
+                   VALUES (%s, 'doctor', 'analysis_triggered', %s)""",
+                (doctor_id, report_id),
+            )
+            conn.commit()
+
+
 # ─── Dify helper ───────────────────────────────────────────────────────────────
 
 def _ask_dify(user_id: str, message: str, conv_id: str = "") -> tuple[str, str]:
-    """
-    ส่งข้อความไป Dify
-    คืนค่า (answer, conversation_id)
-    conv_id="" = เริ่ม conversation ใหม่
-    """
+    """ส่ง context ไป Dify → คืน (answer, conversation_id)"""
     try:
         resp = httpx.post(
             f"{DIFY_API_URL}/chat-messages",
@@ -308,116 +284,74 @@ def _ask_dify(user_id: str, message: str, conv_id: str = "") -> tuple[str, str]:
         resp.raise_for_status()
         data = resp.json()
         return data.get("answer", "ขออภัย ไม่สามารถตอบได้ในขณะนี้"), data.get("conversation_id", conv_id)
-    except Exception as exc:
-        log.exception("Dify request failed: %s", exc)
-        return "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อกับระบบ กรุณาลองใหม่อีกครั้ง", conv_id
-
-
-# ─── Patient flow ──────────────────────────────────────────────────────────────
-
-def _handle_message(reply_token: str, user_id: str, text: str) -> None:
-    """
-    Flow คนไข้:
-    1. validate ข้อมูล 4 ข้อ
-    2. ถ้าไม่ครบ → แจ้งกลับ
-    3. ถ้าครบ → ส่ง Dify (เก็บ conversation_id) → บันทึก DB → แจ้งแพทย์
-    """
-    log.info("Patient %s: %s", user_id, text[:80])
-
-    is_complete, missing = _validate_message(text)
-    log.info("Validation → complete=%s missing=%s", is_complete, missing)
-
-    if not is_complete:
-        items = "\n".join(f"  • {m}" for m in missing)
-        reply = (
-            "⚠️ ข้อมูลยังไม่ครบถ้วน กรุณาเพิ่มข้อมูลต่อไปนี้:\n\n"
-            f"{items}\n\n"
-            "📋 ข้อมูลที่ต้องการครบทั้ง 4 ข้อ:\n"
-            "  1. อายุและเพศ\n"
-            "  2. อาการหลัก\n"
-            "  3. ระยะเวลาที่มีอาการ\n"
-            "  4. ยาที่แพ้หรือโรคประจำตัว"
-        )
-        _line_reply(reply_token, reply)
-        return
-
-    # ตอบรับทันทีก่อน reply token หมดอายุ
-    _line_reply(reply_token, "✅ ได้รับ Report แล้ว แพทย์จะวิเคราะห์เร็วๆ นี้")
-
-    # ส่งไป Dify เพื่อเริ่ม conversation และเก็บ conversation_id
-    _, conv_id = _ask_dify(user_id, text)
-
-    # บันทึกลง DB
-    doctor_id = _ensure_patient(user_id)
-    report_id = _save_report(user_id, conv_id)
-
-    # แจ้งแพทย์ประจำตัว
-    if doctor_id:
-        _line_push(
-            doctor_id,
-            f"📋 Report ใหม่ #{report_id}\n"
-            f"เวลา: {datetime.now().strftime('%H:%M')}\n\n"
-            f"พิมพ์รหัส Report เพื่อวิเคราะห์:\n{report_id}",
-        )
-        log.info("Notified doctor %s for report %s", doctor_id, report_id)
-    else:
-        log.warning("No doctor assigned for patient %s", user_id)
+    except Exception:
+        log.exception("Dify request failed")
+        return "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อกับระบบ กรุณาลองใหม่", conv_id
 
 
 # ─── Doctor flow ───────────────────────────────────────────────────────────────
 
+def _notify_new_report(doctor_id: str, patient_name: str, report_id: str) -> None:
+    """
+    Email poller เรียก callback นี้เมื่อบันทึก report เสร็จ
+    ส่ง LINE notification พร้อม Quick Reply [🔍 วิเคราะห์] ให้แพทย์
+    """
+    text = (
+        f"📋 มี Report ใหม่\n"
+        f"ผู้ป่วย: {patient_name}\n"
+        f"Report: {report_id}\n"
+        f"เวลา: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
+        f"กด [🔍 วิเคราะห์] เพื่อเริ่มวิเคราะห์ทันที"
+    )
+    _line_push_with_quick_reply(doctor_id, text, report_id)
+    log.info("แจ้งแพทย์ %s สำหรับ %s", doctor_id, report_id)
+
+
 def _handle_doctor_message(reply_token: str, doctor_id: str, text: str) -> None:
     """
     Flow แพทย์:
-    แพทย์พิมพ์ Report ID → ดึงจาก DB → ส่ง Dify วิเคราะห์ → บันทึก → ส่งผลกลับ
+    รับข้อความที่มี report_id (จาก quick reply หรือพิมพ์เอง)
+    → build patient context จาก DB → ส่ง Dify → บันทึก → push ผลกลับ
     """
-    report_id = text.strip().upper()
-    log.info("Doctor %s trigger: %s", doctor_id, report_id)
-
-    if not RPT_PATTERN.match(report_id):
-        _line_reply(reply_token, "พิมพ์รหัส Report เช่น RPT-20260528-0001 เพื่อวิเคราะห์")
+    match = RPT_PATTERN.search(text.upper())
+    if not match:
+        _line_reply(
+            reply_token,
+            "รอการแจ้งเตือน Report ใหม่จากระบบ\n"
+            "หรือพิมพ์ Report ID เช่น: วิเคราะห์ RPT-20260529-0001",
+        )
         return
 
-    report = _get_report(report_id)
+    report_id = match.group(0).upper()
+    log.info("Doctor %s trigger: %s", doctor_id, report_id)
 
-    if not report:
+    report_row, context = _build_patient_context(report_id)
+
+    if not report_row:
         _line_reply(reply_token, f"❌ ไม่พบ Report #{report_id}")
         return
 
-    if report["status"] == "analyzed":
+    if report_row["status"] == "analyzed":
         _line_reply(reply_token, f"⚠️ Report #{report_id} วิเคราะห์แล้ว")
         return
 
-    _line_reply(reply_token, f"🔍 กำลังวิเคราะห์ #{report_id} กรุณารอสักครู่…")
+    # ตอบทันทีก่อน reply token หมดอายุ
+    _line_reply(reply_token, f"🔍 กำลังวิเคราะห์ #{report_id}…\nกรุณารอสักครู่")
 
-    # ต่อ conversation เดิมของคนไข้ใน Dify แล้วขอ summary 2 แบบ
-    conv_id = report["conversation_id"]
+    # ส่ง context ทั้งก้อนไป Dify ในครั้งเดียว
+    summary, conv_id = _ask_dify(doctor_id, context)
 
-    doctor_summary, _ = _ask_dify(
-        doctor_id,
-        "สรุปอาการของผู้ป่วยสำหรับแพทย์ พร้อม Keywords สำคัญท้าย",
-        conv_id=conv_id,
-    )
-    patient_note, _ = _ask_dify(
-        doctor_id,
-        "อธิบายอาการให้ผู้ป่วยเข้าใจง่าย ไม่ใช้ศัพท์แพทย์",
-        conv_id=conv_id,
-    )
+    _save_analysis(report_id, doctor_id, conv_id, summary)
 
-    _save_analysis(report_id, doctor_id, doctor_summary, patient_note)
-
-    _line_push(
-        doctor_id,
-        f"📊 ผลวิเคราะห์ #{report_id}\n\n{doctor_summary}",
-    )
-    log.info("Analysis done for %s by doctor %s", report_id, doctor_id)
+    _line_push(doctor_id, f"📊 ผลวิเคราะห์ #{report_id}\n\n{summary}")
+    log.info("Analysis done — %s by doctor %s", report_id, doctor_id)
 
 
 # ─── FastAPI app ───────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """เปิด ngrok tunnel ตอน startup และปิดตอน shutdown"""
+    """เปิด ngrok + email poller ตอน startup"""
     tunnel = ngrok.connect(SERVER_PORT, domain="ineffectual-marian-nonnattily.ngrok-free.dev")
     public_url = tunnel.public_url
     app.state.ngrok_url = public_url
@@ -425,7 +359,15 @@ async def lifespan(app: FastAPI):
     log.info("ngrok tunnel:     %s", public_url)
     log.info("LINE Webhook URL: %s/webhook", public_url)
     log.info("=" * 60)
+
+    # เริ่ม email poller เป็น background task
+    poller_task = asyncio.create_task(
+        email_poller.start_poller(DB_CONFIG, _notify_new_report)
+    )
+
     yield
+
+    poller_task.cancel()
     ngrok.disconnect(public_url)
 
 
@@ -434,11 +376,10 @@ app = FastAPI(title="LINE–Dify Hospital Bridge", lifespan=lifespan)
 
 @app.get("/")
 def health():
-    """Health check — ดู ngrok URL ได้จากที่นี่"""
     return {
-        "status": "ok",
+        "status":    "ok",
         "ngrok_url": getattr(app.state, "ngrok_url", "starting…"),
-        "webhook": f"{getattr(app.state, 'ngrok_url', '')}/webhook",
+        "webhook":   f"{getattr(app.state, 'ngrok_url', '')}/webhook",
     }
 
 
@@ -446,8 +387,7 @@ def health():
 async def webhook(request: Request, background_tasks: BackgroundTasks):
     """
     รับ webhook จาก LINE
-    route แยกตามว่าผู้ส่งเป็นแพทย์หรือคนไข้
-    ตอบ 200 ทันทีก่อน LINE timeout
+    ระบบนี้สำหรับแพทย์เท่านั้น — ตอบ 200 ทันทีก่อน LINE timeout
     """
     body = await request.body()
     signature = request.headers.get("X-Line-Signature", "")
@@ -463,15 +403,17 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         if event["message"].get("type") != "text":
             continue
 
-        reply_token  = event["replyToken"]
-        user_id      = event["source"]["userId"]
-        user_message = event["message"]["text"]
+        user_id     = event.get("source", {}).get("userId")
+        reply_token = event["replyToken"]
+        text        = event["message"]["text"]
 
-        # route ตามรูปแบบข้อความ — RPT-... = doctor flow, อื่น = patient flow
-        if RPT_PATTERN.match(user_message.strip().upper()):
-            background_tasks.add_task(_handle_doctor_message, reply_token, user_id, user_message)
+        if not user_id:
+            continue
+
+        if _is_doctor(user_id):
+            background_tasks.add_task(_handle_doctor_message, reply_token, user_id, text)
         else:
-            background_tasks.add_task(_handle_message, reply_token, user_id, user_message)
+            _line_reply(reply_token, "ระบบนี้สำหรับแพทย์เท่านั้น")
 
     return JSONResponse({"status": "ok"})
 

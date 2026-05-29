@@ -7,7 +7,7 @@ import logging
 import os
 import re
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 
 import httpx
@@ -22,6 +22,11 @@ from dotenv import load_dotenv
 import email_poller
 
 load_dotenv()
+
+_REQUIRED_VARS = ["LINE_CHANNEL_SECRET", "LINE_CHANNEL_ID", "DIFY_API_KEY", "DB_PASSWORD"]
+_missing = [v for v in _REQUIRED_VARS if not os.getenv(v)]
+if _missing:
+    raise RuntimeError(f"Missing required env vars: {', '.join(_missing)}")
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 LINE_CHANNEL_ID     = os.getenv("LINE_CHANNEL_ID")
@@ -143,8 +148,13 @@ def _line_push_with_quick_reply(user_id: str, text: str, report_id: str) -> None
 
 # ─── DB helpers ────────────────────────────────────────────────────────────────
 
+@contextmanager
 def _get_db():
-    return psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _is_doctor(user_id: str) -> bool:
@@ -179,10 +189,13 @@ def _try_register_doctor(line_uid: str, hospital_id: str) -> str:
 
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE doctors SET line_uid = %s WHERE hospital_id = %s",
+                "UPDATE doctors SET line_uid = %s WHERE hospital_id = %s AND line_uid IS NULL",
                 (line_uid, hospital_id.upper()),
             )
+            updated = cur.rowcount == 1
             conn.commit()
+        if not updated:
+            return "already_taken", None
         return "registered", doc
 
 
@@ -360,24 +373,34 @@ def _get_doctor_id_from_line_uid(line_uid: str) -> str:
 def _analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> None:
     """
     Pipeline วิเคราะห์: build context → Dify → save → push ผลกลับ
-    status='analyzing' ใช้เป็น lock ชั่วคราว ป้องกัน concurrent call
+    status='analyzing' ใช้เป็น atomic lock ป้องกัน concurrent call (TOCTOU-safe)
     วิเคราะห์ซ้ำได้เสมอ — ทุกครั้งสร้าง row ใหม่ใน analyses
     """
-    report_row, context = _build_patient_context(report_id)
+    # Atomic lock — ถ้า rowcount == 0 แสดงว่ามีคนล็อคไปก่อนหรือ report ไม่มีอยู่
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE reports SET status = 'analyzing' WHERE report_id = %s AND status IS NULL",
+                (report_id,),
+            )
+            locked = cur.rowcount == 1
+            conn.commit()
 
+    if not locked:
+        with _get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT status FROM reports WHERE report_id = %s", (report_id,))
+                row = cur.fetchone()
+        if not row:
+            _line_reply(reply_token, f"❌ ไม่พบ Report #{report_id}")
+        else:
+            _line_reply(reply_token, f"⏳ Report #{report_id} กำลังวิเคราะห์อยู่แล้ว\nกรุณารอสักครู่")
+        return
+
+    report_row, context = _build_patient_context(report_id)
     if not report_row:
         _line_reply(reply_token, f"❌ ไม่พบ Report #{report_id}")
         return
-
-    if report_row["status"] == "analyzing":
-        _line_reply(reply_token, f"⏳ Report #{report_id} กำลังวิเคราะห์อยู่แล้ว\nกรุณารอสักครู่")
-        return
-
-    # ล็อค report ระหว่างวิเคราะห์
-    with _get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE reports SET status = 'analyzing' WHERE report_id = %s", (report_id,))
-            conn.commit()
 
     try:
         _line_reply(reply_token, f"🔍 กำลังวิเคราะห์ #{report_id}…\nกรุณารอสักครู่")
@@ -387,7 +410,15 @@ def _analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> N
     summary, conv_id = _ask_dify(doctor_line_uid, context)
 
     doctor_id = _get_doctor_id_from_line_uid(doctor_line_uid)
-    _save_analysis(report_id, doctor_id, conv_id, summary)
+    try:
+        _save_analysis(report_id, doctor_id, conv_id, summary)
+    except Exception:
+        log.exception("_save_analysis failed — resetting lock for %s", report_id)
+        with _get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE reports SET status = NULL WHERE report_id = %s", (report_id,))
+                conn.commit()
+        return
 
     try:
         _line_push(doctor_line_uid, f"📊 ผลวิเคราะห์ #{report_id}\n\n{summary}")
@@ -505,6 +536,7 @@ async def lifespan(app: FastAPI):
     except Exception:
         log.exception("Startup reset failed")
 
+    public_url = None
     try:
         tunnel = ngrok.connect(SERVER_PORT, domain="ineffectual-marian-nonnattily.ngrok-free.dev")
         public_url = tunnel.public_url
@@ -525,7 +557,8 @@ async def lifespan(app: FastAPI):
     yield
 
     poller_task.cancel()
-    ngrok.disconnect(public_url)
+    if public_url:
+        ngrok.disconnect(public_url)
 
 
 app = FastAPI(title="LINE–Dify Hospital Bridge", lifespan=lifespan)

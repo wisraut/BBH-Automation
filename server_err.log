@@ -1,0 +1,78 @@
+INFO:     Started server process [20192]
+INFO:     Waiting for application startup.
+2026-05-29 12:20:09,017 INFO Opening tunnel named: http-8000-6c650f11-a486-4226-9f50-601e8b9d1c46
+2026-05-29 12:20:09,077 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="no configuration paths supplied"
+2026-05-29 12:20:09,078 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="using configuration at default config path" path=C:\\Users\\wisru\\AppData\\Local\\ngrok\\ngrok.yml
+2026-05-29 12:20:09,079 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="open config file" path=C:\\Users\\wisru\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+2026-05-29 12:20:09,079 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="FIPS 140 mode" enabled=false
+2026-05-29 12:20:09,120 WARNING t=2026-05-29T12:20:09+0700 lvl=warn msg="can't bind default web address, trying alternatives" obj=web addr=127.0.0.1:4040
+2026-05-29 12:20:09,121 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4043 allow_hosts=[]
+2026-05-29 12:20:09,989 ERROR t=2026-05-29T12:20:09+0700 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="authentication failed: Your account is limited to 3 simultaneous ngrok agent sessions.\nRun multiple endpoints at the same time from a single agent by defining them in your agent configuration file and running `ngrok start --all`.\nRead more about the agent configuration file: https://ngrok.com/docs/agent/config/ \nYou can view your current agent sessions in the dashboard: https://dashboard.ngrok.com/agents. Upgrade to a paid plan to remove this limit:\nhttps://dashboard.ngrok.com/billing/choose-a-plan\r\n\r\nERR_NGROK_108\r\n"
+ERROR:  authentication failed: Your account is limited to 3 simultaneous ngrok agent sessions.
+ERROR:  Run multiple endpoints at the same time from a single agent by defining them in your agent configuration file and running `ngrok start --all`.
+ERROR:  Read more about the agent configuration file: https://ngrok.com/docs/agent/config/ 
+ERROR:  You can view your current agent sessions in the dashboard: https://dashboard.ngrok.com/agents. Upgrade to a paid plan to remove this limit:
+ERROR:  https://dashboard.ngrok.com/billing/choose-a-plan
+ERROR:  
+ERROR:  ERR_NGROK_108
+ERROR:  https://ngrok.com/docs/errors/err_ngrok_108
+ERROR:  
+2026-05-29 12:20:09,991 ERROR t=2026-05-29T12:20:09+0700 lvl=eror msg="session closing" obj=tunnels.session err="authentication failed: Your account is limited to 3 simultaneous ngrok agent sessions.\nRun multiple endpoints at the same time from a single agent by defining them in your agent configuration file and running `ngrok start --all`.\nRead more about the agent configuration file: https://ngrok.com/docs/agent/config/ \nYou can view your current agent sessions in the dashboard: https://dashboard.ngrok.com/agents. Upgrade to a paid plan to remove this limit:\nhttps://dashboard.ngrok.com/billing/choose-a-plan\r\n\r\nERR_NGROK_108\r\n"
+2026-05-29 12:20:09,992 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="received stop request" obj=app stopReq="{err:{Remote:true Inner:{Inner:0x1df6af706000}} restart:false}"
+2026-05-29 12:20:09,993 ERROR t=2026-05-29T12:20:09+0700 lvl=eror msg="terminating with error" obj=app err="authentication failed: Your account is limited to 3 simultaneous ngrok agent sessions.\nRun multiple endpoints at the same time from a single agent by defining them in your agent configuration file and running `ngrok start --all`.\nRead more about the agent configuration file: https://ngrok.com/docs/agent/config/ \nYou can view your current agent sessions in the dashboard: https://dashboard.ngrok.com/agents. Upgrade to a paid plan to remove this limit:\nhttps://dashboard.ngrok.com/billing/choose-a-plan\r\n\r\nERR_NGROK_108\r\n"
+2026-05-29 12:20:09,994 CRITICAL t=2026-05-29T12:20:09+0700 lvl=crit msg="command failed" err="authentication failed: Your account is limited to 3 simultaneous ngrok agent sessions.\nRun multiple endpoints at the same time from a single agent by defining them in your agent configuration file and running `ngrok start --all`.\nRead more about the agent configuration file: https://ngrok.com/docs/agent/config/ \nYou can view your current agent sessions in the dashboard: https://dashboard.ngrok.com/agents. Upgrade to a paid plan to remove this limit:\nhttps://dashboard.ngrok.com/billing/choose-a-plan\r\n\r\nERR_NGROK_108\r\n"
+2026-05-29 12:20:09,995 INFO t=2026-05-29T12:20:09+0700 lvl=info msg="no more state changes" obj=tunnels.session
+2026-05-29 12:20:09,995 WARNING t=2026-05-29T12:20:09+0700 lvl=warn msg="failed to check for update" obj=updater err="Post \"https://update.ngrok-agent.com/check\": context canceled"
+2026-05-29 12:20:10,000 WARNING ngrok \u0e44\u0e21\u0e48\u0e1e\u0e23\u0e49\u0e2d\u0e21 (The ngrok process errored on start: authentication failed: Your account is limited to 3 simultaneous ngrok agent sessions.\nRun multiple endpoints at the same time from a single agent by defining them in your agent configuration file and running `ngrok start --all`.\nRead more about the agent configuration file: https://ngrok.com/docs/agent/config/ \nYou can view your current agent sessions in the dashboard: https://dashboard.ngrok.com/agents. Upgrade to a paid plan to remove this limit:\nhttps://dashboard.ngrok.com/billing/choose-a-plan\r\n\r\nERR_NGROK_108\r\n.) — server \u0e23\u0e31\u0e19\u0e15\u0e48\u0e2d\u0e42\u0e14\u0e22\u0e44\u0e21\u0e48\u0e21\u0e35 tunnel
+2026-05-29 12:20:10,000 INFO Email poller \u0e40\u0e23\u0e34\u0e48\u0e21\u0e17\u0e33\u0e07\u0e32\u0e19 (interval: 120 \u0e27\u0e34\u0e19\u0e32\u0e17\u0e35, inbox: )
+2026-05-29 12:20:10,009 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-05-29 12:22:10,012 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:24:10,015 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:25:50,120 INFO Doctor searching patient name: '\u0e1b\u0e23\u0e30\u0e40\u0e2a\u0e23\u0e34\u0e10 \u0e17\u0e2d\u0e07\u0e21\u0e32'
+2026-05-29 12:25:50,181 INFO Doctor trigger (patient name '\u0e1b\u0e23\u0e30\u0e40\u0e2a\u0e23\u0e34\u0e10 \u0e17\u0e2d\u0e07\u0e21\u0e32'): RPT-20260515-0003
+2026-05-29 12:25:51,081 INFO HTTP Request: POST https://api.line.me/v2/oauth/accessToken "HTTP/1.1 200 OK"
+2026-05-29 12:25:51,773 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:26:00,238 INFO HTTP Request: POST http://localhost/v1/chat-messages "HTTP/1.1 200 OK"
+2026-05-29 12:26:01,401 INFO HTTP Request: POST https://api.line.me/v2/bot/message/push "HTTP/1.1 200 OK"
+2026-05-29 12:26:01,402 INFO Analysis done — RPT-20260515-0003 by U_doctor_002
+2026-05-29 12:26:10,039 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:28:10,042 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:30:10,057 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:32:10,061 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:34:10,068 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:35:51,190 INFO Doctor searching patient name: '\u0e1b\u0e23\u0e30\u0e40\u0e2a\u0e23\u0e34\u0e10 \u0e17\u0e2d\u0e07\u0e21\u0e32'
+2026-05-29 12:35:51,244 INFO Doctor trigger (patient name '\u0e1b\u0e23\u0e30\u0e40\u0e2a\u0e23\u0e34\u0e10 \u0e17\u0e2d\u0e07\u0e21\u0e32'): RPT-20260515-0003
+2026-05-29 12:35:52,217 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:36:02,431 INFO HTTP Request: POST http://localhost/v1/chat-messages "HTTP/1.1 200 OK"
+2026-05-29 12:36:03,496 INFO HTTP Request: POST https://api.line.me/v2/bot/message/push "HTTP/1.1 200 OK"
+2026-05-29 12:36:03,497 INFO Analysis done — RPT-20260515-0003 by U_doctor_002
+2026-05-29 12:36:10,074 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:37:57,498 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:37:57,499 INFO Doctor logged out: \u0e1e\u0e0d.\u0e19\u0e31\u0e19\u0e17\u0e19\u0e32 \u0e21\u0e35\u0e0a\u0e31\u0e22 (Uac79d8e3cc1)
+2026-05-29 12:38:10,081 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:40:10,096 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:42:10,110 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:44:10,125 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:46:10,138 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:48:10,154 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:50:10,168 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:52:10,182 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:54:10,196 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:56:10,211 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 12:56:28,953 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:56:28,954 INFO Doctor registered: \u0e19\u0e1e.\u0e18\u0e19\u0e27\u0e31\u0e12\u0e19\u0e4c \u0e23\u0e38\u0e48\u0e07\u0e40\u0e23\u0e37\u0e2d\u0e07 \u2192 Uac79d8e3cc1b112c09450916d27120ac
+2026-05-29 12:56:50,252 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:56:50,253 INFO Doctor logged out: \u0e19\u0e1e.\u0e18\u0e19\u0e27\u0e31\u0e12\u0e19\u0e4c \u0e23\u0e38\u0e48\u0e07\u0e40\u0e23\u0e37\u0e2d\u0e07 (Uac79d8e3cc1)
+2026-05-29 12:57:01,780 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:57:01,781 INFO Doctor registered: \u0e19\u0e1e.\u0e27\u0e23\u0e1e\u0e25 \u0e2a\u0e38\u0e02\u0e2a\u0e21\u0e1a\u0e39\u0e23\u0e13\u0e4c \u2192 Uac79d8e3cc1b112c09450916d27120ac
+2026-05-29 12:57:15,948 INFO Doctor searching patient name: '\u0e2a\u0e21\u0e0a\u0e32\u0e22'
+2026-05-29 12:57:16,009 INFO Doctor trigger (patient name '\u0e2a\u0e21\u0e0a\u0e32\u0e22 \u0e21\u0e35\u0e2a\u0e38\u0e02'): RPT-20260529-0002
+2026-05-29 12:57:16,930 INFO HTTP Request: POST https://api.line.me/v2/bot/message/reply "HTTP/1.1 200 OK"
+2026-05-29 12:57:24,534 INFO HTTP Request: POST http://localhost/v1/chat-messages "HTTP/1.1 200 OK"
+2026-05-29 12:57:25,695 INFO HTTP Request: POST https://api.line.me/v2/bot/message/push "HTTP/1.1 200 OK"
+2026-05-29 12:57:25,698 INFO Analysis done — RPT-20260529-0002 by U_doctor_001
+2026-05-29 12:58:10,226 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 13:00:10,239 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env
+2026-05-29 13:02:10,248 WARNING GMAIL_EMAIL \u0e2b\u0e23\u0e37\u0e2d GMAIL_APP_PASSWORD \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e43\u0e19 .env

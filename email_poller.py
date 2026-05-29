@@ -122,8 +122,8 @@ def check_inbox(db_config: dict, on_new_report) -> None:
                     with conn.cursor() as cur:
                         cur.execute(
                             """INSERT INTO reports
-                               (report_id, patient_id, report_source, chief_complaint, report_text, status)
-                               VALUES (%s, %s, %s, %s, %s, 'pending')""",
+                               (report_id, patient_id, report_source, chief_complaint, report_text)
+                               VALUES (%s, %s, %s, %s, %s)""",
                             (report_id, patient["patient_id"], sender_email, subject, report_text),
                         )
                         cur.execute(

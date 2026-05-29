@@ -148,11 +148,42 @@ def _get_db():
 
 
 def _is_doctor(user_id: str) -> bool:
-    """เช็คว่า LINE user_id นี้เป็นแพทย์ที่ลงทะเบียนไว้หรือไม่"""
+    """เช็คว่า LINE user_id นี้เป็นแพทย์ที่ผูก LINE แล้วหรือไม่"""
     with _get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM doctors WHERE doctor_id = %s", (user_id,))
+            cur.execute("SELECT 1 FROM doctors WHERE line_uid = %s", (user_id,))
             return cur.fetchone() is not None
+
+
+def _try_register_doctor(line_uid: str, hospital_id: str) -> str:
+    """
+    ผูก LINE UID กับรหัสแพทย์โรงพยาบาล
+    คืน: 'registered' | 'already_me' | 'already_taken' | 'not_found'
+    """
+    with _get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT doctor_id, name, line_uid FROM doctors WHERE hospital_id = %s",
+                (hospital_id.upper(),),
+            )
+            doc = cur.fetchone()
+
+        if not doc:
+            return "not_found", None
+
+        if doc["line_uid"] == line_uid:
+            return "already_me", doc
+
+        if doc["line_uid"] is not None:
+            return "already_taken", None
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE doctors SET line_uid = %s WHERE hospital_id = %s",
+                (line_uid, hospital_id.upper()),
+            )
+            conn.commit()
+        return "registered", doc
 
 
 def _build_patient_context(report_id: str) -> tuple[dict | None, str]:
@@ -241,7 +272,7 @@ def _build_patient_context(report_id: str) -> tuple[dict | None, str]:
 
 
 def _save_analysis(report_id: str, doctor_id: str, conv_id: str, summary_text: str) -> None:
-    """บันทึกผลวิเคราะห์ อัพเดต status และ log audit"""
+    """บันทึกผลวิเคราะห์ คืน lock analyzing → NULL และ log audit"""
     with _get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -250,7 +281,7 @@ def _save_analysis(report_id: str, doctor_id: str, conv_id: str, summary_text: s
                 (report_id, conv_id, summary_text),
             )
             cur.execute(
-                "UPDATE reports SET status = 'analyzed' WHERE report_id = %s",
+                "UPDATE reports SET status = NULL WHERE report_id = %s",
                 (report_id,),
             )
             cur.execute(
@@ -294,8 +325,18 @@ def _ask_dify(user_id: str, message: str, conv_id: str = "") -> tuple[str, str]:
 def _notify_new_report(doctor_id: str, patient_name: str, report_id: str) -> None:
     """
     Email poller เรียก callback นี้เมื่อบันทึก report เสร็จ
-    ส่ง LINE notification พร้อม Quick Reply [🔍 วิเคราะห์] ให้แพทย์
+    ค้นหา line_uid จาก doctor_id → ส่ง LINE notification พร้อม Quick Reply
     """
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT line_uid, name FROM doctors WHERE doctor_id = %s", (doctor_id,))
+            row = cur.fetchone()
+
+    if not row or not row[0]:
+        log.warning("แพทย์ %s ยังไม่ได้ผูก LINE — ไม่สามารถแจ้งเตือนได้", doctor_id)
+        return
+
+    line_uid, doctor_name = row
     text = (
         f"📋 มี Report ใหม่\n"
         f"ผู้ป่วย: {patient_name}\n"
@@ -303,48 +344,149 @@ def _notify_new_report(doctor_id: str, patient_name: str, report_id: str) -> Non
         f"เวลา: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
         f"กด [🔍 วิเคราะห์] เพื่อเริ่มวิเคราะห์ทันที"
     )
-    _line_push_with_quick_reply(doctor_id, text, report_id)
-    log.info("แจ้งแพทย์ %s สำหรับ %s", doctor_id, report_id)
+    _line_push_with_quick_reply(line_uid, text, report_id)
+    log.info("แจ้งแพทย์ %s (%s) สำหรับ %s", doctor_name, line_uid[:12], report_id)
 
 
-def _handle_doctor_message(reply_token: str, doctor_id: str, text: str) -> None:
+def _get_doctor_id_from_line_uid(line_uid: str) -> str:
+    """คืน doctor_id (PK โรงพยาบาล) จาก LINE UID — fallback คืน line_uid"""
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT doctor_id FROM doctors WHERE line_uid = %s", (line_uid,))
+            row = cur.fetchone()
+    return row[0] if row else line_uid
+
+
+def _analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> None:
     """
-    Flow แพทย์:
-    รับข้อความที่มี report_id (จาก quick reply หรือพิมพ์เอง)
-    → build patient context จาก DB → ส่ง Dify → บันทึก → push ผลกลับ
+    Pipeline วิเคราะห์: build context → Dify → save → push ผลกลับ
+    status='analyzing' ใช้เป็น lock ชั่วคราว ป้องกัน concurrent call
+    วิเคราะห์ซ้ำได้เสมอ — ทุกครั้งสร้าง row ใหม่ใน analyses
     """
-    match = RPT_PATTERN.search(text.upper())
-    if not match:
-        _line_reply(
-            reply_token,
-            "รอการแจ้งเตือน Report ใหม่จากระบบ\n"
-            "หรือพิมพ์ Report ID เช่น: วิเคราะห์ RPT-20260529-0001",
-        )
-        return
-
-    report_id = match.group(0).upper()
-    log.info("Doctor %s trigger: %s", doctor_id, report_id)
-
     report_row, context = _build_patient_context(report_id)
 
     if not report_row:
         _line_reply(reply_token, f"❌ ไม่พบ Report #{report_id}")
         return
 
-    if report_row["status"] == "analyzed":
-        _line_reply(reply_token, f"⚠️ Report #{report_id} วิเคราะห์แล้ว")
+    if report_row["status"] == "analyzing":
+        _line_reply(reply_token, f"⏳ Report #{report_id} กำลังวิเคราะห์อยู่แล้ว\nกรุณารอสักครู่")
         return
 
-    # ตอบทันทีก่อน reply token หมดอายุ
-    _line_reply(reply_token, f"🔍 กำลังวิเคราะห์ #{report_id}…\nกรุณารอสักครู่")
+    # ล็อค report ระหว่างวิเคราะห์
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE reports SET status = 'analyzing' WHERE report_id = %s", (report_id,))
+            conn.commit()
 
-    # ส่ง context ทั้งก้อนไป Dify ในครั้งเดียว
-    summary, conv_id = _ask_dify(doctor_id, context)
+    try:
+        _line_reply(reply_token, f"🔍 กำลังวิเคราะห์ #{report_id}…\nกรุณารอสักครู่")
+    except Exception:
+        log.warning("LINE reply failed for %s — วิเคราะห์ต่อ", report_id)
 
+    summary, conv_id = _ask_dify(doctor_line_uid, context)
+
+    doctor_id = _get_doctor_id_from_line_uid(doctor_line_uid)
     _save_analysis(report_id, doctor_id, conv_id, summary)
 
-    _line_push(doctor_id, f"📊 ผลวิเคราะห์ #{report_id}\n\n{summary}")
-    log.info("Analysis done — %s by doctor %s", report_id, doctor_id)
+    try:
+        _line_push(doctor_line_uid, f"📊 ผลวิเคราะห์ #{report_id}\n\n{summary}")
+    except Exception:
+        log.error("LINE push failed for %s", report_id)
+    log.info("Analysis done — %s by %s", report_id, doctor_id)
+
+
+def _handle_doctor_message(reply_token: str, doctor_line_uid: str, text: str) -> None:
+    """
+    Router แพทย์:
+    - logout → ยกเลิกการผูก LINE (ออกจากระบบ)
+    - มี RPT-XXXXXXXX-XXXX → วิเคราะห์ report นั้นโดยตรง
+    - ข้อความอื่น → ค้นหาคนไข้ด้วยชื่อ → latest pending report
+    """
+    # ─── Logout ───────────────────────────────────────────────────────────────
+    if text.strip().lower() == "logout":
+        with _get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE doctors SET line_uid = NULL WHERE line_uid = %s RETURNING name",
+                    (doctor_line_uid,),
+                )
+                row = cur.fetchone()
+                conn.commit()
+        name = row[0] if row else "แพทย์"
+        _line_reply(reply_token, f"👋 ออกจากระบบแล้ว ({name})\nส่งรหัสแพทย์เพื่อเข้าใช้งานอีกครั้ง")
+        log.info("Doctor logged out: %s (%s)", name, doctor_line_uid[:12])
+        return
+
+    # ─── RPT pattern ──────────────────────────────────────────────────────────
+    match = RPT_PATTERN.search(text.upper())
+    if match:
+        report_id = match.group(0).upper()
+        log.info("Doctor trigger (report_id): %s", report_id)
+        _analyze_report(reply_token, doctor_line_uid, report_id)
+        return
+
+    # ─── ค้นหาด้วยชื่อคนไข้ ───────────────────────────────────────────────────
+    name_query = text.strip()
+    if not name_query:
+        _line_reply(
+            reply_token,
+            "รอรับแจ้งเตือน Report ใหม่จากระบบ\n"
+            "หรือพิมพ์ชื่อคนไข้ / Report ID เพื่อวิเคราะห์",
+        )
+        return
+
+    log.info("Doctor searching patient name: %r", name_query)
+
+    with _get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT p.patient_id, p.name,
+                          (SELECT report_id FROM reports
+                           WHERE patient_id = p.patient_id
+                           ORDER BY submitted_at DESC LIMIT 1) AS latest_report_id,
+                          (SELECT status FROM reports
+                           WHERE patient_id = p.patient_id
+                           ORDER BY submitted_at DESC LIMIT 1) AS latest_status
+                   FROM patients p
+                   WHERE p.name ILIKE %s
+                   ORDER BY p.name""",
+                (f"%{name_query}%",),
+            )
+            patients = cur.fetchall()
+
+    if not patients:
+        _line_reply(
+            reply_token,
+            f"❌ ไม่พบคนไข้ชื่อ \"{name_query}\"\n"
+            "ลองพิมพ์ชื่อสั้นลง หรือระบุ Report ID",
+        )
+        return
+
+    if len(patients) == 1:
+        p = patients[0]
+        if not p["latest_report_id"]:
+            _line_reply(reply_token, f"ℹ️ {p['name']} ยังไม่มี Report ในระบบ")
+            return
+        if p["latest_status"] == "analyzing":
+            _line_reply(reply_token, f"⏳ {p['name']} — กำลังวิเคราะห์อยู่แล้ว กรุณารอสักครู่")
+            return
+        log.info("Doctor trigger (patient name %r): %s", p["name"], p["latest_report_id"])
+        _analyze_report(reply_token, doctor_line_uid, p["latest_report_id"])
+        return
+
+    # หลายคนที่ชื่อคล้ายกัน — แสดงรายชื่อ
+    lines = [f"🔍 พบคนไข้ {len(patients)} คนที่ชื่อคล้ายกัน:\n"]
+    for p in patients:
+        if p["latest_status"] == "analyzing":
+            tag = "⏳ กำลังวิเคราะห์"
+        elif p["latest_report_id"]:
+            tag = "มี Report"
+        else:
+            tag = "ยังไม่มี Report"
+        lines.append(f"• {p['name']} ({p['patient_id']}) — {tag}")
+    lines.append("\nพิมพ์ชื่อให้ครบขึ้น หรือระบุ Report ID (RPT-XXXXXXXX-XXXX)")
+    _line_reply(reply_token, "\n".join(lines))
 
 
 # ─── FastAPI app ───────────────────────────────────────────────────────────────
@@ -352,13 +494,17 @@ def _handle_doctor_message(reply_token: str, doctor_id: str, text: str) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """เปิด ngrok + email poller ตอน startup"""
-    tunnel = ngrok.connect(SERVER_PORT, domain="ineffectual-marian-nonnattily.ngrok-free.dev")
-    public_url = tunnel.public_url
-    app.state.ngrok_url = public_url
-    log.info("=" * 60)
-    log.info("ngrok tunnel:     %s", public_url)
-    log.info("LINE Webhook URL: %s/webhook", public_url)
-    log.info("=" * 60)
+    try:
+        tunnel = ngrok.connect(SERVER_PORT, domain="ineffectual-marian-nonnattily.ngrok-free.dev")
+        public_url = tunnel.public_url
+        app.state.ngrok_url = public_url
+        log.info("=" * 60)
+        log.info("ngrok tunnel:     %s", public_url)
+        log.info("LINE Webhook URL: %s/webhook", public_url)
+        log.info("=" * 60)
+    except Exception as e:
+        log.warning("ngrok ไม่พร้อม (%s) — server รันต่อโดยไม่มี tunnel", e)
+        app.state.ngrok_url = f"http://localhost:{SERVER_PORT}"
 
     # เริ่ม email poller เป็น background task
     poller_task = asyncio.create_task(
@@ -413,7 +559,32 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         if _is_doctor(user_id):
             background_tasks.add_task(_handle_doctor_message, reply_token, user_id, text)
         else:
-            _line_reply(reply_token, "ระบบนี้สำหรับแพทย์เท่านั้น")
+            # ลองใช้ข้อความที่พิมเป็น hospital_id เพื่อ register
+            status, doc = _try_register_doctor(user_id, text.strip())
+            if status == "registered":
+                _line_reply(
+                    reply_token,
+                    f"✅ ลงทะเบียนสำเร็จ\n"
+                    f"ยินดีต้อนรับ {doc['name']}\n\n"
+                    f"รอรับแจ้งเตือน Report ใหม่จากระบบ\n"
+                    f"หรือพิมพ์ Report ID เพื่อวิเคราะห์ได้ทันที",
+                )
+                log.info("Doctor registered: %s → %s", doc["name"], user_id)
+            elif status == "already_me":
+                _line_reply(
+                    reply_token,
+                    f"✅ คุณลงทะเบียนแล้ว ({doc['name']})\n"
+                    f"รอรับแจ้งเตือน Report ใหม่จากระบบ",
+                )
+            elif status == "already_taken":
+                _line_reply(reply_token, "❌ รหัสแพทย์นี้ถูกใช้งานแล้ว กรุณาติดต่อเจ้าหน้าที่")
+            else:
+                _line_reply(
+                    reply_token,
+                    "ระบบนี้สำหรับแพทย์เท่านั้น\n\n"
+                    "กรุณาส่งรหัสแพทย์ของคุณเพื่อลงทะเบียน\n"
+                    "ตัวอย่าง: DR001",
+                )
 
     return JSONResponse({"status": "ok"})
 

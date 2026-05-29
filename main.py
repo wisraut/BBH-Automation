@@ -494,6 +494,17 @@ def _handle_doctor_message(reply_token: str, doctor_line_uid: str, text: str) ->
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """เปิด ngrok + email poller ตอน startup"""
+    # reset session state — clear doctor logins + stuck analyzing locks
+    try:
+        with _get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE doctors SET line_uid = NULL")
+                cur.execute("UPDATE reports SET status = NULL WHERE status = 'analyzing'")
+                conn.commit()
+        log.info("Startup reset: doctor sessions cleared, stuck reports unlocked")
+    except Exception:
+        log.exception("Startup reset failed")
+
     try:
         tunnel = ngrok.connect(SERVER_PORT, domain="ineffectual-marian-nonnattily.ngrok-free.dev")
         public_url = tunnel.public_url

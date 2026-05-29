@@ -4,23 +4,23 @@ echo ================================
 echo  Hospital Bridge - Starting...
 echo ================================
 
-echo [1/3] Starting Docker Engine...
+echo [1/4] Checking Docker...
 docker info >nul 2>&1
 if errorlevel 1 (
-    echo Docker is not running, launching Docker Desktop...
+    echo Docker not running, launching Docker Desktop...
     start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    echo Waiting for Docker to be ready (may take 30-60 seconds)...
+    echo Waiting for Docker to be ready...
 )
 :wait_docker
 docker info >nul 2>&1
 if errorlevel 1 (
-    echo Docker not ready yet, retrying...
+    echo Docker not ready yet, retrying in 5s...
     timeout /t 5 /nobreak >nul
     goto wait_docker
 )
 echo Docker is ready!
 
-echo [2/3] Starting Ollama...
+echo [2/4] Starting Ollama...
 start "Ollama" "C:\Users\wisru\AppData\Local\Programs\Ollama\ollama.exe" serve
 timeout /t 5 /nobreak >nul
 
@@ -35,7 +35,6 @@ start "Hospital Monitor" cmd /k "cd /d C:\Users\wisru\line-dify-bridge && python
 
 echo ================================
 echo  All services started!
-echo  Close this window is safe.
+echo  Press any key to close launcher
 echo ================================
-timeout /t 3 /nobreak >nul
-exit
+pause

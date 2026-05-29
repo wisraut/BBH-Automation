@@ -134,7 +134,7 @@ def _fetch_reports() -> list[tuple]:
 
 def _relative_time(dt: datetime) -> str:
     """แปลง datetime เป็น relative time เช่น 'เมื่อกี้', '3 นาทีที่แล้ว'"""
-    now     = datetime.now()
+    now     = datetime.utcnow()
     diff    = now - dt.replace(tzinfo=None)
     seconds = int(diff.total_seconds())
     if seconds < 10:
@@ -152,29 +152,48 @@ def _fetch_activity() -> list[str]:
     try:
         conn = psycopg2.connect(**DB_CONFIG, connect_timeout=3)
         cur  = conn.cursor()
+
+        # ── ประวัติจาก audit_logs (เก่าสุดขึ้นก่อน → ใหม่สุดอยู่ล่าง) ───────────
         cur.execute(
             """SELECT al.action, al.report_id, al.created_at,
                       COALESCE(d.name, al.actor_id), d.hospital_id
                FROM audit_logs al
                LEFT JOIN doctors d ON al.actor_id = d.doctor_id
-               ORDER BY al.created_at DESC LIMIT 12"""
+               ORDER BY al.created_at DESC LIMIT 30"""
         )
         action_th = {
-            "analysis_triggered": "วิเคราะห์",
+            "analysis_triggered": "วิเคราะห์เสร็จ",
             "report_submitted":   "ส่ง report",
             "pdf_requested":      "ขอ PDF",
         }
-        lines = []
+        history = []
         for r in cur.fetchall():
             rel_time = _relative_time(r[2]) if r[2] else "[dim]—[/dim]"
             action   = action_th.get(r[0], r[0])
             actor    = f"{r[3]} ({r[4]})" if r[4] else r[3]
             report   = r[1] or ""
-            lines.append(
+            history.append(
                 f"{rel_time}  [cyan]{actor}[/cyan]  {action}"
                 + (f"  [yellow]{report}[/yellow]" if report else "")
             )
+        history.reverse()  # เก่าสุดบน ใหม่สุดล่าง ให้ RichLog scroll มาเจอล่าสุด
+
+        # ── กำลังวิเคราะห์อยู่ตอนนี้ (ต่อท้ายเสมอ → อยู่ล่างสุด) ───────────────
+        cur.execute(
+            """SELECT r.report_id, p.name
+               FROM reports r JOIN patients p ON r.patient_id = p.patient_id
+               WHERE r.status = 'analyzing'
+               ORDER BY r.submitted_at DESC"""
+        )
+        analyzing = [
+            f"[bold yellow]⏳ กำลังวิเคราะห์[/bold yellow]"
+            f"  [cyan]{r[1]}[/cyan]"
+            f"  [yellow]{r[0]}[/yellow]"
+            for r in cur.fetchall()
+        ]
+
         conn.close()
+        lines = history + analyzing
         return lines or ["[dim]ยังไม่มี activity[/dim]"]
     except Exception:
         return ["[red]ไม่สามารถดึงข้อมูล Activity[/red]"]

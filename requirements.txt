@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+httpx
+psycopg2-binary
+pyngrok
+python-dotenv
+textual

@@ -1,0 +1,249 @@
+"""
+Patch Dify graph เพิ่ม CRO Inquiry branch (Phase 1A, 2026-06-05)
+
+After patch — `public_inquiry` case ใน if_else_role:
+    if_else_role[role=public_inquiry]
+      -> llm_cro_decide (Gemini Flash)
+         system prompt: ตัดสินใจ AUTO: หรือ ESCALATE:<class>:
+         context: {{#format_docs.formatted_context#}}
+      -> answer_cro
+         output: {{#llm_cro_decide.text#}}
+
+main.py._handle_public_inquiry parse prefix:
+    - "AUTO: ..."          → forward text ตรงๆ ให้คนไข้
+    - "ESCALATE:<class>:..." → insert cro_queue + notify CRO team + ตอบ "รับเรื่องแล้ว"
+
+Idempotent — รันซ้ำได้ ไม่ duplicate
+"""
+import json
+import sys
+import os
+import psycopg2
+from dotenv import load_dotenv
+
+sys.stdout.reconfigure(encoding="utf-8")
+load_dotenv()
+
+WORKFLOW_PUBLISHED = "8f10dd4d-de2c-44a7-92fa-8a5c05a77224"
+WORKFLOW_DRAFT     = "e0a912fd-4153-4144-b4fd-ec22ad68ff0e"
+START_NODE_ID      = "1779775683966"
+
+DIFY_DB = {
+    "host": "localhost", "port": 5433, "dbname": "dify",
+    "user": "postgres", "password": os.getenv("DB_PASSWORD"),
+}
+
+CRO_DECIDE_PROMPT = """คุณเป็น AI Assistant ของฝ่าย CRO (Customer Relationship Officer) ของคลินิก Functional Medicine
+
+หน้าที่: รับคำถามจากคนไข้ใหม่ที่สอบถามผ่านช่องทางสาธารณะ — ตัดสินใจว่าจะ:
+1. ตอบเองได้ทันที (มีข้อมูลใน reference) — ตอบในรูปแบบ "AUTO: <คำตอบ>"
+2. ส่งต่อให้เจ้าหน้าที่ตอบ — ตอบในรูปแบบ "ESCALATE:<class>: <เหตุผลสั้น>"
+
+ห้ามตอบนอกรูปแบบ 2 นี้เด็ดขาด
+
+โดย <class> ต้องเป็น 1 ใน:
+- pricing       (ราคา / ค่าใช้จ่าย / แพคเกจ)
+- scheduling    (เวลาเปิด / นัดหมาย / ติดต่อ)
+- medical       (อาการ / โรค / วินิจฉัย — ห้าม AI ตอบเสมอ)
+- complaint     (ร้องเรียน / ตำหนิ / feedback)
+- personal_data (ข้อมูลคนไข้คนนี้ — เช่น report ของฉัน, นัดของฉัน)
+- emergency     (อาการฉุกเฉิน — เจ็บหน้าอก หายใจไม่ออก ฯลฯ)
+- small_talk    (ทักทาย / ลาก่อน / ขอบคุณ)
+- unknown       (ไม่มีข้อมูลใน reference + ไม่ใช่ class อื่น)
+
+เกณฑ์การตัดสินใจ:
+- คำถาม medical / emergency / personal_data / complaint → ESCALATE เสมอ (ไม่ว่ามีข้อมูลใน reference หรือไม่)
+- คำถาม small_talk → ตอบ AUTO ทักทายกลับสั้นๆ
+- คำถาม pricing / scheduling → ESCALATE ถ้า reference ไม่มี / AUTO ถ้ามี
+- คำถามทั่วไป → AUTO ถ้า reference มีข้อมูลตอบ / ESCALATE:unknown ถ้าไม่มี
+
+คำถามจากคนไข้:
+{{#sys.query#}}
+
+Reference จาก Knowledge Base:
+{{#context#}}
+
+ตัวอย่าง output ที่ถูก:
+- AUTO: สวัสดีค่ะ ยินดีต้อนรับสู่คลินิก มีอะไรให้ช่วยคะ?
+- AUTO: ตามข้อมูลทั่วไป ก่อนตรวจเลือดควรอดอาหาร 8-12 ชั่วโมง — สำหรับรายละเอียดเฉพาะกรุณาปรึกษาเจ้าหน้าที่
+- ESCALATE:pricing: ไม่พบข้อมูลราคาในระบบ
+- ESCALATE:medical: คำถามเกี่ยวกับการวินิจฉัย ต้องให้แพทย์ดู
+- ESCALATE:emergency: คำถามแสดงอาการฉุกเฉิน
+
+ตอบ:"""
+
+
+def build_cro_nodes():
+    """3 nodes ใหม่: llm_cro_decide + answer_cro"""
+    return [
+        {
+            "id": "llm_cro_decide",
+            "type": "custom",
+            "width": 244,
+            "height": 98,
+            "position": {"x": 1460, "y": 100},
+            "positionAbsolute": {"x": 1460, "y": 100},
+            "sourcePosition": "right",
+            "targetPosition": "left",
+            "data": {
+                "type": "llm",
+                "title": "CRO Decide",
+                "selected": False,
+                "model": {
+                    "mode": "chat",
+                    "name": "google/gemini-2.5-flash-lite",
+                    "provider": "langgenius/openrouter/openrouter",
+                    "completion_params": {"temperature": 0.2},
+                },
+                "memory": {
+                    "window": {"size": 5, "enabled": False},
+                    "role_prefix": {"user": "", "assistant": ""},
+                    "query_prompt_template": "{{#sys.query#}}\n\n{{#sys.files#}}",
+                },
+                "vision": {"enabled": False},
+                "context": {
+                    "enabled": True,
+                    "variable_selector": ["format_docs", "formatted_context"],
+                },
+                "variables": [],
+                "prompt_template": [
+                    {
+                        "id": "prompt-cro-decide",
+                        "role": "system",
+                        "text": CRO_DECIDE_PROMPT,
+                    }
+                ],
+            },
+        },
+        {
+            "id": "answer_cro",
+            "type": "custom",
+            "width": 244,
+            "height": 105,
+            "position": {"x": 1740, "y": 100},
+            "positionAbsolute": {"x": 1740, "y": 100},
+            "sourcePosition": "right",
+            "targetPosition": "left",
+            "data": {
+                "type": "answer",
+                "title": "CRO Answer (raw — main.py parses prefix)",
+                "answer": "{{#llm_cro_decide.text#}}",
+                "selected": False,
+                "variables": [],
+            },
+        },
+    ]
+
+
+def build_cro_edges():
+    return [
+        {
+            "id": "if_else_role-public_inquiry-llm_cro_decide",
+            "type": "custom",
+            "source": "if_else_role",
+            "target": "llm_cro_decide",
+            "sourceHandle": "public_inquiry_role",
+            "targetHandle": "target",
+            "data": {"sourceType": "if-else", "targetType": "llm"},
+        },
+        {
+            "id": "llm_cro_decide-answer_cro",
+            "type": "custom",
+            "source": "llm_cro_decide",
+            "target": "answer_cro",
+            "sourceHandle": "source",
+            "targetHandle": "target",
+            "data": {"sourceType": "llm", "targetType": "answer"},
+        },
+    ]
+
+
+def transform(graph: dict) -> dict:
+    # 1. Update start node `role` variable: cro_inquiry → public_inquiry
+    for n in graph["nodes"]:
+        if n["id"] == START_NODE_ID:
+            for v in n["data"].get("variables", []):
+                if v.get("variable") == "role":
+                    opts = v.setdefault("options", [])
+                    opts[:] = [o if o != "cro_inquiry" else "public_inquiry" for o in opts]
+                    if "public_inquiry" not in opts:
+                        opts.append("public_inquiry")
+                    break
+
+    # 2. Migrate or add if_else_role case
+    for n in graph["nodes"]:
+        if n["id"] == "if_else_role":
+            cases = n["data"].setdefault("cases", [])
+            migrated = False
+            for c in cases:
+                if c.get("case_id") == "cro_inquiry_role":
+                    c["case_id"] = "public_inquiry_role"
+                    for cond in c.get("conditions", []):
+                        if cond.get("value") == "cro_inquiry":
+                            cond["value"] = "public_inquiry"
+                    migrated = True
+                    break
+            if not migrated and not any(c.get("case_id") == "public_inquiry_role" for c in cases):
+                cases.insert(0, {
+                    "case_id": "public_inquiry_role",
+                    "logical_operator": "and",
+                    "conditions": [
+                        {
+                            "value": "public_inquiry",
+                            "variable_selector": [START_NODE_ID, "role"],
+                            "comparison_operator": "is",
+                        }
+                    ],
+                })
+            break
+
+    # 3. Migrate edge id + sourceHandle: cro_inquiry → public_inquiry
+    for e in graph["edges"]:
+        if e.get("id") == "if_else_role-cro_inquiry-llm_cro_decide":
+            e["id"] = "if_else_role-public_inquiry-llm_cro_decide"
+        if e.get("sourceHandle") == "cro_inquiry_role":
+            e["sourceHandle"] = "public_inquiry_role"
+
+    # 4. Add new nodes (idempotent)
+    existing_ids = {n["id"] for n in graph["nodes"]}
+    graph["nodes"].extend([n for n in build_cro_nodes() if n["id"] not in existing_ids])
+
+    # 5. Add new edges (idempotent)
+    existing_eids = {e["id"] for e in graph["edges"]}
+    graph["edges"].extend([e for e in build_cro_edges() if e["id"] not in existing_eids])
+
+    return graph
+
+
+def main():
+    conn = psycopg2.connect(**DIFY_DB)
+    cur = conn.cursor()
+
+    for wf_id, label in [(WORKFLOW_PUBLISHED, "published"), (WORKFLOW_DRAFT, "draft")]:
+        cur.execute("SELECT graph FROM workflows WHERE id=%s", (wf_id,))
+        row = cur.fetchone()
+        if not row:
+            print(f"⚠️  workflow {label} ({wf_id}) not found — skip")
+            continue
+        graph = row[0]
+        if isinstance(graph, str):
+            graph = json.loads(graph)
+        n_before = len(graph.get("nodes", []))
+        e_before = len(graph.get("edges", []))
+        new = transform(graph)
+        n_after = len(new["nodes"])
+        e_after = len(new["edges"])
+        cur.execute(
+            "UPDATE workflows SET graph=%s, updated_at=NOW() WHERE id=%s",
+            (json.dumps(new, ensure_ascii=False), wf_id),
+        )
+        print(f"✓ {label:<10} {wf_id}  nodes {n_before}->{n_after}  edges {e_before}->{e_after}")
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("\n✅ CRO branch patched (both published and draft)")
+
+
+if __name__ == "__main__":
+    main()

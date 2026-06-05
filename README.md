@@ -179,7 +179,7 @@ docker exec docker-db_postgres-1 psql -U postgres -d dify -t -c `
 
 ## License
 
-Internal use only — ห้ามเผยแพร่/ใช้นอก clinic โดยไม่ได้รับอนุญาต
+Internal use only — ห้ามเผยแพร่/ใช้นอกโรงพญาบาล BBH โดยไม่ได้รับอณุญาติ
 
 ---
 

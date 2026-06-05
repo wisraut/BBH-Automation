@@ -1,5 +1,33 @@
+# Secrets
 .env
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
-*.ico
+*.pyo
+.venv/
+venv/
+
+# Logs
 server.log
+server_err.log
+*.log
+
+# OS / IDE
+*.ico
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dify state snapshots (debug only)
+.dify_graph_old.json
+.dify_graph_published.json
+
+# Large/optional folders
+Automate Library/
+
+# Backup artifacts (เก็บนอก repo)
+hospital_db_backup.sql

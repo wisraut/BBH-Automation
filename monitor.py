@@ -115,11 +115,17 @@ def _fetch_reports() -> list[tuple]:
     try:
         conn = psycopg2.connect(**DB_CONFIG, connect_timeout=3)
         cur  = conn.cursor()
+        # DISTINCT ON (patient_id) เพื่อให้คนไข้แต่ละคนแสดงครั้งเดียว (latest report)
+        # subquery สำคัญเพราะ DISTINCT ON บังคับ ORDER BY ต้องขึ้นด้วย patient_id ก่อน
         cur.execute(
-            """SELECT r.report_id, p.name, r.status, r.submitted_at
-               FROM reports r JOIN patients p ON r.patient_id = p.patient_id
-               WHERE p.name != 'ผู้ป่วยทดสอบ'
-               ORDER BY r.submitted_at DESC LIMIT 8"""
+            """SELECT report_id, name, status, submitted_at FROM (
+                 SELECT DISTINCT ON (p.patient_id)
+                        r.report_id, p.name, r.status, r.submitted_at
+                 FROM reports r JOIN patients p ON r.patient_id = p.patient_id
+                 WHERE p.name != 'ผู้ป่วยทดสอบ'
+                 ORDER BY p.patient_id, r.submitted_at DESC
+               ) latest
+               ORDER BY submitted_at DESC LIMIT 8"""
         )
         rows = []
         for r in cur.fetchall():

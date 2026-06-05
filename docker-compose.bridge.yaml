@@ -1,0 +1,43 @@
+services:
+  bridge:
+    build:
+      context: C:/Users/wisru/line-dify-bridge
+      dockerfile: Dockerfile
+    image: hospital-bridge:dev
+    container_name: hospital-bridge
+    restart: always
+    env_file:
+      - C:/Users/wisru/line-dify-bridge/.env
+    environment:
+      DB_HOST: db_postgres
+      DB_PORT: 5432
+      DIFY_API_URL: http://api:5001/v1
+      NGROK_PUBLIC_URL: https://ineffectual-marian-nonnattily.ngrok-free.dev
+    ports:
+      - "8000:8000"
+    networks:
+      - dify_default
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: hospital-ngrok
+    restart: always
+    command:
+      - http
+      - bridge:8000
+      - --domain=ineffectual-marian-nonnattily.ngrok-free.dev
+      - --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    depends_on:
+      bridge:
+        condition: service_healthy
+    networks:
+      - dify_default
+    ports:
+      - "4040:4040"
+
+networks:
+  dify_default:
+    name: docker_default
+    external: true

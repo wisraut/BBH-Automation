@@ -145,6 +145,7 @@ def _make_report_text() -> str:
 
 
 def insert_report(patient_id: str = "HN-2019-001", label: str = "") -> str:
+    """Insert test report with status=NULL (matches email_poller atomic flow)"""
     rid = gen_report_id()
     src = f"student@example.com (FullFlowTest {label})"
     with get_db() as conn:
@@ -152,7 +153,7 @@ def insert_report(patient_id: str = "HN-2019-001", label: str = "") -> str:
             cur.execute(
                 """INSERT INTO reports
                    (report_id, patient_id, report_source, chief_complaint, report_text, status)
-                   VALUES (%s, %s, %s, %s, %s, 'pending')""",
+                   VALUES (%s, %s, %s, %s, %s, NULL)""",
                 (rid, patient_id, src, "ติดตามผล DM+HT ประจำเดือน", _make_report_text()),
             )
             cur.execute(
@@ -161,6 +162,14 @@ def insert_report(patient_id: str = "HN-2019-001", label: str = "") -> str:
             )
             conn.commit()
     return rid
+
+
+def set_doctor_line_uid(doctor_id: str, line_uid: str | None) -> None:
+    """ตั้ง/ลบ line_uid สำหรับ test doctor (จำลอง login ผ่าน LINE)"""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE doctors SET line_uid = %s WHERE doctor_id = %s", (line_uid, doctor_id))
+            conn.commit()
 
 
 # ─── MAIN TEST ────────────────────────────────────────────────────────────────
@@ -205,13 +214,16 @@ def main():
     else:
         skip_item("Bridge server (port 8000)", "ไม่รัน — Phase 5A จะข้าม")
 
-    # ดึง doctor สำหรับ test
+    # ดึง doctor สำหรับ test + ตั้ง line_uid = doctor_id เพื่อให้ _is_doctor() match
+    # (ทำให้ HTTP webhook ใช้ doctor_id เป็น userId ได้ตรงๆ)
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT doctor_id, name FROM doctors LIMIT 1")
             doctor_id, doctor_name = cur.fetchone()
+    set_doctor_line_uid(doctor_id, doctor_id)
     print(f"\n  ℹ️  Test doctor : {doctor_name}  ({doctor_id})")
     print(f"  ℹ️  Test patient: สมชาย มีสุข  (HN-2019-001)")
+    print(f"  ℹ️  ตั้ง line_uid = {doctor_id} ชั่วคราว (จะ reset ตอน cleanup)")
 
     # ══════════════════════════════════════════════════════════════════
     banner("[Phase 2]  Simulate Patient Email → Insert Reports to DB")
@@ -393,26 +405,33 @@ def main():
                 )
                 n_log = cur2.fetchone()[0]
 
-        check("  analyses บันทึกแล้ว",         an is not None)
-        check("  conversation_id บันทึกแล้ว",  bool(an["dify_conversation_id"]) if an else False)
-        check("  report status = analyzed",    st == "analyzed",  st)
-        check("  audit_log analysis_triggered", n_log > 0,         f"{n_log} records")
+        check("  analyses บันทึกแล้ว",            an is not None)
+        check("  conversation_id บันทึกแล้ว",     bool(an["dify_conversation_id"]) if an else False)
+        check("  status reset NULL หลังวิเคราะห์", st is None,         f"got {st!r}")
+        check("  audit_log analysis_triggered",   n_log > 0,         f"{n_log} records")
     except Exception as e:
         check("  Direct DB verify", False, repr(e))
 
     # HTTP webhook test — poll DB (Dify อาจยังทำงานอยู่)
     if http_webhook_fired and rpt_http:
         print(f"\n  [HTTP] report: {rpt_http}")
-        print(f"  ⏳ รอ background task เสร็จ... (max 180s)")
-        deadline = time.time() + 180
+        print(f"  ⏳ รอ background task เสร็จ... (max 240s — Dify call อาจกิน ~3 นาที)")
+        deadline = time.time() + 240
         http_done = False
         last_print = time.time()
         while time.time() < deadline:
             with get_db() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT status FROM reports WHERE report_id=%s", (rpt_http,))
+                    # วิเคราะห์เสร็จ = มี analyses row + status กลับเป็น NULL
+                    cur.execute(
+                        """SELECT r.status, a.id
+                           FROM reports r LEFT JOIN analyses a ON r.report_id = a.report_id
+                           WHERE r.report_id = %s
+                           ORDER BY a.id DESC NULLS LAST LIMIT 1""",
+                        (rpt_http,),
+                    )
                     r = cur.fetchone()
-            if r and r[0] == "analyzed":
+            if r and r[1] is not None and r[0] is None:
                 http_done = True
                 break
             if time.time() - last_print >= 10:
@@ -428,7 +447,7 @@ def main():
                     an_h = cur.fetchone()
             check("  analyses บันทึกแล้ว (HTTP path)", an_h is not None)
             check("  conversation_id บันทึก (HTTP)",   bool(an_h["dify_conversation_id"]) if an_h else False)
-            check("  report status = analyzed (HTTP)",  True)
+            check("  status reset NULL (HTTP)",         True)
             print(f"  ℹ️  HTTP path ใช้เวลารวม ~{120-int(deadline-time.time())}s")
         else:
             check("  HTTP background task เสร็จใน 120s", False, "timeout")
@@ -454,7 +473,10 @@ def main():
 
     print("\n" + "=" * 65)
 
-    # Cleanup
+    # Cleanup — reset line_uid เสมอ (เลียนแบบ lifespan startup reset)
+    set_doctor_line_uid(doctor_id, None)
+    print(f"\n  🧹 Reset line_uid ของ {doctor_id} = NULL แล้ว")
+
     try:
         ans = input("\nลบ test reports ออกจาก DB? (y/n): ").strip().lower()
     except EOFError:

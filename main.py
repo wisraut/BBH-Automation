@@ -16,7 +16,6 @@ from psycopg2.extras import RealDictCursor
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
-from pyngrok import ngrok
 from dotenv import load_dotenv
 
 import email_poller
@@ -34,6 +33,7 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 DIFY_API_URL        = os.getenv("DIFY_API_URL", "http://localhost/v1")
 DIFY_API_KEY        = os.getenv("DIFY_API_KEY")
 SERVER_PORT         = int(os.getenv("SERVER_PORT", 8000))
+NGROK_PUBLIC_URL    = os.getenv("NGROK_PUBLIC_URL", "")
 
 DB_CONFIG = {
     "host":     os.getenv("DB_HOST", "localhost"),
@@ -165,10 +165,19 @@ def _is_doctor(user_id: str) -> bool:
             return cur.fetchone() is not None
 
 
-def _try_register_doctor(line_uid: str, hospital_id: str) -> str:
+def _is_patient(user_id: str) -> bool:
+    """เช็คว่า LINE user_id นี้เป็นคนไข้ที่ผูก LINE แล้วหรือไม่"""
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM patients WHERE line_uid = %s", (user_id,))
+            return cur.fetchone() is not None
+
+
+def _try_register_doctor(line_uid: str, hospital_id: str) -> tuple[str, dict | None]:
     """
     ผูก LINE UID กับรหัสแพทย์โรงพยาบาล
-    คืน: 'registered' | 'already_me' | 'already_taken' | 'not_found'
+    คืน (status, doctor_row | None)
+      status: 'registered' | 'already_me' | 'already_taken' | 'not_found'
     """
     with _get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -197,6 +206,40 @@ def _try_register_doctor(line_uid: str, hospital_id: str) -> str:
         if not updated:
             return "already_taken", None
         return "registered", doc
+
+
+def _try_register_patient(line_uid: str, patient_code: str) -> tuple[str, dict | None]:
+    """
+    ผูก LINE UID กับรหัสคนไข้ (PT001-005)
+    คืน (status, patient_row | None) — same shape as _try_register_doctor
+    """
+    with _get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT patient_id, name, line_uid FROM patients WHERE patient_code = %s",
+                (patient_code.upper(),),
+            )
+            pat = cur.fetchone()
+
+        if not pat:
+            return "not_found", None
+
+        if pat["line_uid"] == line_uid:
+            return "already_me", pat
+
+        if pat["line_uid"] is not None:
+            return "already_taken", None
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE patients SET line_uid = %s WHERE patient_code = %s AND line_uid IS NULL",
+                (line_uid, patient_code.upper()),
+            )
+            updated = cur.rowcount == 1
+            conn.commit()
+        if not updated:
+            return "already_taken", None
+        return "registered", pat
 
 
 def _build_patient_context(report_id: str) -> tuple[dict | None, str]:
@@ -307,8 +350,17 @@ def _save_analysis(report_id: str, doctor_id: str, conv_id: str, summary_text: s
 
 # ─── Dify helper ───────────────────────────────────────────────────────────────
 
-def _ask_dify(user_id: str, message: str, conv_id: str = "") -> tuple[str, str]:
-    """ส่ง context ไป Dify → คืน (answer, conversation_id)"""
+def _ask_dify(
+    user_id: str,
+    message: str,
+    role:    str = "doctor",
+    conv_id: str = "",
+) -> tuple[str, str]:
+    """
+    ส่งไป Dify → คืน (answer, conversation_id)
+    role='doctor' (default) → clinical summary, role='patient' → patient advisor
+    Dify graph มี if_else_role + if_else_emergency เป็น centralize ของ business logic
+    """
     try:
         resp = httpx.post(
             f"{DIFY_API_URL}/chat-messages",
@@ -317,11 +369,11 @@ def _ask_dify(user_id: str, message: str, conv_id: str = "") -> tuple[str, str]:
                 "Content-Type":  "application/json",
             },
             json={
-                "inputs":          {},
+                "inputs":          {"role": role},
                 "query":           message,
                 "response_mode":   "blocking",
                 "conversation_id": conv_id,
-                "user":            user_id,
+                "user":            f"{role}:{user_id}",
             },
             timeout=300,
         )
@@ -427,6 +479,67 @@ def _analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> N
     log.info("Analysis done — %s by %s", report_id, doctor_id)
 
 
+def _handle_patient_message(reply_token: str, line_uid: str, text: str) -> None:
+    """
+    Router คนไข้:
+    - logout → ยกเลิกการผูก LINE
+    - อื่นๆ → ส่งไป Dify role=patient (Dify graph จัด emergency check + disclaimer เอง)
+    """
+    if text.strip().lower() == "logout":
+        with _get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE patients SET line_uid = NULL, dify_conversation_id = NULL "
+                    "WHERE line_uid = %s RETURNING name",
+                    (line_uid,),
+                )
+                row = cur.fetchone()
+                conn.commit()
+        name = row[0] if row else "คนไข้"
+        _line_reply(reply_token, f"👋 ออกจากระบบแล้ว ({name})\nส่งรหัสคนไข้ (PT001-005) เพื่อใช้งานอีกครั้ง")
+        log.info("Patient logged out: %s (%s)", name, line_uid[:12])
+        return
+
+    with _get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT patient_id, name, dify_conversation_id FROM patients WHERE line_uid = %s",
+                (line_uid,),
+            )
+            row = cur.fetchone()
+    if not row:
+        _line_reply(reply_token, "❌ ไม่พบข้อมูลคนไข้")
+        return
+    patient_id, patient_name, conv_id = row
+
+    try:
+        _line_reply(reply_token, "🤔 กำลังค้นข้อมูลให้ครับ/ค่ะ…")
+    except Exception:
+        log.warning("LINE reply failed for patient %s — ดำเนินการต่อ", patient_id)
+
+    answer, new_conv_id = _ask_dify(line_uid, text, role="patient", conv_id=conv_id or "")
+
+    if new_conv_id and new_conv_id != conv_id:
+        with _get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE patients SET dify_conversation_id = %s WHERE line_uid = %s",
+                    (new_conv_id, line_uid),
+                )
+                cur.execute(
+                    """INSERT INTO audit_logs (actor_id, actor_type, action, report_id)
+                       VALUES (%s, 'patient', 'advice_requested', NULL)""",
+                    (patient_id,),
+                )
+                conn.commit()
+
+    try:
+        _line_push(line_uid, answer)
+    except Exception:
+        log.error("LINE push failed for patient %s", patient_id)
+    log.info("Patient advice done — %s", patient_id)
+
+
 def _handle_doctor_message(reply_token: str, doctor_line_uid: str, text: str) -> None:
     """
     Router แพทย์:
@@ -525,29 +638,25 @@ def _handle_doctor_message(reply_token: str, doctor_line_uid: str, text: str) ->
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """เปิด ngrok + email poller ตอน startup"""
-    # reset session state — clear doctor logins + stuck analyzing locks
+    # reset session state — clear logins (doctor + patient) + stuck analyzing locks
     try:
         with _get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE doctors SET line_uid = NULL")
+                cur.execute("UPDATE patients SET line_uid = NULL, dify_conversation_id = NULL")
                 cur.execute("UPDATE reports SET status = NULL WHERE status = 'analyzing'")
                 conn.commit()
-        log.info("Startup reset: doctor sessions cleared, stuck reports unlocked")
+        log.info("Startup reset: sessions cleared (doctor + patient), stuck reports unlocked")
     except Exception:
         log.exception("Startup reset failed")
 
-    public_url = None
-    try:
-        tunnel = ngrok.connect(SERVER_PORT, domain="ineffectual-marian-nonnattily.ngrok-free.dev")
-        public_url = tunnel.public_url
-        app.state.ngrok_url = public_url
-        log.info("=" * 60)
-        log.info("ngrok tunnel:     %s", public_url)
-        log.info("LINE Webhook URL: %s/webhook", public_url)
-        log.info("=" * 60)
-    except Exception as e:
-        log.warning("ngrok ไม่พร้อม (%s) — server รันต่อโดยไม่มี tunnel", e)
-        app.state.ngrok_url = f"http://localhost:{SERVER_PORT}"
+    # ngrok tunnel ถูก provision โดย ngrok container แยก (docker-compose.bridge.yaml)
+    # หรือเปิดเองตอนรัน host process — main.py อ่าน public URL จาก env var
+    app.state.ngrok_url = NGROK_PUBLIC_URL or f"http://localhost:{SERVER_PORT}"
+    log.info("=" * 60)
+    log.info("Bridge public URL: %s", app.state.ngrok_url)
+    log.info("LINE Webhook URL:  %s/webhook", app.state.ngrok_url)
+    log.info("=" * 60)
 
     # เริ่ม email poller เป็น background task
     poller_task = asyncio.create_task(
@@ -557,8 +666,6 @@ async def lifespan(app: FastAPI):
     yield
 
     poller_task.cancel()
-    if public_url:
-        ngrok.disconnect(public_url)
 
 
 app = FastAPI(title="LINE–Dify Hospital Bridge", lifespan=lifespan)
@@ -602,32 +709,51 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
 
         if _is_doctor(user_id):
             background_tasks.add_task(_handle_doctor_message, reply_token, user_id, text)
+        elif _is_patient(user_id):
+            background_tasks.add_task(_handle_patient_message, reply_token, user_id, text)
         else:
-            # ลองใช้ข้อความที่พิมเป็น hospital_id เพื่อ register
-            status, doc = _try_register_doctor(user_id, text.strip())
-            if status == "registered":
-                _line_reply(
-                    reply_token,
-                    f"✅ ลงทะเบียนสำเร็จ\n"
-                    f"ยินดีต้อนรับ {doc['name']}\n\n"
-                    f"รอรับแจ้งเตือน Report ใหม่จากระบบ\n"
-                    f"หรือพิมพ์ Report ID เพื่อวิเคราะห์ได้ทันที",
-                )
-                log.info("Doctor registered: %s → %s", doc["name"], user_id)
-            elif status == "already_me":
-                _line_reply(
-                    reply_token,
-                    f"✅ คุณลงทะเบียนแล้ว ({doc['name']})\n"
-                    f"รอรับแจ้งเตือน Report ใหม่จากระบบ",
-                )
-            elif status == "already_taken":
-                _line_reply(reply_token, "❌ รหัสแพทย์นี้ถูกใช้งานแล้ว กรุณาติดต่อเจ้าหน้าที่")
+            code = text.strip().upper()
+            if code.startswith("DR"):
+                status, doc = _try_register_doctor(user_id, code)
+                if status == "registered":
+                    _line_reply(
+                        reply_token,
+                        f"✅ ลงทะเบียนสำเร็จ\n"
+                        f"ยินดีต้อนรับ {doc['name']}\n\n"
+                        f"รอรับแจ้งเตือน Report ใหม่จากระบบ\n"
+                        f"หรือพิมพ์ Report ID เพื่อวิเคราะห์ได้ทันที",
+                    )
+                    log.info("Doctor registered: %s → %s", doc["name"], user_id)
+                elif status == "already_me":
+                    _line_reply(reply_token, f"✅ คุณลงทะเบียนแล้ว ({doc['name']})")
+                elif status == "already_taken":
+                    _line_reply(reply_token, "❌ รหัสแพทย์นี้ถูกใช้งานแล้ว กรุณาติดต่อเจ้าหน้าที่")
+                else:
+                    _line_reply(reply_token, f"❌ ไม่พบรหัสแพทย์ {code}")
+            elif code.startswith("PT"):
+                status, pat = _try_register_patient(user_id, code)
+                if status == "registered":
+                    _line_reply(
+                        reply_token,
+                        f"✅ ลงทะเบียนสำเร็จ\n"
+                        f"ยินดีต้อนรับ คุณ{pat['name']}\n\n"
+                        f"คุณสามารถสอบถามอาการ หรือข้อมูลสุขภาพได้\n"
+                        f"⚠️ ระบบนี้ให้ข้อมูลทั่วไป ไม่ใช่การวินิจฉัย — กรุณาปรึกษาแพทย์เสมอ\n"
+                        f"พิมพ์ \"logout\" เพื่อออกจากระบบ",
+                    )
+                    log.info("Patient registered: %s → %s", pat["name"], user_id)
+                elif status == "already_me":
+                    _line_reply(reply_token, f"✅ คุณลงทะเบียนแล้ว (คุณ{pat['name']})")
+                elif status == "already_taken":
+                    _line_reply(reply_token, "❌ รหัสคนไข้นี้ถูกใช้งานแล้ว กรุณาติดต่อเจ้าหน้าที่")
+                else:
+                    _line_reply(reply_token, f"❌ ไม่พบรหัสคนไข้ {code}")
             else:
                 _line_reply(
                     reply_token,
-                    "ระบบนี้สำหรับแพทย์เท่านั้น\n\n"
-                    "กรุณาส่งรหัสแพทย์ของคุณเพื่อลงทะเบียน\n"
-                    "ตัวอย่าง: DR001",
+                    "กรุณาส่งรหัสเพื่อเข้าใช้งาน\n\n"
+                    "• แพทย์: ส่งรหัสแพทย์ (เช่น DR001)\n"
+                    "• คนไข้: ส่งรหัสคนไข้ (เช่น PT001)",
                 )
 
     return JSONResponse({"status": "ok"})

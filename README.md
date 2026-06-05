@@ -99,31 +99,48 @@ curl https://<your-domain>.ngrok-free.dev/
 
 ```
 line-dify-bridge/
-├── main.py                      # FastAPI app + LINE webhook + routing
-├── email_poller.py              # Gmail IMAP poller (รัน async ใน bridge)
-├── monitor.py                   # TUI dashboard (รัน host, ไม่ใช่ container)
-├── ask_patient.py               # CLI tool ทดสอบส่งคำถามให้ Dify
-├── _patch_dify_graph.py         # ใส่ if-else routing เข้า Dify graph (Setup ทาง B)
+├── main.py                       # FastAPI app + webhook routing + lifespan
+├── config.py                     # env vars + constants + logger
+├── db.py                         # get_db() context manager
+├── line_client.py                # LINE API helpers (2 channels)
+├── dify_client.py                # Dify chat-messages client + parse decision
+├── email_poller.py               # Gmail IMAP poller (async background task)
+├── monitor.py                    # TUI dashboard (host process)
 ├── requirements.txt
 │
-├── Dockerfile                   # bridge image
-├── .dockerignore
-├── docker-compose.bridge.yaml   # bridge + ngrok services (override Dify compose)
-├── start.bat                    # Single-command launcher (Dify + bridge + monitor)
+├── flows/                        # Business logic per role
+│   ├── doctor.py                 # DR login + report analysis + notify
+│   ├── patient.py                # PT login + advisor (Dify role=patient)
+│   └── cro.py                    # public Q&A + take-over + commands
 │
-├── migrate_hospital_db.sql      # schema + seed (doctors/patients/reports)
-├── migrate_patient_register.sql # patient_code + line_uid + dify_conversation_id
+├── migrations/                   # PostgreSQL schema + seed
+│   ├── migrate_hospital_db.sql
+│   ├── migrate_patient_register.sql
+│   ├── migrate_cro_assistant.sql
+│   └── migrate_cro_v2.sql
+│
+├── dify_patches/                 # Dify graph patches (run once on fresh install)
+│   ├── patch_base.py             # DR/PT/emergency routing
+│   └── patch_cro_branch.py       # public_inquiry classifier (AUTO/ESCALATE)
+│
+├── tools/
+│   └── ask_patient.py            # CLI test — ส่งคำถามให้ Dify
 │
 ├── tests/
-│   ├── test_full_flow.py        # end-to-end (28+ tests)
-│   ├── test_patient_flow.py     # patient register/advisor/emergency
-│   └── test_pdf_email.py        # email poller + PDF extraction
+│   ├── test_full_flow.py         # doctor flow end-to-end
+│   ├── test_patient_flow.py      # patient register/advisor/emergency
+│   └── test_pdf_email.py         # email + PDF parsing
 │
-├── README.md                    # คุณกำลังอ่านอยู่
-├── Setup.md                     # คู่มือลงเครื่องใหม่ (backup-restore + fresh)
-├── CLAUDE.md                    # Architecture, rules, Dify state, Changelog
-├── ERRORS.md                    # Bug history + root causes + fixes
-├── .env.example                 # template ของ .env
+├── Dockerfile                    # bridge container image
+├── .dockerignore
+├── docker-compose.bridge.yaml    # bridge + ngrok (extends Dify compose)
+├── start.bat                     # Single-command launcher
+│
+├── README.md                     # คุณกำลังอ่านอยู่
+├── Setup.md                      # Install guide (backup-restore + fresh)
+├── CLAUDE.md                     # Architecture + rules + Changelog
+├── ERRORS.md                     # Bug history + root causes + fixes
+├── .env.example                  # template ของ .env
 └── .gitignore
 ```
 

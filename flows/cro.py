@@ -1,13 +1,15 @@
 """
-CRO Monitoring + Override flow (Phase 1A v2)
+CRO Monitoring + Override flow (Phase 1A v2 + Booking 1A.5)
 
-- LINE #1 (public): customer ส่ง message → AI ตอบ (role=public_inquiry) → AUTO/ESCALATE
+- LINE #1 (public): customer ส่ง message → AI ตอบ (role=public_inquiry)
+                    → AUTO / ESCALATE / BOOKING_ASK / BOOKING_DONE
 - LINE #2 (cro):    CRO commands — active/list/queue/view/take/end + forward ตอน take-over
 
 Customer↔CRO chat relay ระหว่าง 2 channels:
 - LINE #1 → bridge → forward → LINE #2 (CRO เห็น)
 - LINE #2 → bridge → forward → LINE #1 (customer ได้รับ)
 """
+import json
 import re
 
 from psycopg2.extras import RealDictCursor
@@ -63,7 +65,8 @@ def _get_or_create_conversation(patient_uid: str) -> dict:
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT conv_id, status, taken_by FROM conversations
+                """SELECT conv_id, status, taken_by, dify_conversation_id
+                   FROM conversations
                    WHERE patient_uid = %s AND status IN ('active', 'taken_over')
                    ORDER BY last_activity DESC LIMIT 1""",
                 (patient_uid,),
@@ -78,12 +81,51 @@ def _get_or_create_conversation(patient_uid: str) -> dict:
                 return dict(row)
             cur.execute(
                 "INSERT INTO conversations (patient_uid) VALUES (%s) "
-                "RETURNING conv_id, status, taken_by",
+                "RETURNING conv_id, status, taken_by, dify_conversation_id",
                 (patient_uid,),
             )
             new = cur.fetchone()
             conn.commit()
             return dict(new)
+
+
+def _update_dify_conv_id(conv_id: int, dify_conv_id: str) -> None:
+    if not dify_conv_id:
+        return
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE conversations SET dify_conversation_id = %s WHERE conv_id = %s",
+                (dify_conv_id, conv_id),
+            )
+            conn.commit()
+
+
+def _save_booking(conv_id: int, patient_uid: str, data: dict) -> int:
+    """บันทึก booking ลง DB + return booking_id"""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO bookings
+                   (conv_id, patient_uid, name, phone, preferred_date, preferred_time, symptom, raw_data)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING booking_id""",
+                (
+                    conv_id, patient_uid,
+                    data.get("name"), data.get("phone"),
+                    data.get("date"), data.get("time"),
+                    data.get("symptom"),
+                    json.dumps(data, ensure_ascii=False),
+                ),
+            )
+            booking_id = cur.fetchone()[0]
+            cur.execute(
+                """INSERT INTO audit_log (event, actor, target, meta)
+                   VALUES ('booking_created', %s, %s, %s)""",
+                (patient_uid, str(booking_id), json.dumps(data, ensure_ascii=False)),
+            )
+            conn.commit()
+            return booking_id
 
 
 def _save_message(conv_id: int, sender: str, text: str,
@@ -246,7 +288,8 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
     """
     คนทั่วไป (ไม่ login DR/PT) ส่งคำถามใน LINE #1:
     - ถ้าอยู่ใน take-over → forward → CRO (LINE #2)
-    - ไม่งั้น → AI ตอบ + log (escalate ถ้า LLM บอก)
+    - ไม่งั้น → AI ตอบ (multi-turn ผ่าน dify_conversation_id)
+      decision: auto / escalate / booking_ask / booking_done
     """
     convo = _get_or_create_conversation(patient_uid)
     conv_id = convo["conv_id"]
@@ -269,12 +312,16 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
         return
 
     line_client.reply(reply_token, "🤔 กำลังตรวจสอบให้ครับ/ค่ะ…")
-    answer, _conv_id, _meta = dify_client.ask_with_meta(
-        user_id=patient_uid, message=text, role="public_inquiry"
+    dify_conv = convo.get("dify_conversation_id") or ""
+    answer, new_dify_conv, _meta = dify_client.ask_with_meta(
+        user_id=patient_uid, message=text, role="public_inquiry", conv_id=dify_conv
     )
-    should_escalate, classifier, body = dify_client.parse_decision(answer)
+    if new_dify_conv and new_dify_conv != dify_conv:
+        _update_dify_conv_id(conv_id, new_dify_conv)
 
-    if should_escalate:
+    decision, classifier, body = dify_client.parse_decision(answer)
+
+    if decision == "escalate":
         _save_message(conv_id, "bot", body or text, classifier=classifier, confidence=0)
         try:
             line_client.push(patient_uid, "📝 รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด")
@@ -284,6 +331,47 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
         log.info("Public inquiry escalated — conv #%s (%s)", conv_id, classifier)
         return
 
+    if decision == "booking_ask":
+        _save_message(conv_id, "bot", body, classifier="booking", confidence=100)
+        try:
+            line_client.push(patient_uid, body)
+        except Exception:
+            log.exception("Failed booking_ask push to %s", patient_uid)
+        log.info("Booking ask — conv #%s: %s", conv_id, body[:60])
+        return
+
+    if decision == "booking_done":
+        try:
+            data = json.loads(body)
+        except Exception:
+            log.exception("Failed parse booking_done JSON: %s", body[:200])
+            _save_message(conv_id, "bot", "ขออภัย ระบบประมวลผลข้อมูลไม่สำเร็จ จะให้เจ้าหน้าที่ติดต่อกลับนะคะ",
+                          classifier="booking_error", confidence=0)
+            line_client.push(patient_uid, "📝 รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับ")
+            _notify_team(conv_id, patient_uid, text, escalated=True)
+            return
+        booking_id = _save_booking(conv_id, patient_uid, data)
+        confirm_msg = (
+            f"✅ บันทึกคำขอจองคิว #{booking_id} แล้วค่ะ\n"
+            f"━━━━━━━━━━━━━━━━\n"
+            f"ชื่อ: {data.get('name','-')}\n"
+            f"เบอร์: {data.get('phone','-')}\n"
+            f"วัน: {data.get('date','-')}\n"
+            f"เวลา: {data.get('time','-')}\n"
+            f"อาการ: {data.get('symptom','-')}\n"
+            f"━━━━━━━━━━━━━━━━\n"
+            f"เจ้าหน้าที่จะติดต่อยืนยันโดยเร็วที่สุด"
+        )
+        _save_message(conv_id, "bot", confirm_msg, classifier="booking", confidence=100)
+        try:
+            line_client.push(patient_uid, confirm_msg)
+        except Exception:
+            log.exception("Failed booking_done push to %s", patient_uid)
+        _notify_booking(booking_id, data, conv_id, patient_uid)
+        log.info("Booking created — #%s (conv %s) by %s", booking_id, conv_id, patient_uid)
+        return
+
+    # decision == "auto"
     _save_message(conv_id, "bot", body or answer, classifier=classifier, confidence=100)
     try:
         line_client.push(patient_uid, body or answer)
@@ -292,6 +380,33 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
     if is_first_msg:
         _notify_team(conv_id, patient_uid, text, escalated=False)
     log.info("Public inquiry auto-answered — conv #%s", conv_id)
+
+
+def _notify_booking(booking_id: int, data: dict, conv_id: int, patient_uid: str) -> None:
+    """แจ้ง CRO team ว่ามี booking ใหม่ → CRO เปิด Calendar ยืนยัน + take over คุยต่อ"""
+    text = (
+        f"📅 จองคิวใหม่ #BK-{booking_id}\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"ชื่อ: {data.get('name','-')}\n"
+        f"เบอร์: {data.get('phone','-')}\n"
+        f"วัน: {data.get('date','-')}\n"
+        f"เวลา: {data.get('time','-')}\n"
+        f"อาการ: {data.get('symptom','-')}\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"กรุณาเปิด Google Calendar ยืนยันคิว\n"
+        f"พิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ"
+    )
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT line_uid FROM cro_users WHERE active = true AND line_uid IS NOT NULL"
+            )
+            uids = [r["line_uid"] for r in cur.fetchall()]
+    for uid in uids:
+        try:
+            line_client.push(uid, text, ch=line_client.CRO)
+        except Exception:
+            log.exception("Failed booking notification to CRO %s", uid)
 
 
 def handle_team_command(reply_token: str, cro_line_uid: str, text: str) -> None:

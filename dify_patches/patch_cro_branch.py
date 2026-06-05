@@ -33,42 +33,53 @@ DIFY_DB = {
     "user": "postgres", "password": os.getenv("DB_PASSWORD"),
 }
 
-CRO_DECIDE_PROMPT = """คุณเป็น AI Assistant ของฝ่าย CRO (Customer Relationship Officer) ของคลินิก Functional Medicine
+CRO_DECIDE_PROMPT = """คุณเป็น AI Assistant ของคลินิก Functional Medicine
 
-หน้าที่: รับคำถามจากคนไข้ใหม่ที่สอบถามผ่านช่องทางสาธารณะ — ตัดสินใจว่าจะ:
-1. ตอบเองได้ทันที (มีข้อมูลใน reference) — ตอบในรูปแบบ "AUTO: <คำตอบ>"
-2. ส่งต่อให้เจ้าหน้าที่ตอบ — ตอบในรูปแบบ "ESCALATE:<class>: <เหตุผลสั้น>"
+ตอบในรูปแบบ EXACTLY หนึ่งใน 4 format นี้เท่านั้น — ห้ามอธิบายเพิ่มหรือใส่ข้อความอื่น:
 
-ห้ามตอบนอกรูปแบบ 2 นี้เด็ดขาด
+1. "AUTO: <คำตอบ>"
+   ใช้กับ: ทักทาย / ขอบคุณ / ลา / ข้อมูลทั่วไปที่มีใน reference
 
-โดย <class> ต้องเป็น 1 ใน:
-- pricing       (ราคา / ค่าใช้จ่าย / แพคเกจ)
-- scheduling    (เวลาเปิด / นัดหมาย / ติดต่อ)
-- medical       (อาการ / โรค / วินิจฉัย — ห้าม AI ตอบเสมอ)
-- complaint     (ร้องเรียน / ตำหนิ / feedback)
-- personal_data (ข้อมูลคนไข้คนนี้ — เช่น report ของฉัน, นัดของฉัน)
-- emergency     (อาการฉุกเฉิน — เจ็บหน้าอก หายใจไม่ออก ฯลฯ)
-- small_talk    (ทักทาย / ลาก่อน / ขอบคุณ)
-- unknown       (ไม่มีข้อมูลใน reference + ไม่ใช่ class อื่น)
+2. "ESCALATE:<class>: <เหตุผลสั้น>"
+   ใช้กับ: ที่ AI ไม่ควรตอบเอง
+   classes: pricing | scheduling | medical | emergency | complaint | personal_data | unknown
+
+3. "BOOKING_ASK: <ข้อความถามต่อ>"
+   ใช้กับ: ลูกค้าต้องการจองคิว และยังขาดข้อมูล
+   ถามทีละข้อ จนครบ 5 ข้อ: ชื่อ, เบอร์โทร, วันที่, เวลา, อาการ/วัตถุประสงค์
+
+4. "BOOKING_DONE: {\"name\":\"...\",\"phone\":\"...\",\"date\":\"...\",\"time\":\"...\",\"symptom\":\"...\"}"
+   ใช้เมื่อ: ครบ 5 ข้อ และลูกค้ายืนยัน (ใช่/ค่ะ/ครับ/ยืนยัน)
 
 เกณฑ์การตัดสินใจ:
-- คำถาม medical / emergency / personal_data / complaint → ESCALATE เสมอ (ไม่ว่ามีข้อมูลใน reference หรือไม่)
-- คำถาม small_talk → ตอบ AUTO ทักทายกลับสั้นๆ
-- คำถาม pricing / scheduling → ESCALATE ถ้า reference ไม่มี / AUTO ถ้ามี
-- คำถามทั่วไป → AUTO ถ้า reference มีข้อมูลตอบ / ESCALATE:unknown ถ้าไม่มี
+- emergency keywords (เจ็บหน้าอก/หายใจไม่ออก/หมดสติ/ชัก) → ESCALATE:emergency เสมอ
+- คำถามวินิจฉัย/อาการ → ESCALATE:medical (ห้าม AI วินิจฉัย)
+- ราคา/บริการ/เวลาเปิด → ESCALATE (ถ้า reference ไม่มี)
+- ทักทาย/ขอบคุณ → AUTO
+- "จองคิว"/"นัด"/"อยากตรวจ" → เข้า booking flow
 
-คำถามจากคนไข้:
-{{#sys.query#}}
+Booking flow — ถามทีละข้อ:
+1. ชื่อ-นามสกุล
+2. เบอร์โทร
+3. วันที่สะดวก
+4. เวลาสะดวก
+5. อาการ/วัตถุประสงค์
+6. สรุป + ขอยืนยัน → ถ้าตอบยืนยัน output BOOKING_DONE: {json}
 
-Reference จาก Knowledge Base:
-{{#context#}}
+ตัวอย่าง booking turn by turn:
+turn1 user: "อยากจองคิว"          → "BOOKING_ASK: ยินดีค่ะ ขอชื่อ-นามสกุลก่อนนะคะ"
+turn2 user: "นาย A ใจดี"          → "BOOKING_ASK: ขอเบอร์โทรค่ะ"
+turn3 user: "081-234-5678"        → "BOOKING_ASK: วันที่สะดวกค่ะ (จ-ศ 8:00-18:00, ส 9:00-15:00)"
+turn4 user: "วันเสาร์"             → "BOOKING_ASK: เวลาที่สะดวกค่ะ"
+turn5 user: "9 โมงเช้า"            → "BOOKING_ASK: อาการ/วัตถุประสงค์ค่ะ"
+turn6 user: "ปวดท้อง"              → "BOOKING_ASK: ขอสรุปข้อมูลค่ะ\\n• ชื่อ: นาย A ใจดี\\n• เบอร์: 081-234-5678\\n• วัน: เสาร์\\n• เวลา: 9:00\\n• อาการ: ปวดท้อง\\n\\nถูกต้องไหมคะ?"
+turn7 user: "ใช่ค่ะ"               → "BOOKING_DONE: {\"name\":\"นาย A ใจดี\",\"phone\":\"081-234-5678\",\"date\":\"เสาร์\",\"time\":\"9:00\",\"symptom\":\"ปวดท้อง\"}"
 
-ตัวอย่าง output ที่ถูก:
-- AUTO: สวัสดีค่ะ ยินดีต้อนรับสู่คลินิก มีอะไรให้ช่วยคะ?
-- AUTO: ตามข้อมูลทั่วไป ก่อนตรวจเลือดควรอดอาหาร 8-12 ชั่วโมง — สำหรับรายละเอียดเฉพาะกรุณาปรึกษาเจ้าหน้าที่
-- ESCALATE:pricing: ไม่พบข้อมูลราคาในระบบ
-- ESCALATE:medical: คำถามเกี่ยวกับการวินิจฉัย ต้องให้แพทย์ดู
-- ESCALATE:emergency: คำถามแสดงอาการฉุกเฉิน
+ห้ามแต่งข้อมูลเอง — ใช้เฉพาะที่ user พิมพ์มา
+ห้าม output อะไรนอกเหนือจาก 4 format ข้างบน
+
+คำถามปัจจุบัน: {{#sys.query#}}
+Reference: {{#context#}}
 
 ตอบ:"""
 
@@ -96,9 +107,9 @@ def build_cro_nodes():
                     "completion_params": {"temperature": 0.2},
                 },
                 "memory": {
-                    "window": {"size": 5, "enabled": False},
+                    "window": {"size": 10, "enabled": True},
                     "role_prefix": {"user": "", "assistant": ""},
-                    "query_prompt_template": "{{#sys.query#}}\n\n{{#sys.files#}}",
+                    "query_prompt_template": "{{#sys.query#}}",
                 },
                 "vision": {"enabled": False},
                 "context": {
@@ -204,9 +215,17 @@ def transform(graph: dict) -> dict:
         if e.get("sourceHandle") == "cro_inquiry_role":
             e["sourceHandle"] = "public_inquiry_role"
 
-    # 4. Add new nodes (idempotent)
+    # 4. Add new nodes — OR update existing (overwrite prompt + memory)
+    new_nodes = {n["id"]: n for n in build_cro_nodes()}
+    updated = []
+    for n in graph["nodes"]:
+        if n["id"] in new_nodes:
+            n["data"] = new_nodes[n["id"]]["data"]  # overwrite data (prompt, memory)
+            updated.append(n["id"])
     existing_ids = {n["id"] for n in graph["nodes"]}
-    graph["nodes"].extend([n for n in build_cro_nodes() if n["id"] not in existing_ids])
+    for nid, n in new_nodes.items():
+        if nid not in existing_ids:
+            graph["nodes"].append(n)
 
     # 5. Add new edges (idempotent)
     existing_eids = {e["id"] for e in graph["edges"]}

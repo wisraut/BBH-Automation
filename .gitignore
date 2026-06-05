@@ -11,9 +11,9 @@ __pycache__/
 venv/
 
 # Logs
+*.log
 server.log
 server_err.log
-*.log
 
 # OS / IDE
 *.ico
@@ -22,12 +22,35 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Dify state snapshots (debug only)
+# Dify state snapshots (debug)
 .dify_graph_old.json
 .dify_graph_published.json
 
-# Large/optional folders
+# Knowledge / library content (เก็บใน Dify KB แทน)
 Automate Library/
 
-# Backup artifacts (เก็บนอก repo)
+# Legacy setup files (superseded by Setup.md + git clone)
+setup.bat
+setup.ps1
+setup_guide.md
+CLAUDE_SETUP.md
+
+# Old utility / debug scripts
+reset_nipa.py
+update_dify_flow.py
+_inspect_graph.py
+_inspect_old_ifelse.py
+_test_dify_branches.py
+
+# Old test files
+test_fixes.py
+test_pipeline.py
+
+# DB backup (อยู่ใน Google Drive backup zip)
 hospital_db_backup.sql
+
+# Build artifacts
+$staging/
+dist/
+build/
+*.egg-info/

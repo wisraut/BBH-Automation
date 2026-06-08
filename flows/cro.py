@@ -14,10 +14,9 @@ import re
 
 from psycopg2.extras import RealDictCursor
 
-import dify_client
-import line_client
-from config import log
-from db import get_db
+from core.config import log
+from core.db import get_db
+from integrations import calendar_client, dify_client, line_client
 
 
 # ─── DB ops ────────────────────────────────────────────────────────────────────
@@ -101,14 +100,17 @@ def _update_dify_conv_id(conv_id: int, dify_conv_id: str) -> None:
             conn.commit()
 
 
-def _save_booking(conv_id: int, patient_uid: str, data: dict) -> int:
+def _save_booking(conv_id: int, patient_uid: str, data: dict,
+                  start_at=None, end_at=None, google_event_id: str = None,
+                  calendar_link: str = None, status: str = "pending") -> int:
     """บันทึก booking ลง DB + return booking_id"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO bookings
-                   (conv_id, patient_uid, name, phone, preferred_date, preferred_time, symptom, raw_data)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   (conv_id, patient_uid, name, phone, preferred_date, preferred_time,
+                    symptom, raw_data, start_at, end_at, google_event_id, calendar_link, status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    RETURNING booking_id""",
                 (
                     conv_id, patient_uid,
@@ -116,16 +118,50 @@ def _save_booking(conv_id: int, patient_uid: str, data: dict) -> int:
                     data.get("date"), data.get("time"),
                     data.get("symptom"),
                     json.dumps(data, ensure_ascii=False),
+                    start_at, end_at, google_event_id, calendar_link, status,
                 ),
             )
             booking_id = cur.fetchone()[0]
             cur.execute(
                 """INSERT INTO audit_log (event, actor, target, meta)
                    VALUES ('booking_created', %s, %s, %s)""",
-                (patient_uid, str(booking_id), json.dumps(data, ensure_ascii=False)),
+                (patient_uid, str(booking_id), json.dumps({**data, "status": status},
+                                                          ensure_ascii=False)),
             )
             conn.commit()
             return booking_id
+
+
+def _try_auto_book(data: dict) -> tuple:
+    """
+    Parse date/time + book Google Calendar.
+    Returns: (status, start_at, end_at, event_id, link)
+      status: 'booked' | 'slot_busy' | 'parse_failed' | 'not_configured' | 'api_error'
+    """
+    if not calendar_client.is_configured():
+        return ("not_configured", None, None, None, None)
+
+    start = calendar_client.parse_thai_datetime(data.get("date", ""), data.get("time", ""))
+    if not start:
+        return ("parse_failed", None, None, None, None)
+
+    if not calendar_client.check_availability(start):
+        end = start + __import__("datetime").timedelta(minutes=calendar_client.DEFAULT_DURATION_MIN)
+        return ("slot_busy", start, end, None, None)
+
+    summary = f"นัด — {data.get('name','คนไข้')}"
+    description = (
+        f"จองผ่าน LINE bot\n"
+        f"ชื่อ: {data.get('name','-')}\n"
+        f"เบอร์: {data.get('phone','-')}\n"
+        f"อาการ: {data.get('symptom','-')}"
+    )
+    try:
+        result = calendar_client.book_event(summary, description, start)
+        return ("booked", result["start"], result["end"], result["event_id"], result["html_link"])
+    except Exception as e:
+        log.exception("Auto-book failed: %s", e)
+        return ("api_error", start, None, None, None)
 
 
 def _save_message(conv_id: int, sender: str, text: str,
@@ -309,7 +345,17 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
                 line_client.push(cro["line_uid"], f"💬 #{conv_id}:\n{text}", ch=line_client.CRO)
             except Exception:
                 log.exception("Failed forward customer→CRO conv %s", conv_id)
-        return
+            return
+        # CRO logged out → release conversation, fall through to AI
+        log.warning("CRO #%s offline for conv %s — releasing back to AI", convo["taken_by"], conv_id)
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE conversations SET status='active', taken_by=NULL, taken_at=NULL "
+                    "WHERE conv_id = %s",
+                    (conv_id,),
+                )
+                conn.commit()
 
     line_client.reply(reply_token, "🤔 กำลังตรวจสอบให้ครับ/ค่ะ…")
     dify_conv = convo.get("dify_conversation_id") or ""
@@ -350,9 +396,46 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
             line_client.push(patient_uid, "📝 รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับ")
             _notify_team(conv_id, patient_uid, text, escalated=True)
             return
-        booking_id = _save_booking(conv_id, patient_uid, data)
+
+        book_status, start_at, end_at, event_id, cal_link = _try_auto_book(data)
+
+        if book_status == "booked":
+            booking_id = _save_booking(conv_id, patient_uid, data,
+                                        start_at=start_at, end_at=end_at,
+                                        google_event_id=event_id, calendar_link=cal_link,
+                                        status="booked")
+            confirm_msg = (
+                f"✅ จองคิวสำเร็จ #{booking_id}\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"ชื่อ: {data.get('name','-')}\n"
+                f"เบอร์: {data.get('phone','-')}\n"
+                f"วัน: {start_at.strftime('%d/%m/%Y (%a)')}\n"
+                f"เวลา: {start_at.strftime('%H:%M')}-{end_at.strftime('%H:%M')}\n"
+                f"อาการ: {data.get('symptom','-')}\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"เจ้าหน้าที่จะติดต่อยืนยันก่อนวันนัด"
+            )
+            _save_message(conv_id, "bot", confirm_msg, classifier="booking", confidence=100)
+            line_client.push(patient_uid, confirm_msg)
+            _notify_booking(booking_id, data, conv_id, patient_uid, status="booked",
+                             start_at=start_at, cal_link=cal_link)
+            log.info("Booking auto-booked — #%s (conv %s) %s", booking_id, conv_id, start_at)
+            return
+
+        if book_status == "slot_busy":
+            busy_msg = (
+                f"⚠️ ขออภัย เวลา {data.get('date','-')} {data.get('time','-')} ไม่ว่างค่ะ\n"
+                f"กรุณาเลือกวัน-เวลาอื่น หรือพิมพ์ \"จองคิว\" เพื่อเริ่มใหม่"
+            )
+            _save_message(conv_id, "bot", busy_msg, classifier="booking_busy", confidence=100)
+            line_client.push(patient_uid, busy_msg)
+            log.info("Booking slot busy — conv %s at %s", conv_id, start_at)
+            return
+
+        # parse_failed / not_configured / api_error → save as pending + notify CRO
+        booking_id = _save_booking(conv_id, patient_uid, data, status="pending")
         confirm_msg = (
-            f"✅ บันทึกคำขอจองคิว #{booking_id} แล้วค่ะ\n"
+            f"📝 รับเรื่องจองคิว #{booking_id} แล้วค่ะ\n"
             f"━━━━━━━━━━━━━━━━\n"
             f"ชื่อ: {data.get('name','-')}\n"
             f"เบอร์: {data.get('phone','-')}\n"
@@ -363,12 +446,9 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
             f"เจ้าหน้าที่จะติดต่อยืนยันโดยเร็วที่สุด"
         )
         _save_message(conv_id, "bot", confirm_msg, classifier="booking", confidence=100)
-        try:
-            line_client.push(patient_uid, confirm_msg)
-        except Exception:
-            log.exception("Failed booking_done push to %s", patient_uid)
-        _notify_booking(booking_id, data, conv_id, patient_uid)
-        log.info("Booking created — #%s (conv %s) by %s", booking_id, conv_id, patient_uid)
+        line_client.push(patient_uid, confirm_msg)
+        _notify_booking(booking_id, data, conv_id, patient_uid, status=book_status)
+        log.warning("Booking saved but not auto-booked — #%s status=%s", booking_id, book_status)
         return
 
     # decision == "auto"
@@ -382,19 +462,33 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
     log.info("Public inquiry auto-answered — conv #%s", conv_id)
 
 
-def _notify_booking(booking_id: int, data: dict, conv_id: int, patient_uid: str) -> None:
-    """แจ้ง CRO team ว่ามี booking ใหม่ → CRO เปิด Calendar ยืนยัน + take over คุยต่อ"""
+def _notify_booking(booking_id: int, data: dict, conv_id: int, patient_uid: str,
+                    status: str = "pending", start_at=None, cal_link: str = None) -> None:
+    """แจ้ง CRO team — auto-booked หรือ pending (รอ confirm)"""
+    if status == "booked":
+        header = f"✅ จองคิวสำเร็จ #BK-{booking_id}"
+        when = f"วัน: {start_at.strftime('%d/%m/%Y (%a) %H:%M')}" if start_at else ""
+        footer = f"📅 Calendar: {cal_link}\nพิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ" if cal_link \
+                 else f"พิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ"
+    else:
+        reason = {
+            "parse_failed":   "(parse วัน-เวลาไม่ได้)",
+            "not_configured": "(Calendar ยังไม่ตั้ง)",
+            "api_error":      "(Calendar API error)",
+        }.get(status, "")
+        header = f"📅 จองคิวใหม่ #BK-{booking_id} — รอ confirm {reason}"
+        when = f"วัน: {data.get('date','-')}  เวลา: {data.get('time','-')}"
+        footer = f"กรุณาเปิด Calendar จองเอง\nพิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้า"
+
     text = (
-        f"📅 จองคิวใหม่ #BK-{booking_id}\n"
+        f"{header}\n"
         f"━━━━━━━━━━━━━━━━\n"
         f"ชื่อ: {data.get('name','-')}\n"
         f"เบอร์: {data.get('phone','-')}\n"
-        f"วัน: {data.get('date','-')}\n"
-        f"เวลา: {data.get('time','-')}\n"
+        f"{when}\n"
         f"อาการ: {data.get('symptom','-')}\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"กรุณาเปิด Google Calendar ยืนยันคิว\n"
-        f"พิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ"
+        f"{footer}"
     )
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:

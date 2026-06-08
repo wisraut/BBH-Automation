@@ -1,7 +1,7 @@
 """DB connection helper — context manager (กัน leak)."""
 from contextlib import contextmanager
 import psycopg2
-from config import DB_CONFIG
+from core.config import DB_CONFIG
 
 
 @contextmanager

@@ -5,3 +5,5 @@ psycopg2-binary
 python-dotenv
 textual
 pypdf
+google-api-python-client
+google-auth

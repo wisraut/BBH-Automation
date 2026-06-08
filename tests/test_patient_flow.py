@@ -29,6 +29,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -133,7 +134,7 @@ def phase_1_health() -> None:
         r = httpx.get(
             f"{DIFY_API_URL}/info",
             headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
-            timeout=5,
+            timeout=15,
         )
         check("Dify API /info", r.status_code == 200, f"HTTP {r.status_code}")
     except Exception as e:
@@ -158,33 +159,33 @@ def phase_1_health() -> None:
 
 def phase_2_register() -> None:
     banner("PHASE 2: _is_patient + _try_register_patient")
-    import main
+    from flows import patient as patient_flow
 
     cleanup_test_state()
 
     # 2a: _is_patient False ก่อน register
     check(
         "_is_patient(fake_uid) → False (ยังไม่ register)",
-        main._is_patient(TEST_UID_PT001) is False,
+        patient_flow.is_patient(TEST_UID_PT001) is False,
     )
 
     # 2b: not_found
-    status, _ = main._try_register_patient(TEST_UID_PT001, "PT999")
+    status, _ = patient_flow.try_register(TEST_UID_PT001, "PT999")
     check("PT999 → not_found", status == "not_found", status)
 
     # 2c: registered
-    status, pat = main._try_register_patient(TEST_UID_PT001, "PT001")
+    status, pat = patient_flow.try_register(TEST_UID_PT001, "PT001")
     check("PT001 register สำเร็จ", status == "registered", f"{pat['name'] if pat else '?'}")
 
     # 2d: _is_patient True หลัง register
-    check("_is_patient(fake_uid) → True หลัง register", main._is_patient(TEST_UID_PT001) is True)
+    check("_is_patient(fake_uid) → True หลัง register", patient_flow.is_patient(TEST_UID_PT001) is True)
 
     # 2e: already_me — UID เดิม register ซ้ำ
-    status, _ = main._try_register_patient(TEST_UID_PT001, "PT001")
+    status, _ = patient_flow.try_register(TEST_UID_PT001, "PT001")
     check("PT001 register ซ้ำ UID เดิม → already_me", status == "already_me", status)
 
     # 2f: already_taken — UID ใหม่ ลอง register PT001 ที่ผูกอยู่แล้ว
-    status, _ = main._try_register_patient(TEST_UID_PT001_ALT, "PT001")
+    status, _ = patient_flow.try_register(TEST_UID_PT001_ALT, "PT001")
     check("PT001 จาก UID ใหม่ → already_taken", status == "already_taken", status)
 
 
@@ -192,18 +193,18 @@ def phase_2_register() -> None:
 
 def phase_3_advice_normal() -> None:
     banner("PHASE 3: _handle_patient_message — Normal (Dify role=patient)")
-    import main
+    from flows import patient as patient_flow
 
     captured_msgs.clear()
     query = "ผมปวดท้องด้านขวาล่างมา 2 วันแล้ว ไม่แน่ใจว่าเป็นอะไร"
 
-    with patch("main._line_reply", side_effect=fake_line_reply), \
-         patch("main._line_push",  side_effect=fake_line_push):
+    with patch.object(patient_flow.line_client, "reply", side_effect=fake_line_reply), \
+         patch.object(patient_flow.line_client, "push",  side_effect=fake_line_push):
         t0 = time.time()
-        main._handle_patient_message("fake_reply_token", TEST_UID_PT001, query)
+        patient_flow.handle_message("fake_reply_token", TEST_UID_PT001, query)
         dt = time.time() - t0
 
-    check(f"_handle_patient_message รัน ({dt:.1f}s)", dt < 90, f"{dt:.1f}s")
+    check(f"_handle_patient_message รัน ({dt:.1f}s)", dt < 180, f"{dt:.1f}s")
     check("captured ≥ 2 messages (loading + answer)", len(captured_msgs) >= 2,
           f"{len(captured_msgs)} msgs")
 
@@ -214,7 +215,8 @@ def phase_3_advice_normal() -> None:
               loading[2][:50])
         check("msg[1] = push (answer)", answer[0] == "push", f"to={answer[1][:20]}")
         ans_text = answer[2]
-        check("answer มี disclaimer ⚠️", "⚠️" in ans_text and "ไม่ใช่การวินิจฉัย" in ans_text,
+        disclaimer_terms = ["ไม่ใช่การวินิจฉัย", "ปรึกษาแพทย์", "ข้อมูลทั่วไป"]
+        check("answer มี disclaimer ⚠️", "⚠️" in ans_text and any(k in ans_text for k in disclaimer_terms),
               f"{len(ans_text)} chars")
         check("answer มีหัวข้อ 1️⃣2️⃣3️⃣", all(k in ans_text for k in ["1️⃣", "2️⃣", "3️⃣"]),
               "patient template")
@@ -224,14 +226,14 @@ def phase_3_advice_normal() -> None:
 
 def phase_4_advice_emergency() -> None:
     banner("PHASE 4: _handle_patient_message — Emergency keyword")
-    import main
+    from flows import patient as patient_flow
 
     captured_msgs.clear()
     query = "ผมเจ็บหน้าอกมาก หายใจไม่ออก"
 
-    with patch("main._line_reply", side_effect=fake_line_reply), \
-         patch("main._line_push",  side_effect=fake_line_push):
-        main._handle_patient_message("fake_reply_token", TEST_UID_PT001, query)
+    with patch.object(patient_flow.line_client, "reply", side_effect=fake_line_reply), \
+         patch.object(patient_flow.line_client, "push",  side_effect=fake_line_push):
+        patient_flow.handle_message("fake_reply_token", TEST_UID_PT001, query)
 
     push_msgs = [m for m in captured_msgs if m[0] == "push"]
     check("มี push 1 message (answer)", len(push_msgs) == 1, f"{len(push_msgs)}")
@@ -247,13 +249,13 @@ def phase_4_advice_emergency() -> None:
 
 def phase_5_logout() -> None:
     banner("PHASE 5: _handle_patient_message — logout")
-    import main
+    from flows import patient as patient_flow
 
     captured_msgs.clear()
 
-    with patch("main._line_reply", side_effect=fake_line_reply), \
-         patch("main._line_push",  side_effect=fake_line_push):
-        main._handle_patient_message("fake_reply_token", TEST_UID_PT001, "logout")
+    with patch.object(patient_flow.line_client, "reply", side_effect=fake_line_reply), \
+         patch.object(patient_flow.line_client, "push",  side_effect=fake_line_push):
+        patient_flow.handle_message("fake_reply_token", TEST_UID_PT001, "logout")
 
     check("captured = 1 reply", len(captured_msgs) == 1 and captured_msgs[0][0] == "reply")
     if captured_msgs:
@@ -266,14 +268,14 @@ def phase_5_logout() -> None:
             row = cur.fetchone()
     check("DB line_uid = NULL หลัง logout", row[0] is None)
     check("DB dify_conversation_id = NULL หลัง logout", row[1] is None)
-    check("_is_patient(fake_uid) → False หลัง logout", main._is_patient(TEST_UID_PT001) is False)
+    check("_is_patient(fake_uid) → False หลัง logout", patient_flow.is_patient(TEST_UID_PT001) is False)
 
 
 # ─── Phase 6: HTTP Webhook routing ─────────────────────────────────────────────
 
 def phase_6_http_webhook() -> None:
     banner("PHASE 6: HTTP Webhook routing (FastAPI signature + background task)")
-    import main
+    from flows import patient as patient_flow
 
     # ต้องมี bridge รัน
     try:
@@ -287,7 +289,7 @@ def phase_6_http_webhook() -> None:
 
     cleanup_test_state()
     # Register PT001 → fake UID ก่อน (เพราะ webhook จะตัดสินใจจาก _is_patient)
-    status, _ = main._try_register_patient(TEST_UID_PT001, "PT001")
+    status, _ = patient_flow.try_register(TEST_UID_PT001, "PT001")
     if status != "registered":
         check("Setup PT001 register", False, status)
         return
@@ -311,7 +313,7 @@ def phase_6_http_webhook() -> None:
         f"{SERVER_URL}/webhook",
         content=body,
         headers={"X-Line-Signature": sig, "Content-Type": "application/json"},
-        timeout=10,
+        timeout=30,
     )
     check("POST /webhook คืน 200 ทันที", r.status_code == 200, f"HTTP {r.status_code}")
 

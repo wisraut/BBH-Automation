@@ -54,3 +54,12 @@ $staging/
 dist/
 build/
 *.egg-info/
+
+# Google Service Account credentials
+credentials/
+*.json.key
+service_account*.json
+
+# Markdown working docs (all except README.md)
+*.md
+!README.md

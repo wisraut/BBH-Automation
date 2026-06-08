@@ -56,8 +56,6 @@
 
 ## Quick Start
 
-ติดตั้งครั้งแรกบนเครื่องใหม่ดู **[Setup.md](Setup.md)** (มี 2 ทาง: ลงจาก backup / ลงสด)
-
 หลังติดตั้งแล้ว — รัน:
 ```powershell
 .\start.bat
@@ -99,19 +97,34 @@ curl https://<your-domain>.ngrok-free.dev/
 
 ```
 line-dify-bridge/
-├── main.py                       # FastAPI app + webhook routing + lifespan
-├── config.py                     # env vars + constants + logger
-├── db.py                         # get_db() context manager
-├── line_client.py                # LINE API helpers (2 channels)
-├── dify_client.py                # Dify chat-messages client + parse decision
-├── email_poller.py               # Gmail IMAP poller (async background task)
-├── monitor.py                    # TUI dashboard (host process)
+├── main.py                       # FastAPI app wiring + routers + lifespan
 ├── requirements.txt
+│
+├── api/                          # HTTP routers
+│   ├── health.py                 # service metadata + health
+│   ├── line_webhook.py           # LINE #1: DR/PT/public routing
+│   └── cro_webhook.py            # LINE #2: CRO commands
+│
+├── core/                         # runtime core
+│   ├── config.py                 # env vars + constants + logger
+│   ├── db.py                     # get_db() context manager
+│   └── lifespan.py               # startup reset + email poller lifecycle
+│
+├── integrations/                 # external API clients
+│   ├── line_client.py            # LINE API helpers (2 channels)
+│   ├── dify_client.py            # Dify chat-messages client + parse decision
+│   └── calendar_client.py        # Google Calendar helper
 │
 ├── flows/                        # Business logic per role
 │   ├── doctor.py                 # DR login + report analysis + notify
 │   ├── patient.py                # PT login + advisor (Dify role=patient)
 │   └── cro.py                    # public Q&A + take-over + commands
+│
+├── jobs/
+│   └── email_poller.py           # Gmail IMAP poller (async background task)
+│
+├── ops/
+│   └── monitor.py                # TUI dashboard (host process)
 │
 ├── migrations/                   # PostgreSQL schema + seed
 │   ├── migrate_hospital_db.sql
@@ -137,9 +150,6 @@ line-dify-bridge/
 ├── start.bat                     # Single-command launcher
 │
 ├── README.md                     # คุณกำลังอ่านอยู่
-├── Setup.md                      # Install guide (backup-restore + fresh)
-├── CLAUDE.md                     # Architecture + rules + Changelog
-├── ERRORS.md                     # Bug history + root causes + fixes
 ├── .env.example                  # template ของ .env
 └── .gitignore
 ```

@@ -30,6 +30,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -250,11 +251,11 @@ def main():
     banner("[Phase 3]  Build Patient Context (JOIN 4 tables)")
     # ══════════════════════════════════════════════════════════════════
 
-    # Import bridge module (safe — does not start server/ngrok/poller)
-    import main as bridge  # noqa: PLC0415
+    # Import doctor flow module (safe — does not start server/ngrok/poller)
+    from flows import doctor as doctor_flow  # noqa: PLC0415
 
     try:
-        row, context = bridge._build_patient_context(rpt_direct)
+        row, context = doctor_flow._build_patient_context(rpt_direct)
         check("Build context สำเร็จ",     row is not None,              f"{len(context)} chars")
         check("มีข้อมูลยาแพ้",            "⚠️" in context)
         check("มีโรคประจำตัว",            "โรคประจำตัว" in context)
@@ -271,11 +272,11 @@ def main():
     banner("[Phase 4]  Doctor Notification (LINE intercepted — ไม่ส่งจริง)")
     # ══════════════════════════════════════════════════════════════════
 
-    with patch.object(bridge, "_line_push_with_quick_reply", side_effect=_stub_push_qr), \
-         patch.object(bridge, "_line_push",                  side_effect=_stub_push), \
-         patch.object(bridge, "_line_reply",                 side_effect=_stub_reply):
+    with patch.object(doctor_flow.line_client, "push_with_quick_reply", side_effect=_stub_push_qr), \
+         patch.object(doctor_flow.line_client, "push",                  side_effect=_stub_push), \
+         patch.object(doctor_flow.line_client, "reply",                 side_effect=_stub_reply):
         try:
-            bridge._notify_new_report(doctor_id, "สมชาย มีสุข", rpt_direct)
+            doctor_flow.notify_new_report(doctor_id, "สมชาย มีสุข", rpt_direct)
             notif = next((m for m in captured_msgs if m[0] == "LINE push+QR"), None)
             check("_notify_new_report ทำงาน",  notif is not None)
             check("ข้อความมี report_id",       rpt_direct in (notif[2] if notif else ""))
@@ -298,12 +299,12 @@ def main():
     print(f"  กำลังส่งไป Dify... (อาจใช้เวลา 60-90 วิ)")
 
     direct_ok = False
-    with patch.object(bridge, "_line_reply",                 side_effect=_stub_reply), \
-         patch.object(bridge, "_line_push",                  side_effect=_stub_push), \
-         patch.object(bridge, "_line_push_with_quick_reply", side_effect=_stub_push_qr):
+    with patch.object(doctor_flow.line_client, "reply",                 side_effect=_stub_reply), \
+         patch.object(doctor_flow.line_client, "push",                  side_effect=_stub_push), \
+         patch.object(doctor_flow.line_client, "push_with_quick_reply", side_effect=_stub_push_qr):
         try:
             t0 = time.time()
-            bridge._handle_doctor_message(
+            doctor_flow.handle_message(
                 "fake_reply_token_for_test_12345",
                 doctor_id,
                 f"วิเคราะห์ {rpt_direct}",

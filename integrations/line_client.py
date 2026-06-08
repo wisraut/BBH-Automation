@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from config import (
+from core.config import (
     LINE_CHANNEL_ID, LINE_CHANNEL_SECRET,
     LINE_CRO_CHANNEL_ID, LINE_CRO_CHANNEL_SECRET,
     log,

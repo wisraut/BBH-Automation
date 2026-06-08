@@ -1,10 +1,9 @@
 """Patient flow — login PT* + advisor (Dify role=patient + KB)."""
 from psycopg2.extras import RealDictCursor
 
-import dify_client
-import line_client
-from config import log
-from db import get_db
+from core.config import log
+from core.db import get_db
+from integrations import dify_client, line_client
 
 
 def is_patient(user_id: str) -> bool:

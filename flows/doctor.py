@@ -4,10 +4,9 @@ from datetime import datetime
 
 from psycopg2.extras import RealDictCursor
 
-import dify_client
-import line_client
-from config import RPT_PATTERN, log
-from db import get_db
+from core.config import RPT_PATTERN, log
+from core.db import get_db
+from integrations import dify_client, line_client
 
 
 def is_doctor(user_id: str) -> bool:

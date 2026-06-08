@@ -1,7 +1,7 @@
 """Dify chat-messages API client."""
 import re
 import httpx
-from config import DIFY_API_URL, DIFY_API_KEY
+from core.config import DIFY_API_URL, DIFY_API_KEY
 
 
 def ask(user_id: str, message: str, role: str = "doctor", conv_id: str = "") -> tuple:

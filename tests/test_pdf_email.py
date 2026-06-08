@@ -16,11 +16,12 @@ from email.mime.application import MIMEApplication
 import psycopg2
 from dotenv import load_dotenv
 
+sys.stdout.reconfigure(encoding="utf-8")
 load_dotenv()
 
-# Import จาก email_poller โดยตรง
-sys.path.insert(0, os.path.dirname(__file__))
-import email_poller
+# Import project packages from repo root.
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from jobs import email_poller
 
 DB_CONFIG = {
     "host":     os.getenv("DB_HOST", "localhost"),

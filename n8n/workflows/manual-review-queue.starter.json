@@ -1,0 +1,50 @@
+{
+  "name": "Hospital Manual Review Queue - Starter",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "manual-review",
+        "responseMode": "responseNode"
+      },
+      "id": "manual-review-webhook",
+      "name": "Manual Review Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item) => ({ json: { queued: true, receivedAt: new Date().toISOString(), payload: item.json } }));"
+      },
+      "id": "prepare-queue-item",
+      "name": "Prepare Queue Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "Manual Review Webhook": {
+      "main": [[{"node": "Prepare Queue Item", "type": "main", "index": 0}]]
+    },
+    "Prepare Queue Item": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

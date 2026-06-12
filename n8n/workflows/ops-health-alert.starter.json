@@ -1,0 +1,362 @@
+{
+  "id": "hospital-ops-health-alert-starter",
+  "name": "BBH",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "n1-line1-wh",
+      "name": "LINE #1 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -180
+      ],
+      "webhookId": "bbh-line-main-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bbh-line-main",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "n2-line1-respond",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        -180
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "n3-line1-parse",
+      "name": "Parse Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -180
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst events = (body.events ?? []).filter(\n  e => ['message', 'follow', 'postback'].includes(e.type)\n);\nif (!events.length) return [];\nreturn events.map(e => ({\n  json: {\n    event_type:  e.type,\n    user_id:     e.source?.userId ?? '',\n    reply_token: e.replyToken ?? '',\n    text:        e.message?.text ?? e.postback?.data ?? ''\n  }\n}));"
+      }
+    },
+    {
+      "id": "n4-line1-if-follow",
+      "name": "Is Follow?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-follow",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "follow",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "n5-line1-welcome",
+      "name": "Send Welcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -320
+      ],
+      "parameters": {
+        "jsCode": "const { reply_token } = $json;\n\nasync function getToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}\n\nconst token = await getToken(\n  $vars.LINE_CHANNEL_ID ?? '',\n  $vars.LINE_CHANNEL_SECRET ?? ''\n);\n\nawait fetch('https://api.line.me/v2/bot/message/reply', {\n  method: 'POST',\n  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    replyToken: reply_token,\n    messages: [{\n      type: 'text',\n      text: 'à¸ªà¸§à¸±à¸ªà¸”à¸µà¸„à¹ˆà¸° ðŸ‘‹ à¸¢à¸´à¸™à¸”à¸µà¸•à¹‰à¸­à¸™à¸£à¸±à¸šà¸ªà¸¹à¹ˆ BBH Functional Medicine\\n\\nà¸žà¸´à¸¡à¸žà¹Œà¸„à¸³à¸–à¸²à¸¡à¹„à¸”à¹‰à¹€à¸¥à¸¢ à¸«à¸£à¸·à¸­à¹€à¸¥à¸·à¸­à¸à¸«à¸±à¸§à¸‚à¹‰à¸­à¸—à¸µà¹ˆà¸ªà¸™à¹ƒà¸ˆ:',\n      quickReply: {\n        items: [\n          { type: 'action', action: { type: 'message', label: 'ðŸ“… à¸ˆà¸­à¸‡à¸„à¸´à¸§',           text: 'à¸­à¸¢à¸²à¸à¸ˆà¸­à¸‡à¸„à¸´à¸§' } },\n          { type: 'action', action: { type: 'message', label: 'ðŸ”¬ FM à¸„à¸·à¸­à¸­à¸°à¹„à¸£',       text: 'Functional Medicine à¸„à¸·à¸­à¸­à¸°à¹„à¸£' } },\n          { type: 'action', action: { type: 'message', label: 'ðŸ’Š à¸šà¸£à¸´à¸à¸²à¸£à¹à¸¥à¸°à¸£à¸²à¸„à¸²',    text: 'à¸šà¸£à¸´à¸à¸²à¸£à¹à¸¥à¸°à¸£à¸²à¸„à¸²' } },\n          { type: 'action', action: { type: 'message', label: 'ðŸ“‹ à¸§à¸´à¸˜à¸µà¸ªà¹ˆà¸‡à¸œà¸¥à¸•à¸£à¸§à¸ˆ',   text: 'à¸§à¸´à¸˜à¸µà¸ªà¹ˆà¸‡à¸œà¸¥à¸•à¸£à¸§à¸ˆ' } }\n        ]\n      }\n    }]\n  })\n});\n\nreturn [{ json: { ok: true, sent: 'welcome' } }];"
+      }
+    },
+    {
+      "id": "n7-line2-wh",
+      "name": "LINE #2 CRO Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        160
+      ],
+      "webhookId": "bbh-line-cro-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bbh-line-cro",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "n8-line2-respond",
+      "name": "Respond 200 (CRO)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        160
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "n9-line2-parse",
+      "name": "Parse CRO Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst events = (body.events ?? []).filter(\n  e => ['message', 'follow'].includes(e.type)\n);\nif (!events.length) return [];\nreturn events.map(e => ({\n  json: {\n    event_type:  e.type,\n    user_id:     e.source?.userId ?? '',\n    reply_token: e.replyToken ?? '',\n    text:        e.message?.text ?? ''\n  }\n}));"
+      }
+    },
+    {
+      "id": "n10-line2-forward",
+      "name": "Forward to Bridge (CRO)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://hospital-bridge:8000/webhook/cro",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $vars.BRIDGE_INTERNAL_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      }
+    },
+    {
+      "id": "n-call-dify",
+      "name": "Call Dify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.DIFY_API_URL + \"/chat-messages\" }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $vars.DIFY_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({inputs:{role:\"public_inquiry\"},query:$json.text,response_mode:\"blocking\",conversation_id:\"\",user:\"public:\"+$json.user_id}) }}"
+      }
+    },
+    {
+      "id": "n-line-token",
+      "name": "Get LINE Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/oauth/accessToken",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ 'grant_type=client_credentials&client_id='+$vars.LINE_CHANNEL_ID+'&client_secret='+$vars.LINE_CHANNEL_SECRET }}"
+      }
+    },
+    {
+      "id": "n-line-reply",
+      "name": "Reply to LINE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({replyToken:$('Parse Events').item.json.reply_token,messages:[{type:'text',text:$('Call Dify').item.json.answer||'ขออภัยค่ะ ระบบไม่พร้อมให้บริการในขณะนี้'}]}) }}"
+      }
+    }
+  ],
+  "connections": {
+    "LINE #1 Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Events": {
+      "main": [
+        [
+          {
+            "node": "Is Follow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Follow?": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Dify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LINE #2 CRO Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond 200 (CRO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 200 (CRO)": {
+      "main": [
+        [
+          {
+            "node": "Parse CRO Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CRO Events": {
+      "main": [
+        [
+          {
+            "node": "Forward to Bridge (CRO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Dify": {
+      "main": [
+        [
+          {
+            "node": "Get LINE Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get LINE Token": {
+      "main": [
+        [
+          {
+            "node": "Reply to LINE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

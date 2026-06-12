@@ -1,0 +1,48 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: hospital-n8n
+    restart: unless-stopped
+    environment:
+      GENERIC_TIMEZONE: ${TZ:-Asia/Bangkok}
+      TZ: ${TZ:-Asia/Bangkok}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: ${N8N_PORT:-5678}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_LICENSE_ACTIVATION_KEY: ${N8N_LICENSE_ACTIVATION_KEY}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      BRIDGE_INTERNAL_URL: ${BRIDGE_INTERNAL_URL:-http://hospital-bridge:8000}
+      BRIDGE_INTERNAL_TOKEN: ${BRIDGE_INTERNAL_TOKEN}
+      # LINE credentials (used inside Code nodes via process.env)
+      LINE_CHANNEL_ID: ${LINE_CHANNEL_ID}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      LINE_CRO_CHANNEL_ID: ${LINE_CRO_CHANNEL_ID}
+      LINE_CRO_CHANNEL_SECRET: ${LINE_CRO_CHANNEL_SECRET}
+      # Dify
+      DIFY_API_URL: ${DIFY_API_URL:-http://nginx/v1}
+      DIFY_API_KEY: ${DIFY_API_KEY}
+      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_RUNNERS_ENABLED: "false"
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    volumes:
+      - hospital_n8n_data:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    networks:
+      - dify_default
+
+
+volumes:
+  hospital_n8n_data:
+
+networks:
+  dify_default:
+    name: docker_default
+    external: true

@@ -13,6 +13,7 @@ services:
       DB_PORT: 5432
       DIFY_API_URL: http://api:5001/v1
       NGROK_PUBLIC_URL: ${NGROK_PUBLIC_URL:-https://ineffectual-marian-nonnattily.ngrok-free.dev}
+      N8N_INTERNAL_BASE_URL: ${N8N_INTERNAL_BASE_URL:-http://hospital-n8n:5678}
       GOOGLE_SERVICE_ACCOUNT_FILE: /app/credentials/service_account.json
     volumes:
       - C:/Users/wisru/line-dify-bridge/credentials:/app/credentials:ro
@@ -20,25 +21,6 @@ services:
       - "8000:8000"
     networks:
       - dify_default
-
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: hospital-ngrok
-    restart: always
-    command:
-      - http
-      - bridge:8000
-      - --domain=${NGROK_DOMAIN:-ineffectual-marian-nonnattily.ngrok-free.dev}
-      - --log=stdout
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    depends_on:
-      bridge:
-        condition: service_healthy
-    networks:
-      - dify_default
-    ports:
-      - "4040:4040"
 
 networks:
   dify_default:

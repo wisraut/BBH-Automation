@@ -24,6 +24,8 @@ DIFY_API_KEY = os.getenv("DIFY_API_KEY")
 # Server
 SERVER_PORT      = int(os.getenv("SERVER_PORT", 8000))
 NGROK_PUBLIC_URL = os.getenv("NGROK_PUBLIC_URL", "")
+BRIDGE_INTERNAL_TOKEN = os.getenv("BRIDGE_INTERNAL_TOKEN", "")
+N8N_INTERNAL_BASE_URL = os.getenv("N8N_INTERNAL_BASE_URL", "")
 
 # DB
 DB_CONFIG = {

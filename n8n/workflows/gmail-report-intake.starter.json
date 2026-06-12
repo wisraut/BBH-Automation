@@ -1,0 +1,58 @@
+{
+  "name": "Hospital Gmail Report Intake - Starter",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item) => ({ json: { source: 'n8n-starter', note: 'Replace this node with Gmail Trigger + Gmail message/attachment parsing before activation.', receivedAt: new Date().toISOString() } }));"
+      },
+      "id": "shape-report-payload",
+      "name": "Shape Report Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BRIDGE_INTERNAL_URL}}/internal/reports/from-email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.BRIDGE_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}"
+      },
+      "id": "send-to-bridge",
+      "name": "Send To Bridge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Shape Report Payload", "type": "main", "index": 0}]]
+    },
+    "Shape Report Payload": {
+      "main": [[{"node": "Send To Bridge", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

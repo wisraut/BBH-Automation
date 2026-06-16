@@ -55,8 +55,24 @@ dist/
 build/
 *.egg-info/
 
+# Runtime/debug database snapshots and generated artifacts
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.dump
+*.backup
+*.pptx
+exec_dump.json
+work/
+outputs/
+n8n/*.sqlite
+n8n/*.sqlite-shm
+n8n/*.sqlite-wal
+
 # Google Service Account credentials
 credentials/
+n8n/credentials/
 *.json.key
 service_account*.json
 

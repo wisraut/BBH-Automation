@@ -1,7 +1,7 @@
 services:
   bridge:
     build:
-      context: C:/Users/wisru/line-dify-bridge
+      context: C:/Users/wisru/line-dify-bridge/backend
       dockerfile: Dockerfile
     image: hospital-bridge:dev
     container_name: hospital-bridge

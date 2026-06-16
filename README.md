@@ -97,40 +97,50 @@ curl https://<your-domain>.ngrok-free.dev/
 
 ```
 line-dify-bridge/
-├── main.py                       # FastAPI app wiring + routers + lifespan
-├── requirements.txt
-│
-├── api/                          # HTTP routers
-│   ├── health.py                 # service metadata + health
-│   ├── line_webhook.py           # LINE #1: DR/PT/public routing
-│   └── cro_webhook.py            # LINE #2: CRO commands
-│
-├── core/                         # runtime core
-│   ├── config.py                 # env vars + constants + logger
-│   ├── db.py                     # get_db() context manager
-│   └── lifespan.py               # startup reset + email poller lifecycle
-│
-├── integrations/                 # external API clients
-│   ├── line_client.py            # LINE API helpers (2 channels)
-│   ├── dify_client.py            # Dify chat-messages client + parse decision
-│   └── calendar_client.py        # Google Calendar helper
-│
-├── flows/                        # Business logic per role
-│   ├── doctor.py                 # DR login + report analysis + notify
-│   ├── patient.py                # PT login + advisor (Dify role=patient)
-│   └── cro.py                    # public Q&A + take-over + commands
-│
-├── jobs/
-│   └── email_poller.py           # Gmail IMAP poller (async background task)
-│
-├── ops/
-│   └── monitor.py                # TUI dashboard (host process)
-│
-├── migrations/                   # PostgreSQL schema + seed
-│   ├── migrate_hospital_db.sql
-│   ├── migrate_patient_register.sql
-│   ├── migrate_cro_assistant.sql
-│   └── migrate_cro_v2.sql
+├── backend/                      # Python FastAPI bridge (Docker build context)
+│   ├── main.py                   # FastAPI app wiring + routers + lifespan
+│   ├── requirements.txt
+│   ├── Dockerfile                # bridge container image
+│   │
+│   ├── api/                      # HTTP routers
+│   │   ├── health.py             # service metadata + health
+│   │   ├── line_webhook.py       # LINE main webhook forwarding/fallback
+│   │   ├── cro_webhook.py        # LINE CRO webhook
+│   │   ├── booking.py            # internal booking API
+│   │   └── session.py            # internal Dify session API
+│   │
+│   ├── core/                     # runtime core
+│   │   ├── config.py             # env vars + constants + logger
+│   │   ├── db.py                 # get_db() context manager
+│   │   └── lifespan.py           # startup reset + email poller lifecycle
+│   │
+│   ├── integrations/             # external API clients
+│   │   ├── line_client.py        # LINE API helpers (2 channels)
+│   │   ├── dify_client.py        # Dify chat-messages client + parse decision
+│   │   └── calendar_client.py    # Google Calendar helper
+│   │
+│   ├── flows/                    # Business logic per role
+│   │   ├── doctor.py             # DR login + report analysis + notify
+│   │   ├── patient.py            # PT login + advisor (Dify role=patient)
+│   │   └── cro.py                # public Q&A + take-over + commands
+│   │
+│   ├── jobs/
+│   │   └── email_poller.py       # Gmail IMAP poller (async background task)
+│   │
+│   ├── ops/
+│   │   └── monitor.py            # TUI dashboard (host process)
+│   │
+│   ├── migrations/               # PostgreSQL schema + seed
+│   │   ├── migrate_hospital_db.sql
+│   │   ├── migrate_patient_register.sql
+│   │   ├── migrate_cro_assistant.sql
+│   │   └── migrate_cro_v2.sql
+│   │
+│   └── tests/
+│       ├── test_full_flow.py     # doctor flow end-to-end
+│       ├── test_patient_flow.py  # patient register/advisor/emergency
+│       ├── test_pdf_email.py     # email + PDF parsing
+│       └── test_line_features.py # LINE/n8n/Dify integration suite
 │
 ├── dify_patches/                 # Dify graph patches (run once on fresh install)
 │   ├── patch_base.py             # DR/PT/emergency routing
@@ -139,14 +149,8 @@ line-dify-bridge/
 ├── tools/
 │   └── ask_patient.py            # CLI test — ส่งคำถามให้ Dify
 │
-├── tests/
-│   ├── test_full_flow.py         # doctor flow end-to-end
-│   ├── test_patient_flow.py      # patient register/advisor/emergency
-│   └── test_pdf_email.py         # email + PDF parsing
-│
-├── Dockerfile                    # bridge container image
 ├── .dockerignore
-├── docker-compose.bridge.yaml    # bridge + ngrok (extends Dify compose)
+├── docker-compose.bridge.yaml    # bridge service; build context = ./backend
 ├── start.bat                     # Single-command launcher
 │
 ├── README.md                     # คุณกำลังอ่านอยู่
@@ -158,12 +162,27 @@ line-dify-bridge/
 
 ## Development
 
+### Build / start bridge
+```powershell
+docker compose -f docker-compose.bridge.yaml build bridge
+docker compose -f docker-compose.bridge.yaml up -d bridge
+curl http://localhost:8000/
+```
+
+`docker-compose.bridge.yaml` builds the Python service from `./backend`. Inside the container, `/app` is the backend root, so imports such as `from api...` and `from core...` remain unchanged.
+
 ### Run tests
 ```powershell
-cd tests
+cd backend\tests
 python test_full_flow.py       # 28+ tests ครอบคลุม doctor + patient + edge cases
 python test_patient_flow.py    # patient register/advisor/emergency (31 tests)
 python test_pdf_email.py       # email + PDF parsing
+```
+
+LINE integration tests should run inside the `hospital-bridge` container:
+```powershell
+docker cp backend\tests\test_line_features.py hospital-bridge:/tmp/test_line_features.py
+docker exec hospital-bridge python3 /tmp/test_line_features.py
 ```
 
 ### View logs

@@ -90,6 +90,12 @@ line-dify-bridge/
 │   ├── mysql/init/
 │   └── workflows/
 │
+├── frontend/                      # React + TypeScript web app (Vite)
+│   ├── src/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+│
 ├── credentials/                   # local credentials mounted into backend container
 ├── dify_patches/                  # Dify prompt/workflow patch utilities
 ├── docs/                          # project notes and docs
@@ -155,6 +161,14 @@ If n8n crashes with SQLite readonly errors, fix the n8n data volume ownership:
 ```powershell
 docker exec --user root hospital-n8n chown -R node:node /home/node/.n8n
 docker restart hospital-n8n
+```
+
+Start the frontend dev server:
+
+```powershell
+cd frontend
+npm.cmd install
+npm.cmd run dev
 ```
 
 ---

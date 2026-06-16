@@ -1,0 +1,594 @@
+{
+  "id": "hospital-ops-health-alert-starter",
+  "name": "BBH",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "n1-line1-wh",
+      "name": "LINE #1 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -180
+      ],
+      "webhookId": "bbh-line-main-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bbh-line-main",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "n2-line1-respond",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        -180
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "n3-line1-parse",
+      "name": "Parse Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -180
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst events = (body.events ?? []).filter(\n  e => ['message', 'follow', 'postback'].includes(e.type)\n);\nif (!events.length) return [];\nreturn events.map(e => ({\n  json: {\n    event_type:  e.type,\n    user_id:     e.source?.userId ?? '',\n    reply_token: e.replyToken ?? '',\n    text:        e.message?.text ?? e.postback?.data ?? ''\n  }\n}));"
+      }
+    },
+    {
+      "id": "n4-line1-if-follow",
+      "name": "Is Follow?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-follow",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "follow",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "n5-line1-welcome",
+      "name": "Send Welcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -320
+      ],
+      "parameters": {
+        "jsCode": "const httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  let json = false;\n  if (typeof body === 'string' && contentType.includes('application/json')) {\n    body = body ? JSON.parse(body) : undefined;\n    json = true;\n  }\n  const res = await httpRequest({ method, url, headers, body, json, simple: false, returnFullResponse: true, resolveWithFullResponse: true });\n  const status = res.statusCode ?? res.status ?? 200;\n  const resBody = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300,\n    status,\n    json: async () => typeof resBody === 'string' ? JSON.parse(resBody || '{}') : resBody,\n    text: async () => typeof resBody === 'string' ? resBody : JSON.stringify(resBody)\n  };\n}\n\nconst { reply_token } = $json;\n\nasync function getToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}\n\nconst token = await getToken(\n  $vars.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || '',\n  $vars.LINE_CHANNEL_SECRET || process.env.LINE_CHANNEL_SECRET || ''\n);\n\nawait fetch('https://api.line.me/v2/bot/message/reply', {\n  method: 'POST',\n  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    replyToken: reply_token,\n    messages: [{\n      type: 'text',\n      text: 'สวัสดีค่ะ 👋 ยินดีต้อนรับสู่ BBH Functional Medicine\\n\\nพิมพ์คำถามได้เลย หรือเลือกหัวข้อที่สนใจ:',\n      quickReply: {\n        items: [\n          { type: 'action', action: { type: 'message', label: '📅 จองคิว',           text: 'อยากจองคิว' } },\n          { type: 'action', action: { type: 'message', label: '🔬 FM คืออะไร',       text: 'Functional Medicine คืออะไร' } },\n          { type: 'action', action: { type: 'message', label: '💊 บริการและราคา',    text: 'บริการและราคา' } },\n          { type: 'action', action: { type: 'message', label: '📋 วิธีส่งผลตรวจ',   text: 'วิธีส่งผลตรวจ' } }\n        ]\n      }\n    }]\n  })\n});\n\nreturn [{ json: { ok: true, sent: 'welcome' } }];"
+      }
+    },
+    {
+      "id": "n6-line1-dify-reply",
+      "name": "Ask Dify + Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -60
+      ],
+      "parameters": {
+        "jsCode": "\nconst incoming = $input.first().json;\nconst user_id    = incoming.user_id ?? '';\nconst reply_token = incoming.reply_token ?? '';\nconst text       = incoming.text ?? '';\n\nconst DIFY_KEY   = $vars.DIFY_API_KEY || process.env.DIFY_API_KEY || '';\nconst DIFY_URL   = $vars.DIFY_API_URL || process.env.DIFY_API_URL || 'http://nginx/v1';\nconst BRIDGE_URL = $vars.BRIDGE_INTERNAL_URL || process.env.BRIDGE_INTERNAL_URL || 'http://hospital-bridge:8000';\nconst BRIDGE_TOK = $vars.BRIDGE_INTERNAL_TOKEN || process.env.BRIDGE_INTERNAL_TOKEN || '';\nconst SESSION_URL = `${BRIDGE_URL}/internal/session/line_main/${encodeURIComponent(user_id)}`;\nconst AUTH_HDR   = { 'X-Internal-Token': BRIDGE_TOK, 'Content-Type': 'application/json' };\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}// 1. get conversation_id\nlet conv_id = '';\ntry {\n  const sr = await fetch(SESSION_URL, { headers: AUTH_HDR });\n  if (sr.ok) conv_id = (await sr.json()).dify_conversation_id ?? '';\n} catch (e) { console.error('get session error:', String(e?.message ?? e)); }\n\n// 2. ask Dify\nlet answer = 'ขออภัยค่ะ ระบบไม่พร้อมให้บริการในขณะนี้ กรุณาลองใหม่ภายหลังค่ะ';\nlet new_conv_id = conv_id;\ntry {\n  const difyRes = await fetch(`${DIFY_URL}/chat-messages`, {\n    method: 'POST',\n    headers: { Authorization: `Bearer ${DIFY_KEY}`, 'Content-Type': 'application/json' },\n    body: JSON.stringify({ inputs: { role: 'public_inquiry' }, query: text,\n      response_mode: 'blocking', conversation_id: conv_id, user: `public:${user_id}` })\n  });\n  const dify = await difyRes.json();\n  const raw  = (dify.answer ?? '').trim();\n  new_conv_id = dify.conversation_id ?? conv_id;\n\n  if      (/^AUTO:/i.test(raw))         answer = raw.replace(/^AUTO:\\s*/i, '');\n  else if (/^BOOKING_ASK:/i.test(raw))  answer = raw.replace(/^BOOKING_ASK:\\s*/i, '');\n  else if (/^BOOKING_DONE:/i.test(raw)) {\n    let bookingData = {};\n    try { bookingData = JSON.parse(raw.replace(/^BOOKING_DONE:\\s*/i, '').trim()); } catch(e) {}\n    if (!/^\\d{1,2}\\/\\d{1,2}/.test(bookingData.date || '')) {\n      answer = 'ขอวันที่เป็นตัวเลขด้วยนะคะ เช่น 21/6 หรือ 5/8 ค่ะ 📅';\n    } else {\n    let request_uid = '';\n    try {\n      const bRes = await fetch(`${BRIDGE_URL}/internal/booking`, {\n        method: 'POST', headers: AUTH_HDR,\n        body: JSON.stringify({ user_id,\n          name: bookingData.name || '', phone: bookingData.phone || '',\n          date: bookingData.date || '', time: bookingData.time || '',\n          symptom: bookingData.symptom || '', raw_summary: bookingData })\n      });\n      if (bRes.ok) request_uid = (await bRes.json()).request_uid || '';\n    } catch(e) { console.error('save booking error:', String(e?.message ?? e)); }\n    if (request_uid) {\n      try {\n        const croUserRes = await fetch(`${BRIDGE_URL}/internal/booking/cro-user/latest`, { headers: AUTH_HDR });\n        const cro_uid = croUserRes.ok ? (await croUserRes.json()).user_id : null;\n        if (cro_uid) {\n          const croTok = await getLineToken(\n            $vars.LINE_CRO_CHANNEL_ID || process.env.LINE_CRO_CHANNEL_ID || '',\n            $vars.LINE_CRO_CHANNEL_SECRET || process.env.LINE_CRO_CHANNEL_SECRET || ''\n          );\n          const summary = `📋 มีการจองคิวใหม่\\n• ชื่อ: ${bookingData.name||'-'}\\n• เบอร์: ${bookingData.phone||'-'}\\n• วัน: ${bookingData.date||'-'} เวลา ${bookingData.time||'-'}\\n• อาการ: ${bookingData.symptom||'-'}`;\n          await fetch('https://api.line.me/v2/bot/message/push', {\n            method: 'POST',\n            headers: { Authorization: `Bearer ${croTok}`, 'Content-Type': 'application/json' },\n            body: JSON.stringify({ to: cro_uid, messages: [{ type: 'text', text: summary,\n              quickReply: { items: [\n                { type: 'action', action: { type: 'postback', label: '✅ ยืนยัน', data: `CONFIRM:${request_uid}` } },\n                { type: 'action', action: { type: 'postback', label: '❌ ไม่รับ', data: `REJECT:${request_uid}` } }\n              ]}}]})\n          });\n        }\n      } catch(e) { console.error('push CRO error:', String(e?.message ?? e)); }\n    }\n    answer = 'รับทราบค่ะ รอเจ้าหน้าที่ยืนยันนัดหมายในไม่ช้าค่ะ 📋';\n    }\n  }\n  else if (/^CONSULT:/i.test(raw))       answer = raw.replace(/^CONSULT:\\s*/i, '');\n  else if (/^ESCALATE:emergency/i.test(raw)) answer = 'Emergency symptoms detected. Please call 1669 or go to the nearest hospital immediately.';\n  else if (/^ESCALATE/i.test(raw))      answer = 'ขอโทษค่ะ เรื่องนี้ต้องให้เจ้าหน้าที่ช่วยดูแลแทนค่ะ กรุณารอสักครู่ เจ้าหน้าที่จะติดต่อกลับ';\n  else if (raw)                         answer = raw;\n} catch (e) { console.error('Dify error:', String(e?.message ?? e)); }\n\n// 3. save conv_id\nif (new_conv_id) {\n  try {\n    await fetch(SESSION_URL, { method: 'POST', headers: AUTH_HDR,\n      body: JSON.stringify({ dify_conversation_id: new_conv_id, current_state: 'active' }) });\n  } catch (e) {}\n}\n\n// 4. reply LINE\ntry {\n  const token = await getLineToken(\n    $vars.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || '',\n    $vars.LINE_CHANNEL_SECRET || process.env.LINE_CHANNEL_SECRET || ''\n  );\n  await fetch('https://api.line.me/v2/bot/message/reply', {\n    method: 'POST',\n    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },\n    body: JSON.stringify({ replyToken: reply_token, messages: [{ type: 'text', text: answer.slice(0, 5000) }] })\n  });\n} catch (e) { console.error('LINE reply error:', String(e?.message ?? e)); }\n\nreturn [{ json: { ok: true, user_id, conv_id: new_conv_id, answer } }];"
+      }
+    },
+    {
+      "id": "n7-line2-wh",
+      "name": "LINE #2 CRO Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        160
+      ],
+      "webhookId": "bbh-line-cro-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bbh-line-cro",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "n8-line2-respond",
+      "name": "Respond 200 (CRO)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        160
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "n9-line2-parse",
+      "name": "Parse CRO Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst events = (body.events ?? []).filter(\n  e => ['message', 'follow', 'postback'].includes(e.type)\n);\nif (!events.length) return [];\nreturn events.map(e => ({\n  json: {\n    event_type:  e.type,\n    user_id:     e.source?.userId ?? '',\n    reply_token: e.replyToken ?? '',\n    text:        e.message?.text ?? e.postback?.data ?? ''\n  }\n}));"
+      }
+    },
+    {
+      "id": "n11-track-cro",
+      "name": "Track CRO User",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        160
+      ],
+      "parameters": {
+        "jsCode": "\nconst { user_id } = $json;\nconst BRIDGE_URL = $vars.BRIDGE_INTERNAL_URL || process.env.BRIDGE_INTERNAL_URL || 'http://hospital-bridge:8000';\nconst BRIDGE_TOK = $vars.BRIDGE_INTERNAL_TOKEN || process.env.BRIDGE_INTERNAL_TOKEN || '';\nconst AUTH_HDR   = { 'X-Internal-Token': BRIDGE_TOK, 'Content-Type': 'application/json' };\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}if (user_id) {\n  try {\n    await fetch(`${BRIDGE_URL}/internal/session/line_cro/${encodeURIComponent(user_id)}`, {\n      method: 'POST', headers: AUTH_HDR,\n      body: JSON.stringify({ current_state: 'active' })\n    });\n  } catch(e) {}\n}\nreturn [$input.first()];"
+      }
+    },
+    {
+      "id": "n12-cro-is-postback",
+      "name": "Is CRO Postback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        160
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-postback",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "postback",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "n14-cro-text-cmd",
+      "name": "CRO Text Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        260
+      ],
+      "parameters": {
+        "jsCode": "\nconst { user_id, reply_token, text } = $json;\nconst BRIDGE_URL = $vars.BRIDGE_INTERNAL_URL || process.env.BRIDGE_INTERNAL_URL || 'http://hospital-bridge:8000';\nconst BRIDGE_TOK = $vars.BRIDGE_INTERNAL_TOKEN || process.env.BRIDGE_INTERNAL_TOKEN || '';\nconst AUTH_HDR   = { 'X-Internal-Token': BRIDGE_TOK, 'Content-Type': 'application/json' };\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}const t = (text || '').trim();\nconst isConfirm = /^(ยืนยัน|confirm|ok|ตกลง|ใช่|รับ)/i.test(t);\nconst isReject  = /^(ไม่รับ|ปฏิเสธ|reject|cancel|ยกเลิก)/i.test(t);\n\nif (!isConfirm && !isReject) return [];\n\nconst bRes = await fetch(`${BRIDGE_URL}/internal/booking/latest-pending`, { headers: AUTH_HDR });\nif (!bRes.ok) return [];\nconst booking = await bRes.json();\nif (!booking || !booking.request_uid) return [];\n\nconst action = isConfirm ? 'CONFIRM' : 'REJECT';\nreturn [{ json: {\n  event_type: 'postback',\n  user_id,\n  reply_token,\n  text: `${action}:${booking.request_uid}`\n}}];"
+      }
+    },
+    {
+      "id": "n13-handle-postback",
+      "name": "Handle CRO Postback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        80
+      ],
+      "parameters": {
+        "jsCode": "\nconst { user_id, reply_token, text: postback_data } = $json;\nconst BRIDGE_URL = $vars.BRIDGE_INTERNAL_URL || process.env.BRIDGE_INTERNAL_URL || 'http://hospital-bridge:8000';\nconst BRIDGE_TOK = $vars.BRIDGE_INTERNAL_TOKEN || process.env.BRIDGE_INTERNAL_TOKEN || '';\nconst AUTH_HDR   = { 'X-Internal-Token': BRIDGE_TOK, 'Content-Type': 'application/json' };\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}async function lineReply(tok, rt, msg) {\n  if (!rt || rt === 'noreply') return;\n  await fetch('https://api.line.me/v2/bot/message/reply', {\n    method: 'POST',\n    headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },\n    body: JSON.stringify({ replyToken: rt, messages: [{ type: 'text', text: msg.slice(0, 5000) }] })\n  });\n}\n\nconst match = (postback_data || '').match(/^(CONFIRM|REJECT):(.+)$/i);\nif (!match) return [];\nconst [, action, request_uid] = match;\n\nconst croToken = await getLineToken(\n  $vars.LINE_CRO_CHANNEL_ID || process.env.LINE_CRO_CHANNEL_ID || '',\n  $vars.LINE_CRO_CHANNEL_SECRET || process.env.LINE_CRO_CHANNEL_SECRET || ''\n);\nconst mainToken = await getLineToken(\n  $vars.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || '',\n  $vars.LINE_CHANNEL_SECRET || process.env.LINE_CHANNEL_SECRET || ''\n);\n\nconst bookingRes = await fetch(`${BRIDGE_URL}/internal/booking/${request_uid}`, { headers: AUTH_HDR });\nif (!bookingRes.ok) {\n  await lineReply(croToken, reply_token, 'ไม่พบข้อมูลการจองค่ะ');\n  return [];\n}\nconst booking = await bookingRes.json();\nconst patient_uid = booking.external_user_id;\n\nif (action.toUpperCase() === 'REJECT') {\n  return [{ json: { action: 'reject', request_uid, patient_uid, user_id, reply_token, croToken, mainToken, booking } }];\n}\n\n// CONFIRM — parse date\nconst dt_text = booking.requested_datetime_text || '';\nconst dtMatch = dt_text.match(/(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\s+(\\d{1,2}):(\\d{2})/);\nif (!dtMatch) {\n  await lineReply(croToken, reply_token, `ไม่สามารถอ่านวันที่ได้: \"${dt_text}\"\\nกรุณาใช้รูปแบบ dd/mm HH:MM ค่ะ`);\n  return [];\n}\nconst [, d, m, yr, h, mn] = dtMatch;\nconst year = yr ? (yr.length === 2 ? 2000 + parseInt(yr) : parseInt(yr)) : new Date().getFullYear();\nconst pad = (n) => String(parseInt(n)).padStart(2, '0');\n// UTC for Calendar conflict check (timeMin/timeMax)\nconst startUTC = new Date(Date.UTC(year, parseInt(m)-1, parseInt(d), parseInt(h)-7, parseInt(mn)));\nconst endUTC   = new Date(startUTC.getTime() + 3600000);\n// Local datetime (no Z) for event creation — paired with timeZone:Asia/Bangkok\nconst startLocal = `${year}-${pad(m)}-${pad(d)}T${pad(h)}:${mn}:00`;\nconst endLocal   = `${year}-${pad(m)}-${pad(d)}T${pad(parseInt(h)+1)}:${mn}:00`;\nconst dateLabel  = `${d}/${m}/${year} ${pad(h)}:${mn}`;\n\nreturn [{ json: {\n  action: 'confirm',\n  request_uid, patient_uid, user_id, reply_token, croToken, mainToken, booking,\n  startISO: startUTC.toISOString(),\n  endISO:   endUTC.toISOString(),\n  startLocal, endLocal,\n  dateLabel,\n  eventTitle: `[OPD] ${booking.patient_name} - ${booking.symptom || 'FM Consult'}`,\n  eventDesc:  `ชื่อ: ${booking.patient_name}\\nเบอร์: ${booking.phone}\\nอาการ: ${booking.symptom||'-'}\\nสถานะ: NEW\\nจองผ่าน LINE Bot`\n}}];"
+      }
+    },
+    {
+      "id": "n15-route-action",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-action",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "confirm",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "n16-reject-handler",
+      "name": "Reject Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        260
+      ],
+      "parameters": {
+        "jsCode": "\nconst { request_uid, patient_uid, user_id, reply_token, croToken, mainToken } = $json;\nconst BRIDGE_URL = $vars.BRIDGE_INTERNAL_URL || process.env.BRIDGE_INTERNAL_URL || 'http://hospital-bridge:8000';\nconst BRIDGE_TOK = $vars.BRIDGE_INTERNAL_TOKEN || process.env.BRIDGE_INTERNAL_TOKEN || '';\nconst AUTH_HDR   = { 'X-Internal-Token': BRIDGE_TOK, 'Content-Type': 'application/json' };\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}await fetch(`${BRIDGE_URL}/internal/booking/${request_uid}/reject`, {\n  method: 'POST', headers: AUTH_HDR,\n  body: JSON.stringify({ reason: 'CRO rejected', rejected_by: user_id })\n});\nif (patient_uid) {\n  try {\n    await fetch('https://api.line.me/v2/bot/message/push', {\n      method: 'POST',\n      headers: { Authorization: `Bearer ${mainToken}`, 'Content-Type': 'application/json' },\n      body: JSON.stringify({ to: patient_uid, messages: [{ type: 'text', text:\n        'ขออภัยค่ะ ขณะนี้ไม่สามารถรับนัดในช่วงเวลาที่ต้องการได้ เจ้าหน้าที่จะติดต่อกลับเพื่อหาเวลาที่เหมาะสมค่ะ' }] })\n    });\n  } catch(e) { console.error('LINE push patient error:', e?.message); }\n}\ntry {\n  await fetch('https://api.line.me/v2/bot/message/reply', {\n    method: 'POST',\n    headers: { Authorization: `Bearer ${croToken}`, 'Content-Type': 'application/json' },\n    body: JSON.stringify({ replyToken: reply_token, messages: [{ type: 'text', text: 'ยกเลิกการจองแล้วค่ะ' }] })\n  });\n} catch(e) { console.error('LINE reply CRO error:', e?.message); }\nreturn [{ json: { ok: true, action: 'reject', request_uid } }];"
+      }
+    },
+    {
+      "id": "n17-check-calendar",
+      "name": "Check Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=' + encodeURIComponent($json.startISO) + '&timeMax=' + encodeURIComponent($json.endISO) + '&singleEvents=true' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "FRIprVxiT3UAaAjt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "id": "n18-process-conflicts",
+      "name": "Process Conflicts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const calData = $json;\nconst prep = $('Handle CRO Postback').first().json;\nconst items = (calData.items || []).filter(e => e.status !== 'cancelled');\nreturn [{ json: {\n  ...prep,\n  hasConflicts: items.length > 0,\n  conflictTitles: items.map(e => e.summary || 'มีนัด')\n}}];"
+      }
+    },
+    {
+      "id": "n19-route-conflicts",
+      "name": "Route Conflicts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-conflicts",
+              "leftValue": "={{ $json.hasConflicts }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "n20-conflict-reply",
+      "name": "Conflict Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        160
+      ],
+      "parameters": {
+        "jsCode": "\nconst { conflictTitles, dateLabel, croToken, reply_token } = $json;\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}const msg = `วันที่ ${dateLabel} มีนัดอยู่แล้วค่ะ:\\n${conflictTitles.join(', ')}\\n\\nกรุณาแจ้งคนไข้เพื่อเปลี่ยนวันนัดค่ะ`;\ntry {\n  await fetch('https://api.line.me/v2/bot/message/reply', {\n    method: 'POST',\n    headers: { Authorization: `Bearer ${croToken}`, 'Content-Type': 'application/json' },\n    body: JSON.stringify({ replyToken: reply_token, messages: [{ type: 'text', text: msg }] })\n  });\n} catch(e) { console.error('LINE conflict reply error:', e?.message); }\nreturn [{ json: { ok: true, action: 'conflict' } }];"
+      }
+    },
+    {
+      "id": "n21-create-event",
+      "name": "Create Calendar Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ summary: $json.eventTitle, description: $json.eventDesc, start: { dateTime: $json.startLocal, timeZone: 'Asia/Bangkok' }, end: { dateTime: $json.endLocal, timeZone: 'Asia/Bangkok' } }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "FRIprVxiT3UAaAjt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "id": "n22-approve-notify",
+      "name": "Approve + Notify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -80
+      ],
+      "parameters": {
+        "jsCode": "\nconst calEvent = $json;\nconst prep = $('Handle CRO Postback').first().json;\nconst { request_uid, patient_uid, user_id, reply_token, croToken, mainToken, booking, dateLabel } = prep;\n\nconst BRIDGE_URL = $vars.BRIDGE_INTERNAL_URL || process.env.BRIDGE_INTERNAL_URL || 'http://hospital-bridge:8000';\nconst BRIDGE_TOK = $vars.BRIDGE_INTERNAL_TOKEN || process.env.BRIDGE_INTERNAL_TOKEN || '';\nconst AUTH_HDR   = { 'X-Internal-Token': BRIDGE_TOK, 'Content-Type': 'application/json' };\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\nasync function fetch(url, options = {}) {\n  const headers = options.headers ?? {};\n  const method = options.method ?? 'GET';\n  const contentType = String(headers['Content-Type'] ?? headers['content-type'] ?? '');\n  let body = options.body;\n  const req = { method, url, headers, simple: false, returnFullResponse: true, resolveWithFullResponse: true };\n  if (body !== undefined) {\n    if (typeof body === 'string' && contentType.includes('application/json')) {\n      req.body = body; req.json = false;\n    } else { req.body = body; }\n  }\n  const res = await httpRequest(req);\n  const status = res.statusCode ?? res.status ?? 200;\n  const rb = res.body ?? res;\n  return {\n    ok: status >= 200 && status < 300, status,\n    json: async () => typeof rb === 'string' ? JSON.parse(rb || '{}') : rb,\n    text: async () => typeof rb === 'string' ? rb : JSON.stringify(rb)\n  };\n}\nasync function getLineToken(id, sec) {\n  const r = await fetch('https://api.line.me/v2/oauth/accessToken', {\n    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `grant_type=client_credentials&client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(sec)}`\n  });\n  return (await r.json()).access_token;\n}const event_id  = calEvent.id || '';\nconst event_url = calEvent.htmlLink || '';\n\nawait fetch(`${BRIDGE_URL}/internal/booking/${request_uid}/approve`, {\n  method: 'POST', headers: AUTH_HDR,\n  body: JSON.stringify({ calendar_event_id: event_id, calendar_event_url: event_url, approved_by: user_id })\n});\nif (patient_uid) {\n  try {\n    await fetch('https://api.line.me/v2/bot/message/push', {\n      method: 'POST',\n      headers: { Authorization: `Bearer ${mainToken}`, 'Content-Type': 'application/json' },\n      body: JSON.stringify({ to: patient_uid, messages: [{ type: 'text', text:\n        `ยืนยันนัดหมายเรียบร้อยค่ะ ✅\\n\\n📅 ${dateLabel}\\n👤 ${booking.patient_name}\\n📝 ${booking.symptom||'FM Consult'}\\n\\nหากต้องการเปลี่ยนแปลงหรือยกเลิก กรุณาติดต่อเจ้าหน้าที่ค่ะ` }] })\n    });\n  } catch(e) { console.error('LINE push patient error:', e?.message); }\n}\ntry {\n  await fetch('https://api.line.me/v2/bot/message/reply', {\n    method: 'POST',\n    headers: { Authorization: `Bearer ${croToken}`, 'Content-Type': 'application/json' },\n    body: JSON.stringify({ replyToken: reply_token, messages: [{ type: 'text', text:\n      `สร้าง calendar แล้วค่ะ 📅\\nนัด: ${dateLabel}\\nผู้ป่วย: ${booking.patient_name}` }] })\n  });\n} catch(e) { console.error('LINE reply CRO error:', e?.message); }\nreturn [{ json: { ok: true, action: 'confirm', dateLabel, event_url } }];"
+      }
+    }
+  ],
+  "connections": {
+    "LINE #1 Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Events": {
+      "main": [
+        [
+          {
+            "node": "Is Follow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Follow?": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask Dify + Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LINE #2 CRO Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond 200 (CRO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 200 (CRO)": {
+      "main": [
+        [
+          {
+            "node": "Parse CRO Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CRO Events": {
+      "main": [
+        [
+          {
+            "node": "Track CRO User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track CRO User": {
+      "main": [
+        [
+          {
+            "node": "Is CRO Postback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is CRO Postback?": {
+      "main": [
+        [
+          {
+            "node": "Handle CRO Postback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CRO Text Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRO Text Command": {
+      "main": [
+        [
+          {
+            "node": "Handle CRO Postback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle CRO Postback": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Check Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Calendar": {
+      "main": [
+        [
+          {
+            "node": "Process Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Conflicts": {
+      "main": [
+        [
+          {
+            "node": "Route Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Conflicts": {
+      "main": [
+        [
+          {
+            "node": "Conflict Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Approve + Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

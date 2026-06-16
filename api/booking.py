@@ -1,0 +1,155 @@
+"""Booking management — create, approve, reject, and CRO user lookup."""
+import json
+import uuid
+from typing import Optional
+
+import pymysql
+from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel
+
+from api.health import _require_internal_token
+from api.session import _db
+from core.config import log
+
+router = APIRouter(prefix="/internal/booking")
+
+
+class BookingCreate(BaseModel):
+    user_id: str
+    name: str
+    phone: str
+    date: str
+    time: str
+    symptom: str
+    raw_summary: Optional[dict] = None
+
+
+class ApproveBooking(BaseModel):
+    calendar_event_id: str = ""
+    calendar_event_url: str = ""
+    approved_by: str = "cro"
+
+
+class RejectBooking(BaseModel):
+    reason: str = ""
+    rejected_by: str = "cro"
+
+
+@router.post("")
+def create_booking(body: BookingCreate, x_internal_token: str | None = Header(None)):
+    _require_internal_token(x_internal_token)
+    request_uid = str(uuid.uuid4())
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO booking_requests
+                    (request_uid, channel, external_user_id, status,
+                     patient_name, phone, requested_datetime_text, symptom, raw_summary)
+                VALUES (%s, 'line_main', %s, 'pending_approval', %s, %s, %s, %s, %s)
+                """,
+                (
+                    request_uid, body.user_id, body.name, body.phone,
+                    f"{body.date} {body.time}", body.symptom,
+                    json.dumps(body.raw_summary or {}, ensure_ascii=False),
+                ),
+            )
+        conn.commit()
+    log.info("Booking created: %s for %s", request_uid[:8], body.name)
+    return {"request_uid": request_uid, "ok": True}
+
+
+@router.get("/cro-user/latest")
+def get_latest_cro_user(x_internal_token: str | None = Header(None)):
+    _require_internal_token(x_internal_token)
+    with _db() as conn:
+        with conn.cursor() as cur:
+            # LINE userId = 'U' + 32 hex; filter test users (Ucro-*, Utest-*, etc.)
+            cur.execute(
+                "SELECT external_user_id FROM bot_sessions "
+                "WHERE channel = 'line_cro' "
+                "  AND external_user_id REGEXP '^U[0-9a-f]{32}$' "
+                "ORDER BY updated_at DESC LIMIT 1"
+            )
+            row = cur.fetchone()
+    return {"user_id": row["external_user_id"] if row else None}
+
+
+@router.get("/latest-pending")
+def get_latest_pending(x_internal_token: str | None = Header(None)):
+    _require_internal_token(x_internal_token)
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT request_uid, patient_name, phone, requested_datetime_text, symptom, external_user_id "
+                "FROM booking_requests WHERE status = 'pending_approval' "
+                "ORDER BY created_at DESC LIMIT 1"
+            )
+            row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="No pending booking")
+    return row
+
+
+@router.get("/{request_uid}")
+def get_booking(request_uid: str, x_internal_token: str | None = Header(None)):
+    _require_internal_token(x_internal_token)
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM booking_requests WHERE request_uid = %s LIMIT 1",
+                (request_uid,),
+            )
+            row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    # Convert non-serialisable types
+    for k, v in row.items():
+        if hasattr(v, 'isoformat'):
+            row[k] = v.isoformat()
+    return row
+
+
+@router.post("/{request_uid}/approve")
+def approve_booking(
+    request_uid: str,
+    body: ApproveBooking,
+    x_internal_token: str | None = Header(None),
+):
+    _require_internal_token(x_internal_token)
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE booking_requests SET
+                    status            = 'approved',
+                    calendar_event_id = %s,
+                    calendar_event_url= %s,
+                    calendar_status   = 'created',
+                    approved_by       = %s,
+                    approved_at       = NOW()
+                WHERE request_uid = %s
+                """,
+                (body.calendar_event_id, body.calendar_event_url, body.approved_by, request_uid),
+            )
+        conn.commit()
+    log.info("Booking approved: %s by %s", request_uid[:8], body.approved_by)
+    return {"ok": True}
+
+
+@router.post("/{request_uid}/reject")
+def reject_booking(
+    request_uid: str,
+    body: RejectBooking,
+    x_internal_token: str | None = Header(None),
+):
+    _require_internal_token(x_internal_token)
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE booking_requests SET status = 'rejected', notes = %s WHERE request_uid = %s",
+                (body.reason, request_uid),
+            )
+        conn.commit()
+    log.info("Booking rejected: %s", request_uid[:8])
+    return {"ok": True}

@@ -1,205 +1,215 @@
 @echo off
-setlocal enabledelayedexpansion
-title Hospital Bridge - Launcher
-color 0B
+setlocal EnableExtensions EnableDelayedExpansion
 
-set "BRIDGE_DIR=%~dp0"
+set "ROOT_DIR=C:\Users\wisru\line-dify-bridge"
 set "DIFY_DIR=C:\Users\wisru\dify\docker"
-set "NGROK_URL="
+set "DOCKER_DESKTOP=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
 
-if exist "%BRIDGE_DIR%.env" (
-    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"NGROK_PUBLIC_URL=" "%BRIDGE_DIR%.env"') do set "NGROK_URL=%%B"
-)
-if "%NGROK_URL%"=="" set "NGROK_URL=(not configured)"
+title BBH System Launcher
+color 0B
+cd /d "%ROOT_DIR%"
 
-echo ================================
-echo  Hospital Bridge - Starting
-echo ================================
+echo ========================================
+echo  BBH Hospital Bot - System Launcher
+echo ========================================
 echo.
 
-REM ==== [1/6] Docker Desktop ====
-echo [1/6] Checking Docker...
-where docker >nul 2>&1
+REM ==== [1/7] Docker Desktop ====
+echo [1/7] Checking Docker...
+docker info >nul 2>&1
 if errorlevel 1 (
-    echo   [ERROR] Docker CLI not found. Install Docker Desktop first.
+    echo   Docker not running - starting Docker Desktop...
+    if exist "%DOCKER_DESKTOP%" (
+        start "" "%DOCKER_DESKTOP%"
+    ) else (
+        echo   [ERROR] Docker Desktop not found: %DOCKER_DESKTOP%
+        pause
+        exit /b 1
+    )
+)
+
+set /a elapsed=0
+:wait_docker
+docker info >nul 2>&1
+if not errorlevel 1 goto docker_ready
+if !elapsed! geq 180 (
+    echo   [ERROR] Docker not ready after 180s. Open Docker Desktop manually then retry.
     pause
     exit /b 1
 )
+echo   Waiting for Docker... !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
+goto wait_docker
 
-docker info >nul 2>&1
-if errorlevel 1 (
-    echo   Docker is not running. Launching Docker Desktop...
-    if exist "C:\Program Files\Docker\Docker\Docker Desktop.exe" (
-        start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    ) else (
-        echo   [ERROR] Docker Desktop executable not found.
-        pause
-        exit /b 1
-    )
-)
+:docker_ready
+echo   Docker ready.
 
-echo   Waiting for Docker to be ready (up to 180s)...
-set /a tries=0
-:wait_docker
-docker info >nul 2>&1
-if errorlevel 1 (
-    set /a tries+=1
-    if !tries! geq 36 (
-        echo   [ERROR] Docker not ready after 180s.
-        echo   Try opening Docker Desktop manually, then run start.bat again.
-        pause
-        exit /b 1
-    )
-    timeout /t 5 /nobreak >nul
-    goto wait_docker
-)
-echo   Docker is ready.
-
-REM ==== [2/6] Dify stack ====
+REM ==== [2/7] Dify stack ====
 echo.
-echo [2/6] Starting Dify stack...
+echo [2/7] Starting Dify stack...
 if not exist "%DIFY_DIR%\docker-compose.yaml" (
     echo   [ERROR] Dify folder not found: %DIFY_DIR%
     pause
     exit /b 1
 )
-
 pushd "%DIFY_DIR%"
-docker compose up -d
+docker compose -f docker-compose.yaml up -d
 if errorlevel 1 (
     echo   [ERROR] Dify compose up failed.
-    echo   Run manually:
-    echo     cd /d "%DIFY_DIR%"
-    echo     docker compose up -d
     popd
     pause
     exit /b 1
 )
 popd
-echo   Dify containers requested.
 
-REM ==== [3/6] Wait Dify API ====
-echo.
-echo [3/6] Waiting for Dify API (up to 180s)...
-set /a tries=0
+set /a elapsed=0
 :wait_dify
-curl -s -o nul -w "%%{http_code}" http://localhost/v1/info > "%TEMP%\dify_check.txt" 2>nul
-set /p HTTP_CODE=<"%TEMP%\dify_check.txt"
-del "%TEMP%\dify_check.txt" >nul 2>&1
-
+curl -s -o nul -w "%%{http_code}" http://localhost/v1/info > "%TEMP%\bbh_dify.txt" 2>nul
+set /p HTTP_CODE=<"%TEMP%\bbh_dify.txt"
+del "%TEMP%\bbh_dify.txt" >nul 2>&1
 if "!HTTP_CODE!"=="200" goto dify_ready
 if "!HTTP_CODE!"=="401" goto dify_ready
-
-set /a tries+=1
-if !tries! geq 36 (
-    echo   [WARN] Dify did not become ready after 180s. Last HTTP: !HTTP_CODE!
-    echo   Continuing so the bridge can still start and expose diagnostics.
-    goto dify_done
+if !elapsed! geq 180 (
+    echo   [WARN] Dify not ready after 180s. HTTP: !HTTP_CODE!. Continuing...
+    goto dify_ready
 )
-
 if "!HTTP_CODE!"=="502" (
-    echo   Dify nginx returned 502; waiting for api/worker startup...
+    echo   Dify warming up... !elapsed!s
 ) else (
-    echo   Dify not ready yet. HTTP: !HTTP_CODE!
+    echo   Waiting for Dify API... HTTP !HTTP_CODE! / !elapsed!s
 )
-timeout /t 5 /nobreak >nul
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
 goto wait_dify
 
 :dify_ready
-echo   Dify API responding (HTTP !HTTP_CODE!).
-:dify_done
+echo   Dify API ready. HTTP: !HTTP_CODE!
 
-REM ==== [4/6] Bridge + ngrok ====
+REM ==== [3/7] Refresh nginx DNS ====
 echo.
-echo [4/6] Starting Bridge + ngrok (docker compose --build)...
-pushd "%BRIDGE_DIR%"
-docker compose -f docker-compose.bridge.yaml --env-file .env config >nul
-if errorlevel 1 (
-    echo   [ERROR] Bridge compose config is invalid.
-    echo   Run manually:
-    echo     docker compose -f docker-compose.bridge.yaml --env-file .env config
-    popd
-    pause
-    exit /b 1
-)
+echo [3/7] Refreshing Dify nginx...
+docker restart docker-nginx-1 >nul 2>&1
+echo   nginx restarted.
 
-docker compose -f docker-compose.bridge.yaml --env-file .env up --build -d
+REM ==== [4/7] Bridge ====
+echo.
+echo [4/7] Starting Bridge...
+docker image inspect hospital-bridge:dev >nul 2>&1
+if errorlevel 1 (
+    echo   Image not found - building on first run...
+    docker compose -f docker-compose.bridge.yaml --env-file .env up -d --build
+) else (
+    docker compose -f docker-compose.bridge.yaml --env-file .env up -d
+)
 if errorlevel 1 (
     echo   [ERROR] Bridge compose up failed.
-    echo.
     docker compose -f docker-compose.bridge.yaml ps
-    echo.
-    echo   Logs:
-    echo     docker logs hospital-bridge -f
-    echo     docker logs hospital-ngrok -f
-    popd
     pause
     exit /b 1
 )
-popd
-echo   Bridge + ngrok containers requested.
 
-REM ==== [5/6] Refresh nginx DNS + wait bridge ====
-echo.
-echo [5/6] Refreshing Dify nginx DNS and waiting for bridge...
-docker restart docker-nginx-1 >nul 2>&1
-
-set /a tries=0
+set /a elapsed=0
 :wait_bridge
-curl -s -o nul -w "%%{http_code}" http://localhost:8000/ > "%TEMP%\bridge_check.txt" 2>nul
-set /p HTTP_CODE=<"%TEMP%\bridge_check.txt"
-del "%TEMP%\bridge_check.txt" >nul 2>&1
-
-if "!HTTP_CODE!"=="200" goto :bridge_ready
-
-set /a tries+=1
-if !tries! geq 18 (
-    echo   [ERROR] Bridge not healthy after 90s. Last HTTP: !HTTP_CODE!
-    echo.
-    pushd "%BRIDGE_DIR%"
-    docker compose -f docker-compose.bridge.yaml ps
-    popd
-    echo.
-    echo   Recent hospital-bridge logs:
-    docker logs hospital-bridge --tail 80
-    echo.
-    echo   Recent hospital-ngrok logs:
-    docker logs hospital-ngrok --tail 40
-    pause
-    exit /b 1
+curl -s -o nul -w "%%{http_code}" http://localhost:8000/ > "%TEMP%\bbh_bridge.txt" 2>nul
+set /p BRIDGE_CODE=<"%TEMP%\bbh_bridge.txt"
+del "%TEMP%\bbh_bridge.txt" >nul 2>&1
+if "!BRIDGE_CODE!"=="200" goto bridge_ready
+if !elapsed! geq 90 (
+    echo   [WARN] Bridge not responding after 90s. HTTP: !BRIDGE_CODE!. Continuing...
+    goto bridge_ready
 )
-
-echo   Bridge not ready yet. HTTP: !HTTP_CODE!
-timeout /t 5 /nobreak >nul
+echo   Waiting for Bridge... HTTP !BRIDGE_CODE! / !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
 goto wait_bridge
 
 :bridge_ready
-echo   Bridge responding (HTTP 200).
+echo   Bridge ready. HTTP: !BRIDGE_CODE!
 
-REM ==== [6/6] Monitor TUI ====
+REM ==== [5/7] Bot Ops DB ====
 echo.
-echo [6/6] Starting Monitor TUI...
-start "Hospital Monitor" cmd /k "cd /d %BRIDGE_DIR% && python ops\monitor.py"
+echo [5/7] Starting Bot Ops DB...
+docker compose -f n8n/docker-compose.n8n.yaml --env-file n8n/.env.n8n up -d --remove-orphans bot-ops-db
+if errorlevel 1 (
+    echo   [ERROR] Bot Ops DB failed to start.
+    pause
+    exit /b 1
+)
+
+set /a elapsed=0
+:wait_bot_ops_db
+docker exec hospital-bot-ops-db sh -c "mysqladmin ping -h localhost -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" --silent" >nul 2>&1
+if not errorlevel 1 goto bot_ops_db_ready
+if !elapsed! geq 120 (
+    echo   [ERROR] Bot Ops DB not ready after 120s.
+    docker logs hospital-bot-ops-db --tail 20
+    pause
+    exit /b 1
+)
+echo   Waiting for Bot Ops DB... !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
+goto wait_bot_ops_db
+
+:bot_ops_db_ready
+echo   Bot Ops DB ready.
+
+REM ==== [6/7] n8n ====
+echo.
+echo [6/7] Starting n8n...
+docker compose -f n8n/docker-compose.n8n.yaml --env-file n8n/.env.n8n up -d --force-recreate --remove-orphans n8n
+if errorlevel 1 (
+    echo   [ERROR] n8n failed to start.
+    pause
+    exit /b 1
+)
+
+set /a elapsed=0
+:wait_n8n
+curl -s -o nul -w "%%{http_code}" http://localhost:5678/healthz > "%TEMP%\bbh_n8n.txt" 2>nul
+set /p N8N_CODE=<"%TEMP%\bbh_n8n.txt"
+del "%TEMP%\bbh_n8n.txt" >nul 2>&1
+if "!N8N_CODE!"=="200" goto n8n_ready
+if !elapsed! geq 120 (
+    echo   [WARN] n8n health not confirmed after 120s. HTTP: !N8N_CODE!. Continuing...
+    goto n8n_ready
+)
+echo   Waiting for n8n... HTTP !N8N_CODE! / !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
+goto wait_n8n
+
+:n8n_ready
+echo   n8n ready. HTTP: !N8N_CODE!
+
+REM ==== [7/7] Summary + Open UI ====
+echo.
+echo [7/7] Opening n8n editor...
+start http://localhost:5678
 
 echo.
-echo ================================
-echo  All services started.
-echo  - Dify       http://localhost/
-echo  - Bridge     http://localhost:8000/
-echo  - ngrok      %NGROK_URL%
-echo  - Inspector  http://localhost:4040
-echo  - Monitor    TUI window opened
+echo ========================================
+echo  All services started. LINE bot ready.
+echo.
+echo  Dify     : http://localhost/
+echo  n8n      : http://localhost:5678/
+echo  Bridge   : http://localhost:8000/
+echo  Webhook  : https://n8n.bbh-hospital.com
+echo  Tunnel   : Cloudflare (external service)
 echo.
 echo  Logs:
-echo    docker logs hospital-bridge -f
-echo    docker logs hospital-ngrok -f
+echo    docker logs hospital-bridge --tail 50 -f
+echo    docker logs hospital-n8n --tail 50 -f
+echo    docker logs hospital-bot-ops-db --tail 20
 echo.
-echo  Stop bridge + ngrok:
-echo    cd /d "%BRIDGE_DIR%"
+echo  Stop all:
 echo    docker compose -f docker-compose.bridge.yaml down
-echo  Stop Dify:
-echo    cd /d "%DIFY_DIR%"
-echo    docker compose down
-echo ================================
+echo    docker compose -f n8n\docker-compose.n8n.yaml --env-file n8n\.env.n8n down
+echo    cd "%DIFY_DIR%" ^&^& docker compose down
+echo ========================================
 echo.
+
+start "BBH Monitor" cmd /k "cd /d %ROOT_DIR% && python ops\monitor.py"
+
 pause >nul

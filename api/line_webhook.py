@@ -1,12 +1,11 @@
-"""Primary LINE webhook: doctor, patient, and public CRO inquiry routing."""
+"""Primary LINE webhook: routes all messages to n8n, falls back to Dify CRO flow."""
 import json
-import re
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from flows import cro, doctor, patient
+from flows import cro
 from integrations import line_client
 from core.config import N8N_INTERNAL_BASE_URL, log
 
@@ -36,22 +35,9 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         if not user_id:
             continue
 
-        if doctor.is_doctor(user_id):
-            background_tasks.add_task(doctor.handle_message, reply_token, user_id, text)
+        if await _try_handle_public_with_n8n(event):
             continue
-        if patient.is_patient(user_id):
-            background_tasks.add_task(patient.handle_message, reply_token, user_id, text)
-            continue
-
-        code = text.strip().upper()
-        if re.match(r"^DR\d+$", code):
-            _handle_doctor_registration(reply_token, user_id, code)
-        elif re.match(r"^PT\d+$", code):
-            _handle_patient_registration(reply_token, user_id, code)
-        else:
-            if await _try_handle_public_with_n8n(event):
-                continue
-            background_tasks.add_task(cro.handle_public_inquiry, reply_token, user_id, text)
+        background_tasks.add_task(cro.handle_public_inquiry, reply_token, user_id, text)
 
     return JSONResponse({"status": "ok"})
 
@@ -81,40 +67,3 @@ async def _try_handle_public_with_n8n(event: dict) -> bool:
     return False
 
 
-def _handle_doctor_registration(reply_token: str, user_id: str, code: str) -> None:
-    status, doc = doctor.try_register(user_id, code)
-    if status == "registered":
-        line_client.reply(
-            reply_token,
-            f"✅ ลงทะเบียนสำเร็จ\n"
-            f"ยินดีต้อนรับ {doc['name']}\n\n"
-            f"รอรับแจ้งเตือน Report ใหม่จากระบบ\n"
-            f"หรือพิมพ์ Report ID เพื่อวิเคราะห์ได้ทันที",
-        )
-        log.info("Doctor registered: %s → %s", doc["name"], user_id)
-    elif status == "already_me":
-        line_client.reply(reply_token, f"✅ คุณลงทะเบียนแล้ว ({doc['name']})")
-    elif status == "already_taken":
-        line_client.reply(reply_token, "❌ รหัสแพทย์นี้ถูกใช้งานแล้ว กรุณาติดต่อเจ้าหน้าที่")
-    else:
-        line_client.reply(reply_token, f"❌ ไม่พบรหัสแพทย์ {code}")
-
-
-def _handle_patient_registration(reply_token: str, user_id: str, code: str) -> None:
-    status, pat = patient.try_register(user_id, code)
-    if status == "registered":
-        line_client.reply(
-            reply_token,
-            f"✅ ลงทะเบียนสำเร็จ\n"
-            f"ยินดีต้อนรับ คุณ{pat['name']}\n\n"
-            f"คุณสามารถสอบถามอาการ หรือข้อมูลสุขภาพได้\n"
-            f"⚠️ ระบบนี้ให้ข้อมูลทั่วไป ไม่ใช่การวินิจฉัย — กรุณาปรึกษาแพทย์เสมอ\n"
-            f"พิมพ์ \"logout\" เพื่อออกจากระบบ",
-        )
-        log.info("Patient registered: %s → %s", pat["name"], user_id)
-    elif status == "already_me":
-        line_client.reply(reply_token, f"✅ คุณลงทะเบียนแล้ว (คุณ{pat['name']})")
-    elif status == "already_taken":
-        line_client.reply(reply_token, "❌ รหัสคนไข้นี้ถูกใช้งานแล้ว กรุณาติดต่อเจ้าหน้าที่")
-    else:
-        line_client.reply(reply_token, f"❌ ไม่พบรหัสคนไข้ {code}")

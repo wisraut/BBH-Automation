@@ -27,13 +27,22 @@ NGROK_PUBLIC_URL = os.getenv("NGROK_PUBLIC_URL", "")
 BRIDGE_INTERNAL_TOKEN = os.getenv("BRIDGE_INTERNAL_TOKEN", "")
 N8N_INTERNAL_BASE_URL = os.getenv("N8N_INTERNAL_BASE_URL", "")
 
-# DB
+# DB (PostgreSQL — hospital_db)
 DB_CONFIG = {
     "host":     os.getenv("DB_HOST", "localhost"),
     "port":     int(os.getenv("DB_PORT", 5433)),
     "dbname":   os.getenv("DB_NAME", "hospital_db"),
     "user":     os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD"),
+}
+
+# Bot Ops MySQL
+BOT_OPS_DB_CONFIG = {
+    "host":     os.getenv("BOT_OPS_DB_HOST", "hospital-bot-ops-db"),
+    "port":     int(os.getenv("BOT_OPS_DB_PORT", 3306)),
+    "database": os.getenv("BOT_OPS_DB_NAME", "bbh_bot_ops"),
+    "user":     os.getenv("BOT_OPS_DB_USER", "bbh_bot"),
+    "password": os.getenv("BOT_OPS_DB_PASSWORD", ""),
 }
 
 # Patterns

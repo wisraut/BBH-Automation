@@ -78,9 +78,9 @@ goto wait_dify
 :dify_ready
 echo   Dify API is ready. HTTP !HTTP_CODE!
 
-REM ==== [3/5] Bridge ====
+REM ==== [3/6] Bridge ====
 echo.
-echo [3/5] Starting Bridge...
+echo [3/6] Starting Bridge...
 docker compose -f docker-compose.bridge.yaml up -d --build
 if errorlevel 1 (
     echo   [ERROR] Bridge compose up failed.
@@ -105,9 +105,34 @@ goto wait_bridge
 :bridge_ready
 echo   Bridge is ready. HTTP !BRIDGE_CODE!
 
-REM ==== [4/5] n8n ====
+REM ==== [4/6] Bot Ops DB ====
 echo.
-echo [4/5] Starting n8n...
+echo [4/6] Starting Bot Ops DB...
+docker compose -f n8n/docker-compose.n8n.yaml --env-file n8n/.env.n8n up -d bot-ops-db
+if errorlevel 1 (
+    echo   [ERROR] Bot Ops DB compose up failed.
+    exit /b 1
+)
+
+set /a elapsed=0
+:wait_bot_ops_db
+docker exec hospital-bot-ops-db sh -c "mysqladmin ping -h localhost -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" --silent" >nul 2>&1
+if not errorlevel 1 goto bot_ops_db_ready
+if !elapsed! geq 120 (
+    echo   [ERROR] Bot Ops DB did not become ready within 120 seconds.
+    exit /b 1
+)
+echo   Waiting for Bot Ops DB... !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
+goto wait_bot_ops_db
+
+:bot_ops_db_ready
+echo   Bot Ops DB is ready.
+
+REM ==== [5/6] n8n ====
+echo.
+echo [5/6] Starting n8n...
 docker compose -f n8n/docker-compose.n8n.yaml --env-file n8n/.env.n8n up -d --force-recreate n8n
 if errorlevel 1 (
     echo   [ERROR] n8n compose up failed.
@@ -123,9 +148,9 @@ if errorlevel 1 (
 )
 echo   n8n workflow activated.
 
-REM ==== [5/5] Browser ====
+REM ==== [6/6] Browser ====
 echo.
-echo [5/5] Opening n8n editor...
+echo [6/6] Opening n8n editor...
 start http://localhost:5678
 echo n8n editor: http://localhost:5678
 echo n8n admin: admin / GWqSSiYugNgbvvFcJPUBmmKJ

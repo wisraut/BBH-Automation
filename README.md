@@ -102,8 +102,8 @@ line-dify-bridge/
 ├── outputs/                       # generated outputs
 ├── tools/                         # local utility scripts
 ├── work/                          # temporary/manual debugging scripts and artifacts
+├── _legacy/                       # archived pre-pivot code (do not import)
 ├── docker-compose.bridge.yaml     # bridge compose, build context = ./backend
-├── start.bat                      # local launcher
 ├── .env.example                   # environment template
 └── README.md
 ```

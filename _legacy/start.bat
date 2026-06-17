@@ -1,8 +1,9 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-set "ROOT_DIR=C:\Users\wisru\line-dify-bridge"
-set "DIFY_DIR=C:\Users\wisru\dify\docker"
+REM Archived 2026-06-17 — use n8n/start-n8n.bat instead
+set "ROOT_DIR=%~dp0.."
+if not defined DIFY_DIR set "DIFY_DIR=%~dp0..\..\dify\docker"
 set "DOCKER_DESKTOP=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
 
 title BBH System Launcher

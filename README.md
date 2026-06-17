@@ -132,7 +132,7 @@ Important variables:
 The bridge compose mounts:
 
 ```text
-C:/Users/wisru/line-dify-bridge/credentials:/app/credentials:ro
+./credentials:/app/credentials:ro
 ```
 
 So the service account file is expected under `credentials/`.

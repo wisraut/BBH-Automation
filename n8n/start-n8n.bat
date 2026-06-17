@@ -1,8 +1,10 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-set "ROOT_DIR=C:\Users\wisru\line-dify-bridge"
-set "DIFY_DIR=C:\Users\wisru\dify\docker"
+REM Resolve to repo root from this script's location (n8n/ → ..)
+set "ROOT_DIR=%~dp0.."
+REM Override DIFY_DIR via env var if Dify lives elsewhere, default = sibling 'dify/docker'
+if not defined DIFY_DIR set "DIFY_DIR=%~dp0..\..\dify\docker"
 set "DOCKER_DESKTOP=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
 
 cd /d "%ROOT_DIR%"

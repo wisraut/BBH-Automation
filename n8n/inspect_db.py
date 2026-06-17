@@ -1,6 +1,10 @@
-import sqlite3
+import os, sqlite3
 
-db = "C:/Users/wisru/line-dify-bridge/n8n/database.inspect.sqlite"
+# Defaults to a sibling file in n8n/; override with N8N_DB_PATH env var
+db = os.environ.get(
+    "N8N_DB_PATH",
+    os.path.join(os.path.dirname(__file__), "database.inspect.sqlite"),
+)
 con = sqlite3.connect(db)
 cur = con.cursor()
 

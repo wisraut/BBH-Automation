@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBH Portal — Extra Pages (จองใหม่ / ปฏิทิน / คนไข้ / บัญชี / AI)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --clay:#8A7B63; --clay-deep:#6E624E;
+    --jade:#16A77C; --jade-deep:#0E7E5E;
+    --ink:#2B2622; --muted:#8C8377;
+    --bone:#F6F3EC; --card:#FFFFFF;
+    --line:#E7E0D3; --line-soft:#F0EADD;
+    --sage:#EAF2EC; --amber:#D9963B; --red:#C9544B;
+    --shadow:0 1px 2px rgba(43,38,34,.04),0 12px 30px -14px rgba(43,38,34,.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:"Plus Jakarta Sans",system-ui,sans-serif;background:var(--bone);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.45}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  .serif{font-family:"Fraunces",serif}
+  .screen{display:none;min-height:100vh}
+  .screen.active{display:block}
+
+  /* shared topbar/shell (เหมือน bbh-portal_5) */
+  .topbar{height:62px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:20}
+  .topbar .brand{display:flex;align-items:center;gap:11px}
+  .topbar .brand .logo-mark{width:30px;height:30px}
+  .topbar .brand b{font-weight:700;letter-spacing:.1em;font-size:13px;color:var(--clay)}
+  .rolepill{font-size:11px;font-weight:700;letter-spacing:.06em;padding:5px 11px;border-radius:999px;text-transform:uppercase}
+  .rolepill.doc{background:var(--line-soft);color:var(--clay-deep)}
+  .rolepill.cro{background:var(--sage);color:var(--jade-deep)}
+  .topbar .spacer{flex:1}
+  .topbar .user{display:flex;align-items:center;gap:10px;font-size:13px}
+  .topbar .avatar{width:34px;height:34px;border-radius:50%;background:var(--clay);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px}
+  .topbar .logout{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;font:inherit;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:30px 26px 60px}
+  .pagehead{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:22px}
+  .pagehead h1{font-family:"Fraunces",serif;font-weight:500;font-size:28px}
+  .pagehead .pdate{color:var(--muted);font-size:13px;margin-top:3px}
+
+  .cta{background:var(--clay);color:#fff;border:none;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+  .cta:hover{background:var(--clay-deep)}
+  .cta.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .cta.ghost:hover{border-color:var(--clay)}
+  .cta.go{background:var(--jade)} .cta.go:hover{background:var(--jade-deep)}
+  .cta.red{background:#fff;color:var(--red);border:1px solid var(--line)}
+  .cta.red:hover{background:#FBE9E7;border-color:var(--red)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .card .ch{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 0}
+  .card .ch h3{font-size:14px;font-weight:700}
+  .card .ch .meta{font-size:12px;color:var(--muted)}
+  .card .cb{padding:14px 18px 18px}
+  .grid{display:grid;gap:18px}
+
+  .tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.02em}
+  .tag.pend{background:#FBF1DF;color:#9A6B1E}
+  .tag.done{background:var(--sage);color:var(--jade-deep)}
+  .tag.new{background:#EEEAF8;color:#6B59A6}
+  .tag.rev{background:#FBE9E7;color:#B0463C}
+
+  /* ---------- NEW BOOKING (manual) ---------- */
+  .stepper{display:flex;gap:8px;margin-bottom:22px}
+  .stepper .stp{flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;display:flex;gap:10px;align-items:center;font-size:13px}
+  .stepper .stp .n{width:24px;height:24px;border-radius:50%;background:var(--line-soft);color:var(--clay-deep);display:grid;place-items:center;font-weight:700;font-size:12px;flex:0 0 auto}
+  .stepper .stp.done .n{background:var(--jade);color:#fff}
+  .stepper .stp.active{border-color:var(--jade);background:var(--sage)}
+  .stepper .stp.active .n{background:var(--jade);color:#fff}
+  .stepper .stp .t{font-weight:600;color:var(--ink)}
+  .stepper .stp.future{opacity:.5}
+
+  .formcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}
+  .formrow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .field2{display:flex;flex-direction:column;gap:6px}
+  .field2 label{font-size:12px;font-weight:600;color:var(--clay)}
+  .field2 input, .field2 select, .field2 textarea{padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:#FCFBF8;font:inherit;font-size:14px;color:var(--ink)}
+  .field2 input:focus, .field2 select:focus, .field2 textarea:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 3px rgba(22,167,124,.12);background:#fff}
+  .field2 textarea{resize:vertical;min-height:80px}
+
+  .sourcegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:8px}
+  .srcopt{cursor:pointer;border:1px solid var(--line);border-radius:11px;padding:14px 10px;text-align:center;background:#FCFBF8;transition:.15s}
+  .srcopt:hover{border-color:var(--clay)}
+  .srcopt.on{border-color:var(--jade);background:var(--sage);box-shadow:0 0 0 3px rgba(22,167,124,.1)}
+  .srcopt .ic{font-size:22px;margin-bottom:6px}
+  .srcopt .nm{font-size:13px;font-weight:600}
+
+  .docpick{display:flex;flex-direction:column;gap:9px;margin-top:8px}
+  .docrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#FCFBF8;cursor:pointer;transition:.15s}
+  .docrow:hover{border-color:var(--clay)}
+  .docrow.on{border-color:var(--jade);background:var(--sage);box-shadow:0 0 0 3px rgba(22,167,124,.1)}
+  .docrow .docava{width:38px;height:38px;border-radius:11px;background:var(--clay);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:0 0 auto}
+  .docrow.on .docava{background:var(--jade)}
+  .docrow .docinfo{flex:1}
+  .docrow .docname{font-size:14px;font-weight:600}
+  .docrow .docspec{font-size:12px;color:var(--muted);margin-top:2px}
+  .docrow .docslots{font-size:12px;color:var(--jade-deep);font-weight:600;background:var(--sage);padding:4px 10px;border-radius:999px}
+
+  .tipcard{background:var(--bone);border:1px dashed var(--line);border-radius:12px;padding:13px 15px;margin-top:18px;font-size:13px;color:var(--clay-deep)}
+  .tipcard b{color:var(--ink)}
+
+  .actrow{display:flex;justify-content:space-between;margin-top:22px;padding-top:18px;border-top:1px solid var(--line-soft)}
+
+  /* ---------- CALENDAR ---------- */
+  .calbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .calbar .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .calbar .seg button{border:none;background:none;padding:9px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}
+  .calbar .seg button.on{background:var(--jade);color:#fff}
+  .calbar .nav{display:flex;gap:6px;align-items:center}
+  .calbar .nav button{border:1px solid var(--line);background:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:14px}
+  .calbar .nav button:hover{border-color:var(--clay)}
+  .calbar .range{font-family:"Fraunces",serif;font-size:17px;font-weight:500;padding:0 8px}
+  .calbar .today{border:1px solid var(--line);background:#fff;padding:8px 13px;border-radius:9px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .calbar .docfilter{display:flex;gap:6px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:9px;padding:6px 11px;font-size:12px;cursor:pointer}
+  .calbar .docfilter b{font-weight:700}
+
+  .calgrid{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .calhead{display:grid;grid-template-columns:60px repeat(7,1fr);border-bottom:1px solid var(--line);background:#FCFBF8}
+  .calhead .ch1{padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:var(--muted);border-right:1px solid var(--line-soft)}
+  .calhead .ch1:last-child{border-right:none}
+  .calhead .ch1.today{background:var(--sage);color:var(--jade-deep)}
+  .calhead .ch1 .dw{font-size:11px;font-weight:600}
+  .calhead .ch1 .dn{font-family:"Fraunces",serif;font-size:18px;font-weight:500;margin-top:1px}
+
+  .calbody{display:grid;grid-template-columns:60px repeat(7,1fr);position:relative}
+  .timecol{display:flex;flex-direction:column;background:#FCFBF8;border-right:1px solid var(--line-soft)}
+  .timecol .th{height:60px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding-top:2px;border-bottom:1px solid var(--line-soft)}
+  .daycol{display:flex;flex-direction:column;border-right:1px solid var(--line-soft);position:relative;min-height:600px}
+  .daycol:last-child{border-right:none}
+  .daycol.today{background:rgba(234,242,236,.3)}
+  .hourcell{height:60px;border-bottom:1px solid var(--line-soft)}
+
+  .ev{position:absolute;left:4px;right:4px;border-radius:8px;padding:6px 8px;font-size:11px;line-height:1.3;cursor:pointer;overflow:hidden;transition:.12s;border-left:3px solid}
+  .ev:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .ev .et{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);font-weight:600}
+  .ev .en{font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .es{color:var(--muted);font-size:10px;margin-top:1px}
+  .ev.opd{background:var(--sage);border-color:var(--jade)}
+  .ev.lab{background:#FBF1DF;border-color:var(--amber)}
+  .ev.prc{background:#EEEAF8;border-color:#6B59A6}
+  .ev.internal{background:var(--line-soft);border-color:var(--clay)}
+
+  .nowline{position:absolute;left:60px;right:0;height:2px;background:var(--red);z-index:5}
+  .nowline::before{content:'';position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--red)}
+
+  .legend{display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  /* ---------- PATIENTS ---------- */
+  .searchbar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:18px}
+  .searchbar .row1{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .searchbar .row1 input{flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:#FCFBF8;font:inherit;font-size:14px}
+  .searchbar .row1 input:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 3px rgba(22,167,124,.12);background:#fff}
+  .searchbar .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .filterchip{font-size:12px;font-weight:600;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--muted)}
+  .filterchip.on{background:var(--sage);border-color:var(--jade);color:var(--jade-deep)}
+
+  .ptable{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .pthead{display:grid;grid-template-columns:2.2fr 1.2fr .7fr .9fr 1fr .8fr;padding:13px 18px;background:#FCFBF8;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+  .ptrow{display:grid;grid-template-columns:2.2fr 1.2fr .7fr .9fr 1fr .8fr;padding:14px 18px;border-bottom:1px solid var(--line-soft);align-items:center;font-size:13px;cursor:pointer;transition:.12s}
+  .ptrow:hover{background:var(--bone)}
+  .ptrow:last-child{border-bottom:none}
+  .ptperson{display:flex;align-items:center;gap:11px}
+  .ptperson .ava{width:36px;height:36px;border-radius:10px;background:var(--line-soft);color:var(--clay-deep);display:grid;place-items:center;font-weight:600;font-size:13px;flex:0 0 auto}
+  .ptperson .ava.act{background:var(--sage);color:var(--jade-deep)}
+  .ptperson .pname{font-weight:600;font-size:14px}
+  .ptperson .pmeta{font-size:11px;color:var(--muted)}
+  .statedot{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .statedot .sd{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .statedot.act{color:var(--jade-deep)}
+  .statedot.act .sd{background:var(--jade)}
+
+  /* patient detail */
+  .breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--muted)}
+  .breadcrumb a{color:var(--clay);text-decoration:none;font-weight:600;cursor:pointer}
+  .breadcrumb a:hover{color:var(--clay-deep)}
+
+  .phead{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+  .phead .pava{width:88px;height:88px;border-radius:22px;background:var(--sage);color:var(--jade-deep);display:grid;place-items:center;font-family:"Fraunces",serif;font-size:32px;font-weight:500}
+  .phead .pmain{flex:1;min-width:200px}
+  .phead h2{font-family:"Fraunces",serif;font-weight:500;font-size:26px}
+  .phead .pcontact{color:var(--muted);font-size:13px;margin-top:6px}
+  .phead .psince{font-size:12px;color:var(--muted);margin-top:6px;font-weight:600}
+  .phead .pstats{display:flex;gap:24px;padding-top:10px}
+  .phead .pstats .st{font-size:12px;color:var(--muted)}
+  .phead .pstats .st b{display:block;font-family:"Fraunces",serif;font-size:22px;font-weight:500;color:var(--ink);margin-top:2px}
+  .phead .pacts{display:flex;gap:8px;flex-wrap:wrap}
+
+  .tabbar{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:18px}
+  .tabbar button{flex:1;border:none;background:none;padding:11px 16px;border-radius:9px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--muted)}
+  .tabbar button.on{background:var(--sage);color:var(--jade-deep)}
+
+  .chatwrap{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+  .dateline{text-align:center;font-size:12px;color:var(--muted);background:var(--bone);padding:5px 14px;border-radius:999px;align-self:center;font-weight:600}
+  .bubble{max-width:75%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.5}
+  .bubble.me{align-self:flex-end;background:var(--jade);color:#fff;border-bottom-right-radius:5px}
+  .bubble.bot{align-self:flex-start;background:var(--bone);border-bottom-left-radius:5px}
+  .bubble .bm{font-size:11px;color:var(--muted);margin-top:5px}
+  .bubble.me .bm{color:rgba(255,255,255,.75)}
+  .kb-src{display:inline-block;margin-top:7px;background:var(--sage);color:var(--jade-deep);font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px}
+
+  /* ---------- ACCOUNT ---------- */
+  .acctcol{max-width:760px;margin:0 auto}
+  .acctcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px}
+  .acctcard h3{font-family:"Fraunces",serif;font-weight:500;font-size:20px;color:var(--clay);margin-bottom:5px}
+  .acctcard .sub{color:var(--muted);font-size:13px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line-soft)}
+  .avarow{display:flex;gap:18px;align-items:center;margin-bottom:18px}
+  .avarow .pava{width:80px;height:80px;border-radius:20px;background:var(--sage);color:var(--jade-deep);display:grid;place-items:center;font-family:"Fraunces",serif;font-size:28px;font-weight:500}
+  .pwstrength{display:flex;gap:5px;margin-top:7px}
+  .pwstrength i{flex:1;height:5px;border-radius:999px;background:var(--line-soft)}
+  .pwstrength i.on{background:var(--jade)}
+  .pwhint{font-size:12px;color:var(--muted);margin-top:6px}
+  .sesstable{border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .sessrow{display:flex;align-items:center;gap:13px;padding:13px 15px;border-bottom:1px solid var(--line-soft)}
+  .sessrow:last-child{border-bottom:none}
+  .sessico{width:36px;height:36px;border-radius:10px;background:var(--line-soft);color:var(--clay-deep);display:grid;place-items:center;flex:0 0 auto;font-size:18px}
+  .sessmain{flex:1}
+  .sessdev{font-size:13.5px;font-weight:600}
+  .sessmeta{font-size:12px;color:var(--muted);margin-top:1px}
+  .sesscur{font-size:11px;font-weight:700;color:var(--jade-deep);background:var(--sage);padding:3px 9px;border-radius:999px}
+  .dangerzone{border:1px solid var(--red);border-radius:16px;padding:22px;background:#FCF6F5}
+  .dangerzone h3{color:var(--red)}
+
+  /* ---------- AI ASSISTANT ---------- */
+  .aishell{display:grid;grid-template-columns:1fr 280px;gap:18px;height:calc(100vh - 62px - 60px);min-height:600px}
+  .aishell.solo{grid-template-columns:1fr}
+  .aichat{background:#fff;border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden}
+  .aihead{display:flex;align-items:center;gap:13px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .aihead .aiava{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--jade) 0%,var(--clay) 100%);color:#fff;display:grid;place-items:center;font-size:18px;font-weight:700}
+  .aihead .aitit{flex:1}
+  .aihead .aitit b{font-size:14px;font-weight:700;color:var(--clay)}
+  .aihead .aimeta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:1px}
+  .aihead .aimeta .gdot{width:7px;height:7px;border-radius:50%;background:var(--jade)}
+
+  .aiscroll{flex:1;overflow:auto;padding:24px;background:var(--bone);display:flex;flex-direction:column;gap:14px}
+
+  .welcomestate{margin:auto;max-width:480px;text-align:center;padding:30px 20px}
+  .welcomestate .emoji{font-size:48px;margin-bottom:14px}
+  .welcomestate h2{font-family:"Fraunces",serif;font-weight:500;font-size:24px;color:var(--clay);margin-bottom:6px}
+  .welcomestate p{color:var(--muted);font-size:14px;margin-bottom:24px}
+  .promptlist{display:flex;flex-direction:column;gap:9px}
+  .promptcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px 16px;text-align:left;cursor:pointer;font-size:13.5px;font-weight:500;transition:.12s}
+  .promptcard:hover{border-color:var(--jade);background:var(--sage);color:var(--jade-deep)}
+
+  .aibub{max-width:80%;padding:13px 16px;border-radius:14px;font-size:14px;line-height:1.55}
+  .aibub.user{align-self:flex-end;background:var(--jade);color:#fff;border-bottom-right-radius:5px}
+  .aibub.bot{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:5px;max-width:85%}
+  .aibub.bot .bothd{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line-soft)}
+  .aibub.bot .miniava{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--jade),var(--clay));color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+  .aibub.bot .botname{font-size:12px;font-weight:700;color:var(--clay)}
+  .aibub.bot .botmeta{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+  .aibub p{margin:6px 0}
+  .aibub b{color:var(--clay-deep)}
+  .aibub.bot .srcrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;padding-top:11px;border-top:1px solid var(--line-soft)}
+  .srcpill{font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--line-soft);color:var(--clay-deep);cursor:pointer}
+  .srcpill:hover{background:var(--bone)}
+  .srcpill.kb{background:var(--sage);color:var(--jade-deep)}
+  .actrow-bot{display:flex;gap:5px;margin-top:8px}
+  .actrow-bot button{background:none;border:none;font-size:14px;cursor:pointer;padding:4px 7px;border-radius:6px;color:var(--muted)}
+  .actrow-bot button:hover{background:var(--line-soft);color:var(--ink)}
+  .answerbox{background:var(--bone);border-left:3px solid var(--jade);border-radius:8px;padding:11px 14px;margin-top:9px;font-size:13.5px}
+
+  .aiinput{border-top:1px solid var(--line);background:#fff;padding:14px 18px}
+  .aitoolbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .toolchip{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--line-soft);color:var(--clay-deep);cursor:pointer;border:none}
+  .toolchip.on{background:var(--sage);color:var(--jade-deep)}
+  .aitextrow{display:flex;gap:10px;align-items:flex-end}
+  .aitextrow textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:11px;padding:11px 14px;font:inherit;font-size:14px;background:#FCFBF8;min-height:44px;max-height:120px}
+  .aitextrow textarea:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 3px rgba(22,167,124,.12);background:#fff}
+  .aiinput .iconbtn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:16px;color:var(--muted)}
+  .aiinput .iconbtn:hover{border-color:var(--clay);color:var(--ink)}
+  .aiinput .send{background:var(--jade);color:#fff;border:none;width:44px;height:44px;border-radius:11px;cursor:pointer;font-size:16px}
+  .aiinput .send:hover{background:var(--jade-deep)}
+  .aiwarn{font-size:11px;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:5px}
+
+  .aihist{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+  .aihist .newchat{background:var(--jade);color:#fff;border:none;border-radius:10px;padding:10px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+  .aihist .newchat:hover{background:var(--jade-deep)}
+  .aihist .hdate{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-top:5px}
+  .histrow{padding:9px 11px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1.4}
+  .histrow:hover{background:var(--bone)}
+  .histrow.on{background:var(--sage);color:var(--jade-deep);font-weight:600}
+
+  /* ---------- LOGIN ---------- */
+  #login.active{display:grid}
+  #login{grid-template-columns:1.05fr .95fr;min-height:100vh}
+  .brandside{position:relative;overflow:hidden;background:linear-gradient(150deg,#7C6F58 0%,#8A7B63 48%,#6E624E 100%);color:#F6F3EC;padding:56px 60px;display:flex;flex-direction:column;justify-content:space-between}
+  .brandside .logo-row{display:flex;align-items:center;gap:14px}
+  .brandside .logo-mark{width:40px;height:40px}
+  .brandside .logo-text{font-weight:700;letter-spacing:.14em;font-size:14px}
+  .brandside .pitch{max-width:440px}
+  .brandside .pitch h1{font-family:"Fraunces",serif;font-weight:500;font-size:46px;line-height:1.06;letter-spacing:-.01em}
+  .brandside .pitch .em{color:#9FE6CC}
+  .brandside .pitch p{margin-top:18px;color:rgba(246,243,236,.78);font-size:15px;max-width:380px}
+  .brandside .foot{font-size:12px;color:rgba(246,243,236,.6);letter-spacing:.04em}
+
+  .formside{display:flex;align-items:center;justify-content:center;padding:40px;background:var(--bone)}
+  .loginbox{width:100%;max-width:420px}
+  .loginbox .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--clay);font-weight:600}
+  .loginbox h2{font-family:"Fraunces",serif;font-weight:500;font-size:30px;margin-top:8px}
+  .loginbox .sub{color:var(--muted);font-size:14px;margin-top:6px}
+  .field{margin-top:18px}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px}
+  .field input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:14px;background:#FCFBF8;transition:.15s}
+  .field input:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 3px rgba(22,167,124,.12);background:#fff}
+
+  .role-section{margin-top:24px;padding-top:18px;border-top:1px dashed var(--line)}
+  .role-section .rt-lab{font-size:12px;font-weight:700;color:var(--clay);text-transform:uppercase;letter-spacing:.06em;margin-bottom:11px}
+  .role-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .rbtn{cursor:pointer;border:1px solid var(--line);border-radius:13px;padding:18px 14px;background:#fff;transition:.15s;text-align:left;display:flex;gap:12px;align-items:center}
+  .rbtn:hover{border-color:var(--jade);background:var(--sage);box-shadow:0 0 0 3px rgba(22,167,124,.1)}
+  .rbtn .ric{width:44px;height:44px;border-radius:12px;background:var(--line-soft);color:var(--clay);display:grid;place-items:center;flex:0 0 auto;transition:.15s}
+  .rbtn:hover .ric{background:var(--jade);color:#fff}
+  .rbtn .rmain{flex:1;min-width:0}
+  .rbtn .rname{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .rbtn .rdesc{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+
+  .login-help{margin-top:16px;text-align:center;font-size:13px;color:var(--muted)}
+  .login-help a{color:var(--clay);text-decoration:none;font-weight:600;cursor:pointer}
+
+  /* prototype switcher */
+  .protobar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(43,38,34,.92);backdrop-filter:blur(8px);border-radius:999px;padding:6px;display:flex;gap:4px;box-shadow:0 14px 36px -10px rgba(0,0,0,.4)}
+  .protobar button{border:none;background:none;color:rgba(255,255,255,.62);font:inherit;font-size:12px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer}
+  .protobar button.on{background:rgba(255,255,255,.14);color:#fff}
+  .protobar .lbl{color:rgba(255,255,255,.4);font-size:11px;padding:8px 6px 8px 12px;align-self:center}
+  .protobar.hidden{display:none}
+
+  @media(max-width:980px){
+    .aishell{grid-template-columns:1fr;height:auto}
+    .aihist{display:none}
+    .calbody, .calhead{grid-template-columns:50px repeat(7,1fr)}
+    .pthead, .ptrow{font-size:12px}
+    .formrow{grid-template-columns:1fr}
+    .sourcegrid{grid-template-columns:repeat(2,1fr)}
+    #login{grid-template-columns:1fr}
+    .brandside{display:none}
+    .role-buttons{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============= LOGIN ============= -->
+<section id="login" class="screen active">
+  <div class="brandside">
+    <div class="logo-row">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#EFE7D6" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#EFE7D6" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#9FE6CC" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#9FE6CC" stroke-width="5" stroke-linecap="round"/></svg>
+      <span class="logo-text">BETTER BEING HOSPITAL</span>
+    </div>
+    <div class="pitch">
+      <h1>เข้าสู่ระบบ<br>ดูแลคนไข้แบบ <span class="em">เชิงรุก</span></h1>
+      <p>ศูนย์รวมข้อมูลคนไข้ ผลแล็บ และงานวิจัยทางคลินิก ในที่เดียว สำหรับทีมแพทย์และทีมประสานงานของ BBH</p>
+    </div>
+    <div class="foot">Asia's First and Finest Functional Medicine Hospital</div>
+  </div>
+
+  <div class="formside">
+    <div class="loginbox">
+      <div class="eyebrow">BBH Portal</div>
+      <h2>ยินดีต้อนรับกลับ</h2>
+      <p class="sub">กรอกข้อมูลและเลือกบทบาทเพื่อเข้าใช้งาน</p>
+
+      <div class="field">
+        <label>อีเมล</label>
+        <input type="email" placeholder="name@bbh.co.th" value="user@bbh.co.th" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>รหัสผ่าน</label>
+        <input type="password" placeholder="••••••••" value="········" autocomplete="current-password">
+      </div>
+
+      <div class="role-section">
+        <div class="rt-lab">เลือกบทบาทเพื่อเข้าสู่ระบบ</div>
+        <div class="role-buttons">
+          <button class="rbtn" onclick="login('cro')">
+            <span class="ric"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/><path d="M19 8v6"/></svg></span>
+            <div class="rmain">
+              <div class="rname">เจ้าหน้าที่ CRO</div>
+              <div class="rdesc">รับนัด · ยืนยันจอง · ประสานงานกับแพทย์</div>
+            </div>
+          </button>
+          <button class="rbtn" onclick="login('doctor')">
+            <span class="ric"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v5a5 5 0 0 0 10 0V5a3 3 0 0 0-3-3"/><path d="M9 5H6a2 2 0 0 0-2 2v3a6 6 0 0 0 6 6"/><circle cx="20" cy="10" r="2"/></svg></span>
+            <div class="rmain">
+              <div class="rname">แพทย์</div>
+              <div class="rdesc">ดูตารางตัวเอง · รีวิวผลตรวจ · คุยกับคนไข้</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-help">
+        <a onclick="alert('ติดต่อ admin ที่ admin@bbh.co.th')">ลืมรหัสผ่าน?</a>
+        <span style="color:var(--line)"> · </span>
+        <span>สำหรับเจ้าหน้าที่คลินิกเท่านั้น</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============= NEW BOOKING ============= -->
+<section id="new" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap" style="max-width:940px">
+    <div class="pagehead">
+      <div>
+        <h1>จองคิวใหม่ด้วยตนเอง</h1>
+        <div class="pdate">สำหรับการจองจากโทรศัพท์ · WhatsApp · Email · Walk-in</div>
+      </div>
+    </div>
+
+    <div class="stepper">
+      <div class="stp done"><span class="n">1</span><span class="t">ข้อมูลคนไข้</span></div>
+      <div class="stp active"><span class="n">2</span><span class="t">วัน เวลา และอาการ</span></div>
+      <div class="stp future"><span class="n">3</span><span class="t">เลือกแพทย์</span></div>
+      <div class="stp future"><span class="n">4</span><span class="t">ยืนยัน</span></div>
+    </div>
+
+    <div class="formcard">
+      <h3 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;color:var(--clay);margin-bottom:5px">วันที่ เวลา และอาการ</h3>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:18px">เลือกแหล่งที่มาของคนไข้ และระบุเวลานัด</p>
+
+      <div class="field2">
+        <label>แหล่งที่มาของการจอง</label>
+        <div class="sourcegrid">
+          <div class="srcopt on" onclick="pickSrc(this)"><div class="ic">📞</div><div class="nm">โทรศัพท์</div></div>
+          <div class="srcopt" onclick="pickSrc(this)"><div class="ic">💬</div><div class="nm">WhatsApp</div></div>
+          <div class="srcopt" onclick="pickSrc(this)"><div class="ic">📧</div><div class="nm">Email</div></div>
+          <div class="srcopt" onclick="pickSrc(this)"><div class="ic">🚶</div><div class="nm">Walk-in</div></div>
+        </div>
+      </div>
+
+      <div class="formrow">
+        <div class="field2">
+          <label>วันที่นัด</label>
+          <input type="date" value="2026-12-21">
+        </div>
+        <div class="field2">
+          <label>เวลา</label>
+          <input type="time" value="10:30">
+        </div>
+      </div>
+
+      <div class="formrow">
+        <div class="field2">
+          <label>ระยะเวลา</label>
+          <select><option>30 นาที</option><option selected>60 นาที (มาตรฐาน)</option><option>90 นาที</option><option>2 ชั่วโมง</option></select>
+        </div>
+        <div class="field2">
+          <label>ประเภทนัด</label>
+          <select><option>OPD ทั่วไป</option><option>ตรวจครั้งแรก (New)</option><option>Follow-up</option><option>รีวิวผลแล็บ</option></select>
+        </div>
+      </div>
+
+      <div class="field2" style="margin-top:14px">
+        <label>เหตุที่มา / อาการ</label>
+        <textarea placeholder="ระบุอาการหรือเหตุที่ขอเข้าพบแพทย์...">ปวดข้อเข่า 2 เดือน ก้าวขึ้นบันไดลำบาก เคยกินยาแก้ปวดแต่ไม่ดีขึ้น</textarea>
+      </div>
+
+      <div class="tipcard">
+        💡 <b>เคล็ดลับ:</b> ถ้าคนไข้มีบัญชี LINE อยู่แล้ว ระบบจะ link booking เข้ากับ profile เดิมอัตโนมัติเมื่อคนไข้เปิดข้อความยืนยันใน LINE
+      </div>
+
+      <div class="actrow">
+        <button class="cta ghost" onclick="alert('ย้อนกลับ step 1')">← ย้อนกลับ</button>
+        <button class="cta go" onclick="alert('ไป step 3: เลือกแพทย์')">ถัดไป: เลือกแพทย์ →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============= CALENDAR ============= -->
+<section id="calendar" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap" style="max-width:1400px">
+    <div class="pagehead">
+      <div>
+        <h1>ศูนย์รับนัด & ปฏิทิน</h1>
+        <div class="pdate">วันพฤหัสบดี 19 ธันวาคม 2026 · ดึงจาก Google Calendar · 4 แพทย์</div>
+      </div>
+      <button class="cta go" onclick="go('new')">+ จองคิวใหม่</button>
+    </div>
+
+    <!-- Hero KPI bar (CRO) -->
+    <div class="kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px">
+      <div class="card kpi-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">รอยืนยัน</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;color:var(--red);line-height:1;margin-top:6px">5</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">📥 LINE · 3 · 📞 โทร · 2</div>
+      </div>
+      <div class="card kpi-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">ยืนยันแล้ววันนี้</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;color:var(--jade-deep);line-height:1;margin-top:6px">12</div>
+        <div style="font-size:12px;color:var(--jade-deep);margin-top:5px">↑ +3 จากเมื่อวาน</div>
+      </div>
+      <div class="card kpi-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">นัดทั้งสัปดาห์</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;line-height:1;margin-top:6px">23</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">4 แพทย์ · เฉลี่ย 5.7 ต่อวัน</div>
+      </div>
+      <div class="card kpi-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">No-show เดือนนี้</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;color:var(--amber);line-height:1;margin-top:6px">2</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">2.1% ของจองทั้งหมด</div>
+      </div>
+    </div>
+
+    <div class="calbar">
+      <div class="seg">
+        <button>วัน</button><button class="on">สัปดาห์</button><button>เดือน</button>
+      </div>
+      <div class="nav">
+        <button>‹</button><span class="range">16 – 22 ธันวาคม 2026</span><button>›</button>
+      </div>
+      <button class="today">วันนี้</button>
+      <div class="spacer"></div>
+      <button class="docfilter">👨‍⚕ แพทย์: <b>ทั้งหมด (4)</b> ▾</button>
+    </div>
+
+    <div class="calgrid">
+      <div class="calhead">
+        <div class="ch1">เวลา</div>
+        <div class="ch1"><div class="dw">จ</div><div class="dn">16</div></div>
+        <div class="ch1"><div class="dw">อ</div><div class="dn">17</div></div>
+        <div class="ch1"><div class="dw">พ</div><div class="dn">18</div></div>
+        <div class="ch1 today"><div class="dw">พฤ · วันนี้</div><div class="dn">19</div></div>
+        <div class="ch1"><div class="dw">ศ</div><div class="dn">20</div></div>
+        <div class="ch1"><div class="dw">ส</div><div class="dn">21</div></div>
+        <div class="ch1"><div class="dw">อา</div><div class="dn">22</div></div>
+      </div>
+
+      <div class="calbody">
+        <div class="timecol">
+          <div class="th">09:00</div><div class="th">10:00</div><div class="th">11:00</div><div class="th">12:00</div><div class="th">13:00</div><div class="th">14:00</div><div class="th">15:00</div><div class="th">16:00</div><div class="th">17:00</div><div class="th">18:00</div>
+        </div>
+        <!-- Mon 16 -->
+        <div class="daycol">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div>
+          <div class="ev opd" style="top:0;height:60px"><div class="et">09:00–10:00</div><div class="en">สมปอง ป.</div><div class="es">Dr.สมชาย · ปวดหัว</div></div>
+          <div class="ev internal" style="top:120px;height:60px"><div class="et">11:00–12:00</div><div class="en">ประชุมทีม</div></div>
+          <div class="ev lab" style="top:300px;height:60px"><div class="et">14:00–15:00</div><div class="en">รีวิวผลแล็บ</div></div>
+        </div>
+        <!-- Tue 17 -->
+        <div class="daycol">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div>
+          <div class="ev opd" style="top:60px;height:60px"><div class="et">10:00–11:00</div><div class="en">วิศรุต ย.</div><div class="es">Dr.สมชาย · ปวดท้อง</div></div>
+          <div class="ev prc" style="top:240px;height:90px"><div class="et">13:00–14:30</div><div class="en">มาเบลล่า ท.</div><div class="es">Dr.นภัสสร · Health checkup</div></div>
+        </div>
+        <!-- Wed 18 -->
+        <div class="daycol">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div>
+          <div class="ev opd" style="top:30px;height:60px"><div class="et">09:30–10:30</div><div class="en">ปวีณา ส.</div><div class="es">Dr.ธนพล · ฮอร์โมน</div></div>
+          <div class="ev opd" style="top:360px;height:60px"><div class="et">15:00–16:00</div><div class="en">ชัยวัฒน์ บ.</div><div class="es">Dr.สมชาย · ภูมิแพ้</div></div>
+        </div>
+        <!-- Thu 19 (today) -->
+        <div class="daycol today">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div>
+          <div class="ev opd" style="top:0;height:60px"><div class="et">09:00–10:00</div><div class="en">นภัส ส.</div><div class="es">Dr.นภัสสร · ปวดเข่า</div></div>
+          <div class="ev opd" style="top:90px;height:60px;border-width:5px"><div class="et">10:30–11:30</div><div class="en">สมปอง ป.</div><div class="es">Dr.สมชาย · ปวดหัวเรื้อรัง</div></div>
+          <div class="ev prc" style="top:300px;height:60px"><div class="et">14:00–15:00</div><div class="en">มาเบลล่า ท.</div><div class="es">Dr.นภัสสร · Health check</div></div>
+          <div class="ev opd" style="top:420px;height:60px"><div class="et">16:00–17:00</div><div class="en">วิศรุต ย.</div><div class="es">Dr.สมชาย · Follow-up</div></div>
+        </div>
+        <!-- Fri 20 -->
+        <div class="daycol">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div>
+          <div class="ev opd" style="top:60px;height:60px"><div class="et">10:00–11:00</div><div class="en">ธนกร พ.</div><div class="es">Dr.ธนพล · ตรวจประจำปี</div></div>
+          <div class="ev lab" style="top:240px;height:90px"><div class="et">13:00–14:30</div><div class="en">ทีม lab review</div></div>
+        </div>
+        <!-- Sat 21 -->
+        <div class="daycol">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell" style="background:rgba(247,243,236,.5)"></div><div class="hourcell" style="background:rgba(247,243,236,.5)"></div><div class="hourcell" style="background:rgba(247,243,236,.5)"></div><div class="hourcell" style="background:rgba(247,243,236,.5)"></div><div class="hourcell" style="background:rgba(247,243,236,.5)"></div><div class="hourcell" style="background:rgba(247,243,236,.5)"></div>
+          <div class="ev opd" style="top:60px;height:60px"><div class="et">10:00–11:00</div><div class="en">อรุณรัตน์ ส.</div><div class="es">Dr.สมชาย</div></div>
+          <div style="position:absolute;top:240px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:13px">— ครึ่งวัน —</div>
+        </div>
+        <!-- Sun 22 (off) -->
+        <div class="daycol" style="background:var(--bone)">
+          <div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div><div class="hourcell"></div>
+          <div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-family:'Fraunces',serif;font-size:18px;font-weight:500">วันหยุด</div>
+        </div>
+
+        <!-- now line on today column at 10:42 -->
+        <div class="nowline" style="top:162px;width:calc((100% - 60px)/7);margin-left:calc(60px + (100% - 60px) * 3 / 7)"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--sage);border-left:3px solid var(--jade)"></i> OPD ทั่วไป</span>
+      <span><i style="background:#FBF1DF;border-left:3px solid var(--amber)"></i> รีวิวผลแล็บ</span>
+      <span><i style="background:#EEEAF8;border-left:3px solid #6B59A6"></i> Procedure</span>
+      <span><i style="background:var(--line-soft);border-left:3px solid var(--clay)"></i> ภายใน</span>
+      <span><i style="background:var(--red);border-radius:50%;width:8px;height:8px"></i> เวลาปัจจุบัน</span>
+    </div>
+
+    <!-- CRO sidebar widgets: 3 columns -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:18px">
+
+      <!-- Incoming bookings -->
+      <div class="card">
+        <div class="ch"><h3>📥 เข้ามาใหม่ — รอยืนยัน</h3><span class="meta">5</span></div>
+        <div class="cb" style="display:flex;flex-direction:column;gap:10px">
+          <div style="padding:11px 13px;border:1px solid var(--line);border-radius:11px;cursor:pointer;transition:.12s" onmouseover="this.style.borderColor='var(--clay)'" onmouseout="this.style.borderColor='var(--line)'">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <span style="font-size:11px;font-weight:700;color:var(--jade-deep);background:var(--sage);padding:3px 8px;border-radius:999px">💬 LINE</span>
+              <span style="font-size:11px;color:var(--muted)">5 นาทีก่อน</span>
+            </div>
+            <div style="font-weight:600;font-size:13.5px">สมปอง ปองสุข</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">19/12 14:00 · ปวดหัวเรื้อรัง</div>
+            <div style="display:flex;gap:5px;margin-top:8px">
+              <button class="cta go" style="padding:5px 11px;font-size:11px;flex:1">✓ ยืนยัน</button>
+              <button class="cta red" style="padding:5px 11px;font-size:11px">✗</button>
+            </div>
+          </div>
+          <div style="padding:11px 13px;border:1px solid var(--line);border-radius:11px;cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <span style="font-size:11px;font-weight:700;color:#1D4ED8;background:#DBEAFE;padding:3px 8px;border-radius:999px">📞 โทร</span>
+              <span style="font-size:11px;color:var(--muted)">17 นาทีก่อน</span>
+            </div>
+            <div style="font-weight:600;font-size:13.5px">นภัส แสนดี</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">21/12 10:30 · ปวดข้อเข่า</div>
+            <div style="display:flex;gap:5px;margin-top:8px">
+              <button class="cta go" style="padding:5px 11px;font-size:11px;flex:1">✓ ยืนยัน</button>
+              <button class="cta red" style="padding:5px 11px;font-size:11px">✗</button>
+            </div>
+          </div>
+          <div style="padding:11px 13px;border:1px solid var(--line);border-radius:11px;cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <span style="font-size:11px;font-weight:700;color:var(--jade-deep);background:var(--sage);padding:3px 8px;border-radius:999px">💬 LINE</span>
+              <span style="font-size:11px;color:var(--muted)">1 ชม.ก่อน</span>
+            </div>
+            <div style="font-weight:600;font-size:13.5px">ชัยวัฒน์ บุญมาก</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">22/12 09:00 · ตรวจประจำปี</div>
+          </div>
+          <button class="cta ghost" style="font-size:12px;margin-top:5px">ดูทั้งหมด 5 รายการ →</button>
+        </div>
+      </div>
+
+      <!-- Doctor availability -->
+      <div class="card">
+        <div class="ch"><h3>👨‍⚕ ความว่างของแพทย์</h3><span class="meta">วันนี้</span></div>
+        <div class="cb" style="display:flex;flex-direction:column;gap:11px">
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--clay);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px;flex:0 0 auto">สช</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">Dr. สมชาย วงศ์ใหญ่</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:4px">
+                <div style="flex:1;height:6px;background:var(--line-soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:80%;background:var(--red)"></div></div>
+                <span style="font-size:11px;color:var(--muted);font-weight:600">4/5 ช่อง</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--jade);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px;flex:0 0 auto">นภ</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">Dr. นภัสสร เจริญสุข</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:4px">
+                <div style="flex:1;height:6px;background:var(--line-soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:40%;background:var(--jade)"></div></div>
+                <span style="font-size:11px;color:var(--muted);font-weight:600">2/5 ช่อง</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:36px;height:36px;border-radius:10px;background:#6B59A6;color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px;flex:0 0 auto">ธพ</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">Dr. ธนพล รุ่งโรจน์</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:4px">
+                <div style="flex:1;height:6px;background:var(--line-soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:60%;background:var(--amber)"></div></div>
+                <span style="font-size:11px;color:var(--muted);font-weight:600">3/5 ช่อง</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--amber);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px;flex:0 0 auto">วร</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">Dr. วรพจน์ ใหญ่ดี</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:4px">
+                <div style="flex:1;height:6px;background:var(--line-soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:0%;background:var(--jade)"></div></div>
+                <span style="font-size:11px;color:var(--muted);font-weight:600">วันหยุด</span>
+              </div>
+            </div>
+          </div>
+          <div style="border-top:1px dashed var(--line);padding-top:11px;font-size:12px;color:var(--muted)">
+            💡 Dr.นภัสสร ว่าง 3 ช่อง — แนะนำให้รับ booking ใหม่ได้
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions + LINE log -->
+      <div class="card">
+        <div class="ch"><h3>📋 งานที่ต้องตามต่อ</h3><span class="meta">8</span></div>
+        <div class="cb" style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:var(--bone);border-radius:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--amber);color:#fff;display:grid;place-items:center;font-size:14px;flex:0 0 auto">⏰</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">เลื่อนนัด — มาเบลล่า</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">คนไข้ขอเลื่อน 18/12 → 25/12 ผ่าน LINE</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:var(--bone);border-radius:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#1D4ED8;color:#fff;display:grid;place-items:center;font-size:14px;flex:0 0 auto">📞</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">โทรกลับ — คุณวิภาดา</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">ขอข้อมูลก่อนนัด · 087-xxx-xxxx</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:var(--bone);border-radius:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--jade);color:#fff;display:grid;place-items:center;font-size:14px;flex:0 0 auto">✉</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">ตอบอีเมล — Dr.Ann referral</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">referral จาก ร.พ. กรุงเทพ · 2 ชม.ก่อน</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:var(--bone);border-radius:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--clay);color:#fff;display:grid;place-items:center;font-size:14px;flex:0 0 auto">📄</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">รอ Consent — ปวีณา</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">นัดเสาร์นี้ · ยังไม่ได้ส่งเอกสาร</div>
+            </div>
+          </div>
+          <button class="cta ghost" style="font-size:12px;margin-top:5px">ดูทั้งหมด 8 รายการ →</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Activity timeline -->
+    <div class="card" style="margin-top:18px">
+      <div class="ch"><h3>⚡ กิจกรรมล่าสุด</h3><span class="meta">วันนี้</span></div>
+      <div class="cb" style="display:flex;flex-direction:column">
+        <div style="display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="width:32px;height:32px;border-radius:9px;background:var(--sage);color:var(--jade-deep);display:grid;place-items:center;font-size:14px;flex:0 0 auto">✓</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px"><b>ยืนยันนัด</b> สมปอง ปองสุข · 19/12 14:00 → Dr.สมชาย</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">โดยคุณชญานิษฐ์ · 10:24</div>
+          </div>
+          <span class="mono" style="font-size:11px;color:var(--muted)">10:24</span>
+        </div>
+        <div style="display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="width:32px;height:32px;border-radius:9px;background:#DBEAFE;color:#1D4ED8;display:grid;place-items:center;font-size:14px;flex:0 0 auto">📥</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px"><b>Booking ใหม่</b> จาก LINE — ชัยวัฒน์ บุญมาก · 22/12 09:00</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">สร้างโดยระบบจาก LINE Bot</div>
+          </div>
+          <span class="mono" style="font-size:11px;color:var(--muted)">10:18</span>
+        </div>
+        <div style="display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="width:32px;height:32px;border-radius:9px;background:#FEF3C7;color:#9A6B1E;display:grid;place-items:center;font-size:14px;flex:0 0 auto">⏳</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px"><b>เลื่อนนัด</b> มาเบลล่า โทมัส · ขอย้าย 18/12 → 25/12</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">รอ CRO ติดต่อกลับ</div>
+          </div>
+          <span class="mono" style="font-size:11px;color:var(--muted)">09:55</span>
+        </div>
+        <div style="display:flex;gap:13px;padding:11px 0">
+          <div style="width:32px;height:32px;border-radius:9px;background:#FBE9E7;color:var(--red);display:grid;place-items:center;font-size:14px;flex:0 0 auto">✗</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px"><b>ปฏิเสธนัด</b> วิศรุต ยิ้มสยาม · เหตุผล: หมอไม่ว่าง</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">โดยคุณชญานิษฐ์ · เสนอเวลาใหม่ผ่าน LINE</div>
+          </div>
+          <span class="mono" style="font-size:11px;color:var(--muted)">09:30</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============= DOCTOR SCHEDULE (workspace) ============= -->
+<section id="schedule" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap" style="max-width:1400px">
+    <div class="pagehead">
+      <div>
+        <h1>สวัสดีตอนเช้า, คุณหมอ ☀️</h1>
+        <div class="pdate">วันพฤหัสบดี 19 ธันวาคม 2026 · 10:42 น.</div>
+      </div>
+      <button class="cta ghost" onclick="go('ai')">✨ ถาม BBH AI</button>
+    </div>
+
+    <!-- Doctor Hero KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px">
+      <div class="card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">นัดวันนี้</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;line-height:1;margin-top:6px">5</div>
+        <div style="font-size:12px;color:var(--jade-deep);margin-top:5px">✓ ตรวจแล้ว 2 · 🕐 รอ 3</div>
+      </div>
+      <div class="card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">ผลตรวจรอรีวิว</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;color:var(--amber);line-height:1;margin-top:6px">3</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">📄 ใหม่ 2 · ⏳ ค้าง 1</div>
+      </div>
+      <div class="card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">LINE รอตอบ</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;color:#1D4ED8;line-height:1;margin-top:6px">2</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">💬 follow-up question</div>
+      </div>
+      <div class="card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">สัปดาห์นี้</div>
+        <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:500;line-height:1;margin-top:6px">23</div>
+        <div style="font-size:12px;color:var(--jade-deep);margin-top:5px">↑ +12% จากเฉลี่ย</div>
+      </div>
+    </div>
+
+    <!-- Next patient hero + Pending tasks (2-col) -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-bottom:18px">
+
+      <!-- Next patient hero -->
+      <div class="card" style="background:linear-gradient(135deg,#fff 0%,var(--sage) 100%);border:1px solid var(--jade)">
+        <div style="padding:20px 22px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="font-size:11px;font-weight:700;color:var(--jade-deep);background:#fff;padding:5px 11px;border-radius:999px;letter-spacing:.04em">⏰ คนไข้ถัดไป · อีก 18 นาที</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--jade-deep)">10:30 — 11:30</span>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center">
+            <div style="width:72px;height:72px;border-radius:18px;background:var(--jade);color:#fff;display:grid;place-items:center;font-family:'Fraunces',serif;font-size:26px;font-weight:500;flex:0 0 auto">สป</div>
+            <div style="flex:1">
+              <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:500">สมปอง ปองสุข</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px">อายุ 45 · ชาย · 5 visits · เป็นคนไข้ 4 เดือน</div>
+              <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:600;background:var(--line-soft);color:var(--clay-deep);padding:3px 10px;border-radius:999px">F/U</span>
+                <span style="font-size:11px;font-weight:600;background:#FBE9E7;color:#B0463C;padding:3px 10px;border-radius:999px">⚠ ปวดหัวเรื้อรัง</span>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding:13px 15px;background:#fff;border-left:3px solid var(--jade);border-radius:8px">
+            <div style="font-size:11px;font-weight:700;color:var(--clay);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">อาการที่บอกบอท</div>
+            <div style="font-size:13.5px;line-height:1.5">"ปวดหัวมา 3 สัปดาห์ ตื่นมาคลื่นไส้ ตามองภาพไม่ชัด"</div>
+          </div>
+          <div style="margin-top:11px;padding:13px 15px;background:#fff;border-left:3px solid var(--amber);border-radius:8px">
+            <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">ผลแล็บล่าสุด (3/12)</div>
+            <div style="font-size:13px;line-height:1.5">⚠️ Vitamin D <b>18 ng/mL</b> (ต่ำ) · ⚠️ Cortisol AM <b>22 µg/dL</b> (สูง)</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="cta go" style="flex:1">✓ คนไข้มาถึงแล้ว</button>
+            <button class="cta ghost">📋 เปิด chart</button>
+            <button class="cta ghost">✨ AI สรุปเคส</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending tasks -->
+      <div class="card">
+        <div class="ch"><h3>📋 งานค้างของคุณ</h3><span class="meta">6 รายการ</span></div>
+        <div class="cb" style="display:flex;flex-direction:column">
+
+          <div style="font-size:11px;font-weight:700;color:var(--clay);text-transform:uppercase;letter-spacing:.04em;margin-top:5px;margin-bottom:8px">📄 ผลตรวจรอรีวิว (3)</div>
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:8px;background:#FBE9E7;color:var(--red);display:grid;place-items:center;font-size:11px;font-weight:700;flex:0 0 auto">⚠</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">Lab ปวีณา แสนสุข</div>
+              <div style="font-size:11px;color:var(--muted)">ค่าผิดปกติ 3 ตัว · ส่งมาเมื่อวาน</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:8px;background:var(--line-soft);color:var(--clay-deep);display:grid;place-items:center;font-size:11px;font-weight:700;flex:0 0 auto">📄</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">CBC ชัยวัฒน์ บุญมาก</div>
+              <div style="font-size:11px;color:var(--muted)">ปกติ · 2 วันก่อน</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:8px;background:var(--sage);color:var(--jade-deep);display:grid;place-items:center;font-size:11px;font-weight:700;flex:0 0 auto">📄</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">Hormone panel นภัส</div>
+              <div style="font-size:11px;color:var(--muted)">วันนี้เช้า</div>
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--clay);text-transform:uppercase;letter-spacing:.04em;margin-top:14px;margin-bottom:8px">💬 LINE รอตอบ (2)</div>
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:8px;background:#DBEAFE;color:#1D4ED8;display:grid;place-items:center;font-size:13px;flex:0 0 auto">💬</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">สมปอง: "ยาที่หมอให้มีผลข้างเคียงไหม"</div>
+              <div style="font-size:11px;color:var(--muted)">2 ชั่วโมงก่อน</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:8px;background:#DBEAFE;color:#1D4ED8;display:grid;place-items:center;font-size:13px;flex:0 0 auto">💬</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">มาเบลล่า: "ขอเลื่อนนัดได้ไหม"</div>
+              <div style="font-size:11px;color:var(--muted)">4 ชั่วโมงก่อน</div>
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--clay);text-transform:uppercase;letter-spacing:.04em;margin-top:14px;margin-bottom:8px">⏰ F/U เกินกำหนด (1)</div>
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:8px;background:#FEF3C7;color:#9A6B1E;display:grid;place-items:center;font-size:13px;flex:0 0 auto">⏰</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">วิศรุต แย้มประยูร</div>
+              <div style="font-size:11px;color:var(--muted)">นัด F/U เกิน 7 วัน · ยังไม่กลับมา</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's queue + week chart (2-col) -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-bottom:18px">
+
+      <!-- Today's queue -->
+      <div class="card">
+        <div class="ch"><h3>📅 คิวคนไข้วันนี้</h3><span class="meta">5 คน · ตรวจแล้ว 2</span></div>
+        <div class="cb" style="display:flex;flex-direction:column;gap:9px">
+
+          <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;background:var(--bone);border-radius:11px;opacity:.65">
+            <div style="width:38px;height:38px;border-radius:11px;background:var(--jade);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:0 0 auto">นภ</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">นภัส แสนดี</div>
+              <div style="font-size:11px;color:var(--muted)">09:00 · ปวดเข่า</div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:var(--jade-deep);background:var(--sage);padding:5px 11px;border-radius:999px">✓ ตรวจแล้ว</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;border:2px solid var(--jade);border-radius:11px;background:#fff;box-shadow:0 0 0 4px rgba(22,167,124,.12)">
+            <div style="width:38px;height:38px;border-radius:11px;background:var(--jade);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:0 0 auto">สป</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">สมปอง ปองสุข <span style="font-size:10px;background:#FBE9E7;color:#B0463C;padding:2px 7px;border-radius:999px;margin-left:5px">F/U</span></div>
+              <div style="font-size:11px;color:var(--muted)">10:30 · ปวดหัวเรื้อรัง</div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:var(--jade-deep)">⏳ ถัดไป</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--line-soft)">
+            <div style="width:38px;height:38px;border-radius:11px;background:var(--muted);color:#fff;display:grid;place-items:center;font-size:14px;flex:0 0 auto">☕</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600;color:var(--muted)">พักกลางวัน</div>
+              <div style="font-size:11px;color:var(--muted)">12:00 — 13:00</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;border:1px solid var(--line);border-radius:11px">
+            <div style="width:38px;height:38px;border-radius:11px;background:#6B59A6;color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:0 0 auto">มท</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">มาเบลล่า โทมัส <span style="font-size:10px;background:var(--sage);color:var(--jade-deep);padding:2px 7px;border-radius:999px;margin-left:5px">NP</span></div>
+              <div style="font-size:11px;color:var(--muted)">14:00 · Health checkup</div>
+            </div>
+            <span style="font-size:11px;color:var(--muted)">ยังไม่ถึง</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;border:1px solid var(--line);border-radius:11px">
+            <div style="width:38px;height:38px;border-radius:11px;background:var(--clay);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:0 0 auto">วศ</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:600">วิศรุต แย้มประยูร</div>
+              <div style="font-size:11px;color:var(--muted)">16:00 · F/U ปวดท้อง</div>
+            </div>
+            <span style="font-size:11px;color:var(--muted)">ยังไม่ถึง</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Week chart -->
+      <div class="card">
+        <div class="ch"><h3>📊 สัปดาห์นี้</h3><span class="meta">21 นัด · 3 NP · 18 F/U</span></div>
+        <div class="cb">
+          <div style="display:flex;flex-direction:column;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:12px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;color:var(--muted)">จ.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;overflow:hidden"><div style="height:100%;width:50%;background:var(--jade);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-weight:600;font-size:10px">3</div></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;color:var(--muted)">อ.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;overflow:hidden"><div style="height:100%;width:67%;background:var(--jade);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-weight:600;font-size:10px">4</div></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;color:var(--muted)">พ.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;overflow:hidden"><div style="height:100%;width:50%;background:var(--jade);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-weight:600;font-size:10px">3</div></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;font-weight:700;color:var(--clay)">พฤ.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;overflow:hidden;border:2px solid var(--clay)"><div style="height:100%;width:83%;background:var(--clay);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-weight:600;font-size:10px">5 ←</div></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;color:var(--muted)">ศ.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;overflow:hidden"><div style="height:100%;width:67%;background:var(--jade);opacity:.5;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-weight:600;font-size:10px">4</div></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;color:var(--muted)">ส.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;overflow:hidden"><div style="height:100%;width:33%;background:var(--jade);opacity:.5;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-weight:600;font-size:10px">2</div></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:32px;color:var(--muted)">อา.</span><div style="flex:1;height:18px;background:var(--line-soft);border-radius:5px;opacity:.3"></div></div>
+          </div>
+          <div style="border-top:1px dashed var(--line);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-size:12px">
+            <div><span style="color:var(--muted)">ใหม่ (NP)</span><b style="display:block;font-family:'Fraunces',serif;font-size:18px;font-weight:500;margin-top:2px">3</b></div>
+            <div><span style="color:var(--muted)">ติดตาม (F/U)</span><b style="display:block;font-family:'Fraunces',serif;font-size:18px;font-weight:500;margin-top:2px">18</b></div>
+            <div><span style="color:var(--muted)">ขาดนัด</span><b style="display:block;font-family:'Fraunces',serif;font-size:18px;font-weight:500;margin-top:2px;color:var(--amber)">1</b></div>
+            <div><span style="color:var(--muted)">เฉลี่ย/วัน</span><b style="display:block;font-family:'Fraunces',serif;font-size:18px;font-weight:500;margin-top:2px">3.5</b></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- AI Insights -->
+    <div class="card" style="background:linear-gradient(135deg,#fff 0%,#FBF8F1 100%)">
+      <div class="ch"><h3>✨ BBH AI Assistant แนะนำ</h3><span class="meta">อ้างอิงจาก KB + ประวัติของคุณ</span></div>
+      <div class="cb" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+
+        <div style="padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='var(--jade)'" onmouseout="this.style.borderColor='var(--line)'">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--sage);color:var(--jade-deep);display:grid;place-items:center;font-size:13px;flex:0 0 auto">💡</div>
+            <span style="font-size:11px;font-weight:700;color:var(--clay);text-transform:uppercase;letter-spacing:.04em">เคสคล้ายกัน</span>
+          </div>
+          <div style="font-size:13.5px;line-height:1.5">เคส "สมปอง" คล้ายกับเคส <b>คุณพรชัย</b> ที่ตรวจเมื่อ ต.ค. — order SIBO test เจอผลบวก ตอบสนองดีกับ Berberine + GAPS diet</div>
+          <button class="cta ghost" style="margin-top:10px;font-size:12px;padding:7px 12px">ดูเคสอ้างอิง →</button>
+        </div>
+
+        <div style="padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;cursor:pointer">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#FBE9E7;color:var(--red);display:grid;place-items:center;font-size:13px;flex:0 0 auto">⚠️</div>
+            <span style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.04em">ค่าผิดปกติ</span>
+          </div>
+          <div style="font-size:13.5px;line-height:1.5">ผลตรวจ <b>ปวีณา</b> มีค่าผิดปกติ 3 ตัว: Vit-D ต่ำ, TSH สูง, Ferritin ต่ำ — แนะนำดูก่อนนัดเสาร์</div>
+          <button class="cta ghost" style="margin-top:10px;font-size:12px;padding:7px 12px">เปิดผลตรวจ →</button>
+        </div>
+
+        <div style="padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;cursor:pointer">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#DBEAFE;color:#1D4ED8;display:grid;place-items:center;font-size:13px;flex:0 0 auto">📚</div>
+            <span style="font-size:11px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:.04em">KB อัปเดต</span>
+          </div>
+          <div style="font-size:13.5px;line-height:1.5">เพิ่มเอกสารใหม่ใน KB: <b>"Chronic Headache + HPA Axis Protocol 2026"</b> — เกี่ยวข้องกับเคสที่กำลังจะตรวจ</div>
+          <button class="cta ghost" style="margin-top:10px;font-size:12px;padding:7px 12px">อ่านเอกสาร →</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============= PATIENTS LIST ============= -->
+<section id="patients" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap">
+    <div class="pagehead">
+      <div>
+        <h1>คนไข้</h1>
+        <div class="pdate">1,234 คน · ใช้งานเดือนนี้ 234 คน</div>
+      </div>
+      <button class="cta ghost">Export CSV</button>
+    </div>
+
+    <div class="searchbar">
+      <div class="row1">
+        <input placeholder="🔍 ค้นหาชื่อ เบอร์โทร หรือ LINE userId...">
+      </div>
+      <div class="row2">
+        <button class="filterchip on">ทั้งหมด</button>
+        <button class="filterchip">ใช้งาน 7 วัน (45)</button>
+        <button class="filterchip">เดือนนี้ (234)</button>
+        <div class="spacer"></div>
+        <span style="font-size:12px;color:var(--muted);font-weight:600">เรียงตาม: คุยล่าสุด ▾</span>
+      </div>
+    </div>
+
+    <div class="ptable">
+      <div class="pthead">
+        <div>คนไข้</div>
+        <div>เบอร์โทร</div>
+        <div>LINE</div>
+        <div>จองทั้งหมด</div>
+        <div>คุยล่าสุด</div>
+        <div>สถานะ</div>
+      </div>
+      <div class="ptrow" onclick="go('patientDetail')">
+        <div class="ptperson">
+          <div class="ava act">สป</div>
+          <div><div class="pname">สมปอง ปองสุข</div><div class="pmeta">Uac79d8e3...cc1b</div></div>
+        </div>
+        <div class="mono">087-288-4619</div>
+        <div>✓</div>
+        <div>5</div>
+        <div>2 ชม.ที่แล้ว</div>
+        <div><span class="statedot act"><span class="sd"></span>ใช้งาน</span></div>
+      </div>
+      <div class="ptrow" onclick="go('patientDetail')">
+        <div class="ptperson">
+          <div class="ava act">มท</div>
+          <div><div class="pname">มาเบลล่า โทมัส</div><div class="pmeta">U7f2c1a8b...e891</div></div>
+        </div>
+        <div class="mono">099-234-5574</div>
+        <div>✓</div>
+        <div>3</div>
+        <div>เมื่อวาน</div>
+        <div><span class="statedot act"><span class="sd"></span>ใช้งาน</span></div>
+      </div>
+      <div class="ptrow" onclick="go('patientDetail')">
+        <div class="ptperson">
+          <div class="ava">วศ</div>
+          <div><div class="pname">วิศรุต แย้มประยูร</div><div class="pmeta">U43aa9562...ea83</div></div>
+        </div>
+        <div class="mono">081-234-5678</div>
+        <div>✓</div>
+        <div>8</div>
+        <div>3 วันก่อน</div>
+        <div><span class="statedot"><span class="sd"></span>เงียบ</span></div>
+      </div>
+      <div class="ptrow" onclick="go('patientDetail')">
+        <div class="ptperson">
+          <div class="ava">นภ</div>
+          <div><div class="pname">นภัสสร ใจดี</div><div class="pmeta">—</div></div>
+        </div>
+        <div class="mono">082-555-1234</div>
+        <div style="color:var(--muted)">—</div>
+        <div>1</div>
+        <div>12 ธ.ค.</div>
+        <div><span class="statedot"><span class="sd"></span>เงียบ</span></div>
+      </div>
+      <div class="ptrow" onclick="go('patientDetail')">
+        <div class="ptperson">
+          <div class="ava">ชว</div>
+          <div><div class="pname">ชัยวัฒน์ บุญมาก</div><div class="pmeta">U92ef551d...0a7c</div></div>
+        </div>
+        <div class="mono">089-777-8888</div>
+        <div>✓</div>
+        <div>2</div>
+        <div>10 ธ.ค.</div>
+        <div><span class="statedot"><span class="sd"></span>เงียบ</span></div>
+      </div>
+      <div class="ptrow" onclick="go('patientDetail')">
+        <div class="ptperson">
+          <div class="ava">ปว</div>
+          <div><div class="pname">ปวีณา แสนสุข</div><div class="pmeta">U118b023c...ff03</div></div>
+        </div>
+        <div class="mono">094-111-2222</div>
+        <div>✓</div>
+        <div>4</div>
+        <div>8 ธ.ค.</div>
+        <div><span class="statedot"><span class="sd"></span>เงียบ</span></div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:13px;color:var(--muted)">
+      <span>แสดง 1–6 จาก 1,234 รายการ</span>
+      <div style="display:flex;gap:6px">
+        <button class="cta ghost" style="padding:7px 12px">‹</button>
+        <button class="cta ghost" style="padding:7px 12px;background:var(--jade);color:#fff;border-color:var(--jade)">1</button>
+        <button class="cta ghost" style="padding:7px 12px">2</button>
+        <button class="cta ghost" style="padding:7px 12px">3</button>
+        <button class="cta ghost" style="padding:7px 12px">›</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============= PATIENT DETAIL ============= -->
+<section id="patientDetail" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap">
+    <div class="breadcrumb">
+      <a onclick="go('patients')">← คนไข้</a>
+      <span>/</span>
+      <span style="color:var(--ink);font-weight:600">สมปอง ปองสุข</span>
+    </div>
+
+    <div class="phead">
+      <div class="pava">สป</div>
+      <div class="pmain">
+        <h2>สมปอง ปองสุข</h2>
+        <div class="pcontact">📱 087-288-4619 · 💬 LINE: Uac79d8e3...cc1b</div>
+        <div class="psince">เป็นคนไข้ตั้งแต่ 5/8/2025 (4 เดือน)</div>
+        <div class="pstats">
+          <div class="st">จองทั้งหมด<b>5</b></div>
+          <div class="st">ผลตรวจ<b>2</b></div>
+          <div class="st">คุยล่าสุด<b>2 ชม.</b></div>
+        </div>
+      </div>
+      <div class="pacts">
+        <button class="cta ghost">💬 ส่ง LINE</button>
+        <button class="cta ghost">📄 อัปโหลดผล</button>
+        <button class="cta go">+ จองคิว</button>
+      </div>
+    </div>
+
+    <div class="tabbar">
+      <button class="on">ประวัติสนทนา (12)</button>
+      <button>การจอง (5)</button>
+      <button>ผลตรวจ (2)</button>
+    </div>
+
+    <div class="chatwrap">
+      <div class="dateline">📅 17 ธันวาคม 2026</div>
+      <div class="bubble me">
+        สวัสดีครับ ผมปวดหัวมาเกือบ 3 สัปดาห์แล้ว ตื่นมาจะคลื่นไส้ แล้วมองภาพไม่ค่อยชัด มีนัดได้เลยไหมครับ
+        <div class="bm">14:32</div>
+      </div>
+      <div class="bubble bot">
+        อาการปวดศีรษะอาจเกิดได้จากหลายสาเหตุ เช่น ความเครียด การพักผ่อนไม่เพียงพอ หรือปัญหาสุขภาพที่ซับซ้อน
+        <br><br>
+        เบื้องต้น ลองสังเกตว่าปวดบริเวณไหน ปวดนานแค่ไหน มีอาการอื่นร่วมด้วยไหม
+        <br><br>
+        หากอาการเป็นรุนแรงหรือเกิดบ่อย ควรปรึกษาแพทย์เพื่อรับการวินิจฉัยที่ถูกต้องค่ะ
+        <div class="kb-src">📚 จาก KB: Headache Differential</div>
+        <div class="bm">BBH Bot · CONSULT · 14:32</div>
+      </div>
+      <div class="bubble me">ขอนัดหมอได้ไหมครับ<div class="bm">14:35</div></div>
+      <div class="bubble bot">
+        ยินดีค่ะ ขอชื่อ-นามสกุลก่อนนะคะ
+        <div class="bm">BBH Bot · BOOKING_ASK · 14:35</div>
+      </div>
+      <div class="bubble me">สมปอง ปองสุข ครับ<div class="bm">14:36</div></div>
+      <div class="bubble bot">ขอเบอร์โทรค่ะ<div class="bm">14:36</div></div>
+
+      <div style="display:flex;gap:10px;align-items:flex-end;margin-top:10px;padding-top:14px;border-top:1px dashed var(--line)">
+        <textarea placeholder="พิมพ์ข้อความเพื่อตอบกลับใน LINE..." style="flex:1;border:1px solid var(--line);border-radius:11px;padding:10px 13px;font:inherit;font-size:13px;background:#FCFBF8;resize:none;min-height:42px"></textarea>
+        <button class="cta go">ส่ง</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============= ACCOUNT ============= -->
+<section id="account" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap">
+    <div class="pagehead"><div><h1>บัญชีของฉัน</h1><div class="pdate">จัดการข้อมูลส่วนตัวและความปลอดภัย</div></div></div>
+
+    <div class="acctcol">
+      <div class="acctcard">
+        <h3>ข้อมูลส่วนตัว</h3>
+        <div class="sub">ข้อมูลที่แสดงให้ทีมงานคนอื่นเห็น</div>
+
+        <div class="avarow">
+          <div class="pava">นพ</div>
+          <div>
+            <button class="cta ghost">📷 อัปโหลดรูป</button>
+            <div style="font-size:12px;color:var(--muted);margin-top:7px">PNG, JPG ไม่เกิน 2MB</div>
+          </div>
+        </div>
+
+        <div class="field2">
+          <label>ชื่อ-นามสกุล</label>
+          <input value="นพ. ธนกฤต อภิรักษ์">
+        </div>
+        <div class="field2" style="margin-top:14px">
+          <label>อีเมล</label>
+          <input value="thanakrit@bbh.co.th" disabled style="opacity:.6">
+          <div class="pwhint">ติดต่อ admin หากต้องการเปลี่ยน</div>
+        </div>
+        <div class="field2" style="margin-top:14px">
+          <label>บทบาท</label>
+          <div><span class="rolepill doc" style="font-size:12px;padding:6px 13px">Doctor — แพทย์ Functional Medicine</span></div>
+        </div>
+        <div class="field2" style="margin-top:14px">
+          <label>ความถนัด / เฉพาะทาง</label>
+          <input value="Internal Medicine · Functional Medicine">
+        </div>
+
+        <div style="text-align:right;margin-top:18px"><button class="cta go">บันทึก</button></div>
+      </div>
+
+      <div class="acctcard">
+        <h3>เปลี่ยนรหัสผ่าน</h3>
+        <div class="sub">อัปเดตรหัสผ่านเป็นประจำเพื่อความปลอดภัย</div>
+
+        <div class="field2">
+          <label>รหัสผ่านปัจจุบัน</label>
+          <input type="password" value="•••••••••">
+        </div>
+        <div class="field2" style="margin-top:14px">
+          <label>รหัสผ่านใหม่</label>
+          <input type="password" value="•••••••••••">
+          <div class="pwstrength"><i class="on"></i><i class="on"></i><i></i></div>
+          <div class="pwhint">ระดับ: ดี — เพิ่มสัญลักษณ์เพื่อความปลอดภัยมากขึ้น</div>
+        </div>
+        <div class="field2" style="margin-top:14px">
+          <label>ยืนยันรหัสผ่านใหม่</label>
+          <input type="password" value="•••••••••••">
+        </div>
+
+        <div style="text-align:right;margin-top:18px"><button class="cta go">เปลี่ยนรหัสผ่าน</button></div>
+      </div>
+
+      <div class="acctcard">
+        <h3>อุปกรณ์ที่เข้าใช้งาน</h3>
+        <div class="sub">รายการ session ที่ active อยู่</div>
+
+        <div class="sesstable">
+          <div class="sessrow">
+            <div class="sessico">💻</div>
+            <div class="sessmain">
+              <div class="sessdev">Chrome · Windows 11</div>
+              <div class="sessmeta">📍 กรุงเทพ · ใช้งานอยู่ตอนนี้</div>
+            </div>
+            <span class="sesscur">เครื่องนี้</span>
+          </div>
+          <div class="sessrow">
+            <div class="sessico">📱</div>
+            <div class="sessmain">
+              <div class="sessdev">Safari · iPhone 15</div>
+              <div class="sessmeta">📍 กรุงเทพ · 2 ชั่วโมงที่แล้ว</div>
+            </div>
+            <button class="cta red" style="padding:7px 14px;font-size:12px">ออก</button>
+          </div>
+          <div class="sessrow">
+            <div class="sessico">💻</div>
+            <div class="sessmain">
+              <div class="sessdev">Chrome · macOS</div>
+              <div class="sessmeta">📍 นนทบุรี · 5 วันก่อน</div>
+            </div>
+            <button class="cta red" style="padding:7px 14px;font-size:12px">ออก</button>
+          </div>
+        </div>
+
+        <div style="text-align:right;margin-top:14px"><button class="cta red">ออกจากระบบทุกอุปกรณ์อื่น</button></div>
+      </div>
+
+      <div class="dangerzone">
+        <h3>อันตราย</h3>
+        <div class="sub" style="color:var(--red);opacity:.8">การกระทำในส่วนนี้ไม่สามารถย้อนกลับได้</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line-soft)">
+          <div>
+            <div style="font-weight:600">ปิดบัญชีชั่วคราว</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">ระงับการใช้งานชั่วคราว ติดต่อ admin เพื่อเปิดใหม่</div>
+          </div>
+          <button class="cta red">ปิดบัญชี</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0">
+          <div>
+            <div style="font-weight:600">ลบบัญชี</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">ติดต่อ admin เพื่อดำเนินการ</div>
+          </div>
+          <button class="cta red" disabled style="opacity:.4;cursor:not-allowed">ลบบัญชี</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============= AI ASSISTANT ============= -->
+<section id="ai" class="screen">
+  <div class="topbar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><path d="M14 6v14a8 8 0 0 0 8 8" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M14 14h10" stroke="#8A7B63" stroke-width="5" stroke-linecap="round"/><path d="M34 42V28a8 8 0 0 0-8-8" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/><path d="M34 34H24" stroke="#16A77C" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>BBH</b>
+    </div>
+    <span class="rolepill rp"></span>
+    <div class="spacer"></div>
+    <div class="user"><span class="avatar rp-ava"></span><span class="rp-name"></span></div>
+    <button class="logout" onclick="logout()">⎋ ออกจากระบบ</button>
+  </div>
+
+  <div class="wrap" style="max-width:1280px">
+    <div class="aishell">
+
+      <div class="aichat">
+        <div class="aihead">
+          <div class="aiava">✨</div>
+          <div class="aitit">
+            <b>BBH AI Assistant</b>
+            <div class="aimeta"><span class="gdot"></span>เชื่อมต่อ KB · Functional Medicine · 2,341 documents</div>
+          </div>
+          <button class="cta ghost" style="padding:8px 13px;font-size:12px">🗑 ล้าง</button>
+        </div>
+
+        <div class="aiscroll">
+
+          <div class="aibub user">สรุปเคสของ <b>สมปอง ปองสุข</b> ให้หน่อย ตอนนี้มีอาการอะไรบ้าง และมีประวัติอะไรน่าสนใจ</div>
+
+          <div class="aibub bot">
+            <div class="bothd"><div class="miniava">✨</div><div class="botname">BBH AI</div><div class="botmeta">GPT-4 · 2.3s</div></div>
+
+            <p><b>สมปอง ปองสุข</b> · 087-288-4619 · เป็นคนไข้ 4 เดือน</p>
+
+            <p><b>อาการปัจจุบัน:</b></p>
+            <p>ปวดศีรษะเรื้อรัง 3 สัปดาห์ + คลื่นไส้ตอนตื่น + ตาพร่ามัว</p>
+
+            <p><b>ประวัติ:</b></p>
+            <p>• Visit ที่ผ่านมา 5 ครั้ง ส่วนใหญ่ปัญหาทางเดินอาหาร<br>
+            • ผลแล็บล่าสุด (3/12): vitamin D ต่ำ (18 ng/mL), cortisol AM สูงผิดปกติ<br>
+            • ไม่มีประวัติแพ้ยา</p>
+
+            <p><b>ข้อสันนิษฐาน (จาก KB):</b></p>
+            <p>อาจเชื่อมโยงกับ adrenal fatigue + dysbiosis — อาการปวดหัวอาจเป็น secondary ของ HPA axis dysregulation</p>
+
+            <p><b>แนะนำตรวจเพิ่ม:</b></p>
+            <p>• SIBO breath test<br>• Comprehensive stool analysis<br>• 4-point cortisol saliva test</p>
+
+            <div class="srcrow">
+              <span class="srcpill kb">📚 Adrenal Fatigue Protocol</span>
+              <span class="srcpill kb">📚 SIBO Differential</span>
+              <span class="srcpill">👤 Patient Records</span>
+            </div>
+
+            <div class="actrow-bot">
+              <button title="ชอบ">👍</button>
+              <button title="ไม่ชอบ">👎</button>
+              <button title="คัดลอก">📋</button>
+              <button title="สร้างใหม่">🔄</button>
+            </div>
+          </div>
+
+          <div class="aibub user">แล้วถ้าจะคุยกับคนไข้แทนหมอ ให้แนะนำคำตอบสั้นๆ เป็นภาษาที่เข้าใจง่าย</div>
+
+          <div class="aibub bot">
+            <div class="bothd"><div class="miniava">✨</div><div class="botname">BBH AI</div><div class="botmeta">GPT-4 · 1.8s</div></div>
+
+            <p><b>คำตอบแนะนำสำหรับ LINE:</b></p>
+            <div class="answerbox">
+              สวัสดีค่ะคุณสมปอง อาการปวดหัวที่เป็นมา 3 สัปดาห์ อาจเชื่อมโยงกับเรื่องระบบฮอร์โมนและลำไส้ค่ะ คุณหมอแนะนำให้นัดมาตรวจเพิ่ม 2 อย่าง สะดวกนัดเข้ามาในสัปดาห์นี้ไหมคะ?
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:11px">
+              <button class="cta ghost" style="padding:8px 13px;font-size:12px">📋 คัดลอก</button>
+              <button class="cta go" style="padding:8px 13px;font-size:12px">📤 ส่งให้คนไข้ผ่าน LINE</button>
+            </div>
+
+            <div class="actrow-bot">
+              <button>👍</button><button>👎</button><button>📋</button><button>🔄</button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="aiinput">
+          <div class="aitoolbar">
+            <button class="toolchip on">🎯 ใช้กับเคสนี้: สมปอง</button>
+            <button class="toolchip">📚 จำกัดเฉพาะ KB</button>
+            <button class="toolchip">🇹🇭 ภาษาไทย</button>
+          </div>
+          <div class="aitextrow">
+            <button class="iconbtn" title="แนบไฟล์">📎</button>
+            <textarea placeholder="ถามอะไรก็ได้ — เกี่ยวกับเคสคนไข้ KB หรือขอแนะนำคำตอบ..."></textarea>
+            <button class="iconbtn" title="พูด">🎤</button>
+            <button class="send" title="ส่ง">↑</button>
+          </div>
+          <div class="aiwarn">⚠ AI อาจตอบผิดได้ ตรวจสอบข้อมูลทุกครั้งก่อนใช้กับคนไข้</div>
+        </div>
+      </div>
+
+      <div class="aihist">
+        <button class="newchat">+ การสนทนาใหม่</button>
+
+        <div class="hdate">วันนี้</div>
+        <div class="histrow on">สรุปเคสสมปอง ป.</div>
+        <div class="histrow">Leaky gut คืออะไร</div>
+        <div class="histrow">SIBO test แนะนำเหรอ</div>
+
+        <div class="hdate">เมื่อวาน</div>
+        <div class="histrow">แนะนำคำตอบ - มาเบลล่า</div>
+        <div class="histrow">ค่าตับสูง interpretation</div>
+
+        <div class="hdate">7 วันก่อน</div>
+        <div class="histrow">Cortisol diurnal rhythm</div>
+        <div class="histrow">vitamin D dosing</div>
+        <div class="histrow">Adrenal protocol summary</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- prototype switcher (role-aware) -->
+<div class="protobar hidden" id="protobar">
+  <span class="lbl" id="protoLbl">Role</span>
+  <!-- buttons rendered by JS based on role -->
+</div>
+
+<script>
+  // role config
+  const CRO_PAGES = [
+    { id:'new',           label:'จองใหม่' },
+    { id:'calendar',      label:'ปฏิทิน' },
+    { id:'patients',      label:'คนไข้' },
+    { id:'patientDetail', label:'รายละเอียด' },
+    { id:'ai',            label:'AI' },
+    { id:'account',       label:'บัญชี' },
+  ];
+  const DOCTOR_PAGES = [
+    { id:'schedule',      label:'ตารางของฉัน' },
+    { id:'patients',      label:'คนไข้' },
+    { id:'patientDetail', label:'รายละเอียด' },
+    { id:'ai',            label:'AI' },
+    { id:'account',       label:'บัญชี' },
+  ];
+
+  const ROLE_INFO = {
+    cro: {
+      pillText:'CRO · เจ้าหน้าที่รับนัด', pillClass:'cro',
+      avaText:'CR', avaBg:'var(--jade)',
+      name:'คุณชญานิษฐ์',
+      home:'new',
+      protoLbl:'CRO',
+    },
+    doctor: {
+      pillText:'Doctor · แพทย์', pillClass:'doc',
+      avaText:'นพ', avaBg:'var(--clay)',
+      name:'นพ. ธนกฤต',
+      home:'schedule',
+      protoLbl:'Doctor',
+    },
+  };
+
+  let currentRole = null;
+  let history = [];
+
+  function applyRole(role){
+    const info = ROLE_INFO[role];
+    document.querySelectorAll('.rp').forEach(el=>{
+      el.textContent = info.pillText;
+      el.classList.remove('cro','doc');
+      el.classList.add(info.pillClass);
+    });
+    document.querySelectorAll('.rp-ava').forEach(el=>{
+      el.textContent = info.avaText;
+      el.style.background = info.avaBg;
+    });
+    document.querySelectorAll('.rp-name').forEach(el=>{
+      el.textContent = info.name;
+    });
+    renderProtobar(role);
+  }
+
+  function renderProtobar(role){
+    const bar = document.getElementById('protobar');
+    const pages = role==='cro' ? CRO_PAGES : DOCTOR_PAGES;
+    document.getElementById('protoLbl').textContent = ROLE_INFO[role].protoLbl;
+    // remove existing buttons
+    bar.querySelectorAll('button').forEach(b=>b.remove());
+    pages.forEach(p=>{
+      const btn = document.createElement('button');
+      btn.dataset.s = p.id;
+      btn.textContent = p.label;
+      btn.onclick = () => go(p.id);
+      bar.appendChild(btn);
+    });
+    bar.classList.remove('hidden');
+  }
+
+  function login(role){
+    currentRole = role;
+    applyRole(role);
+    history = [];
+    go(ROLE_INFO[role].home);
+  }
+
+  function logout(){
+    currentRole = null;
+    document.getElementById('protobar').classList.add('hidden');
+    history = [];
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('login').classList.add('active');
+    window.scrollTo({top:0,behavior:'instant'});
+  }
+
+  function go(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('.protobar button').forEach(b=>b.classList.toggle('on', b.dataset.s===id));
+    history.push(id);
+    window.scrollTo({top:0,behavior:'instant'});
+  }
+
+  function pickSrc(el){
+    document.querySelectorAll('.srcopt').forEach(s=>s.classList.remove('on'));
+    el.classList.add('on');
+  }
+
+  window.go=go; window.login=login; window.logout=logout; window.pickSrc=pickSrc;
+</script>
+
+</body>
+</html>

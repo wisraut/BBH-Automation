@@ -11,6 +11,7 @@ import { ToastProvider } from './contexts/ToastProvider'
 import { useAuth } from './lib/auth'
 import { queryClient } from './lib/queryClient'
 import { Bookings } from './pages/Bookings'
+import { Calendar } from './pages/Calendar'
 import { Login } from './routes/Login'
 
 const DEFAULT_PAGE_BY_ROLE: Record<string, PageKey> = {
@@ -48,7 +49,7 @@ function Dashboard() {
             </ProtectedRoute>
           ) : null}
           {page === 'new-booking' ? <Placeholder title="จองใหม่" /> : null}
-          {page === 'calendar' ? <Placeholder title="ปฏิทิน" /> : null}
+          {page === 'calendar' ? <Calendar /> : null}
           {page === 'schedule' ? <Placeholder title="ตารางงานแพทย์" /> : null}
           {page === 'patients' ? <Placeholder title="คนไข้" /> : null}
           {page === 'reports' ? <Placeholder title="รายงาน" /> : null}

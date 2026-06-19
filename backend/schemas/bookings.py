@@ -81,6 +81,8 @@ class ApproveResponse(BaseModel):
     ok: bool
     calendar_event_id: str
     calendar_event_url: str
+    patient_id: int
+    hn: str | None = None
 
 
 class SimpleOkResponse(BaseModel):

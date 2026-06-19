@@ -1,4 +1,4 @@
-"""CRUD helpers for booking_requests — parameterized SQL only."""
+"""CRUD helpers for booking_requests - parameterized SQL only."""
 import json
 import uuid
 from typing import Any
@@ -109,30 +109,127 @@ def create_manual_booking(
 
 
 def update_approved(
-    *, uid: str, event_id: str, event_url: str, approved_by: str
-) -> int:
-    """Atomic: only flip pending_approval → approved. Returns affected row count."""
+    *,
+    uid: str,
+    event_id: str,
+    event_url: str,
+    approved_by: str,
+    approved_by_user_id: int | None,
+    hn_year: str,
+) -> dict[str, Any] | None:
+    """Approve booking and attach/create the real patient record atomically."""
     with mysql_db() as conn:
-        with conn.cursor() as cur:
-            rows = cur.execute(
-                """
-                UPDATE booking_requests SET
-                    status            = 'approved',
-                    calendar_event_id = %s,
-                    calendar_event_url= %s,
-                    calendar_status   = 'created',
-                    approved_by       = %s,
-                    approved_at       = NOW()
-                WHERE request_uid = %s AND status = 'pending_approval'
-                """,
-                (event_id, event_url, approved_by, uid),
-            )
-        conn.commit()
-    return rows
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT request_uid, status, patient_id, patient_name, phone
+                    FROM booking_requests
+                    WHERE request_uid = %s
+                    FOR UPDATE
+                    """,
+                    (uid,),
+                )
+                booking = cur.fetchone()
+                if not booking or booking["status"] != "pending_approval":
+                    conn.rollback()
+                    return None
+
+                patient_id = booking.get("patient_id")
+                hn = None
+                if patient_id:
+                    cur.execute("SELECT hn FROM patients WHERE id = %s LIMIT 1", (patient_id,))
+                    patient = cur.fetchone()
+                    hn = patient.get("hn") if patient else None
+                else:
+                    patient = _find_patient_for_booking(cur, booking)
+                    if patient:
+                        patient_id = patient["id"]
+                        hn = patient.get("hn")
+                    else:
+                        hn = _next_hn(cur, hn_year)
+                        cur.execute(
+                            """
+                            INSERT INTO patients
+                                (hn, display_name, phone, notes, created_by)
+                            VALUES
+                                (%s, %s, %s, %s, %s)
+                            """,
+                            (
+                                hn,
+                                booking.get("patient_name") or "Unknown Patient",
+                                booking.get("phone") or None,
+                                f"Created from booking {uid}",
+                                approved_by_user_id,
+                            ),
+                        )
+                        patient_id = cur.lastrowid
+
+                rows = cur.execute(
+                    """
+                    UPDATE booking_requests SET
+                        status            = 'approved',
+                        patient_id        = %s,
+                        calendar_event_id = %s,
+                        calendar_event_url= %s,
+                        calendar_status   = 'created',
+                        approved_by       = %s,
+                        approved_at       = NOW()
+                    WHERE request_uid = %s AND status = 'pending_approval'
+                    """,
+                    (patient_id, event_id, event_url, approved_by, uid),
+                )
+            if rows == 0:
+                conn.rollback()
+                return None
+            conn.commit()
+            return {"patient_id": patient_id, "hn": hn}
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def _find_patient_for_booking(cur: Any, booking: dict[str, Any]) -> dict[str, Any] | None:
+    phone = (booking.get("phone") or "").strip()
+    if not phone:
+        return None
+    cur.execute(
+        """
+        SELECT id, hn
+        FROM patients
+        WHERE phone = %s
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        (phone,),
+    )
+    return cur.fetchone()
+
+
+def _next_hn(cur: Any, year_yy: str) -> str:
+    cur.execute(
+        """
+        INSERT INTO patient_hn_counters (year_yy, last_seq)
+        VALUES (%s, 0)
+        ON DUPLICATE KEY UPDATE year_yy = VALUES(year_yy)
+        """,
+        (year_yy,),
+    )
+    cur.execute(
+        "SELECT last_seq FROM patient_hn_counters WHERE year_yy = %s FOR UPDATE",
+        (year_yy,),
+    )
+    row = cur.fetchone()
+    next_seq = int(row["last_seq"]) + 1
+    cur.execute(
+        "UPDATE patient_hn_counters SET last_seq = %s WHERE year_yy = %s",
+        (next_seq, year_yy),
+    )
+    return f"{year_yy}-{next_seq:04d}"
 
 
 def update_rejected(*, uid: str, reason: str, rejected_by: str) -> int:
-    """Atomic: only flip pending_approval → rejected. Returns affected row count."""
+    """Atomic: only flip pending_approval -> rejected. Returns affected row count."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(

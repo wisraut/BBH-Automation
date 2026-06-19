@@ -118,13 +118,15 @@ def approve_booking(
         duration_min=duration_min,
     )
 
-    affected = booking_repo.update_approved(
+    approved = booking_repo.update_approved(
         uid=uid,
         event_id=event["event_id"],
         event_url=event["html_link"],
         approved_by=str(user.get("email") or user.get("sub") or "cro"),
+        approved_by_user_id=user.get("id"),
+        hn_year=start_at.strftime("%y"),
     )
-    if affected == 0:
+    if not approved:
         # Lost race — another approver acted first; clean up the just-created event
         calendar_client.cancel_event(event["event_id"])
         raise HTTPException(
@@ -145,6 +147,8 @@ def approve_booking(
     return {
         "calendar_event_id": event["event_id"],
         "calendar_event_url": event["html_link"],
+        "patient_id": approved["patient_id"],
+        "hn": approved["hn"],
     }
 
 

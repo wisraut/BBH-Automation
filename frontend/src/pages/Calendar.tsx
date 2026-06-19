@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
-import { useBookings } from '../hooks/useBookings'
+import { useAllBookings } from '../hooks/useAllBookings'
 import type { components } from '../lib/api-types'
 
 type BookingItem = components['schemas']['BookingListItem']
+type BookingStatus = BookingItem['status']
 
 const THAI_MONTHS = [
   'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
@@ -28,6 +29,14 @@ const APPT_TYPE_LABELS: Record<string, string> = {
   procedure: 'หัตถการ',
   consult: 'ปรึกษา',
 }
+
+const STATUS_FILTER_ITEMS: { key: BookingStatus | 'all'; label: string }[] = [
+  { key: 'all', label: 'ทั้งหมด' },
+  { key: 'approved', label: 'ยืนยัน' },
+  { key: 'pending_approval', label: 'รอ' },
+  { key: 'cancelled', label: 'ยกเลิก' },
+  { key: 'rejected', label: 'ปฏิเสธ' },
+]
 
 function parseDateFromText(text: string): string | null {
   const match = text.match(
@@ -64,17 +73,22 @@ export function Calendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(
     () => toDateKey(now.getFullYear(), now.getMonth(), now.getDate())
   )
+  const [panelFilter, setPanelFilter] = useState<BookingStatus | 'all'>('all')
 
   const todayKey = toDateKey(now.getFullYear(), now.getMonth(), now.getDate())
 
-  const approvedQ = useBookings({ status: 'approved', limit: 500 })
-  const pendingQ = useBookings({ status: 'pending_approval', limit: 200 })
+  const approvedQ   = useAllBookings('approved')
+  const pendingQ    = useAllBookings('pending_approval')
+  const cancelledQ  = useAllBookings('cancelled')
+  const rejectedQ   = useAllBookings('rejected')
 
   const bookingsByDate = useMemo(() => {
     const map: Record<string, BookingItem[]> = {}
     const all = [
-      ...(approvedQ.data?.data ?? []),
-      ...(pendingQ.data?.data ?? []),
+      ...approvedQ.data,
+      ...pendingQ.data,
+      ...cancelledQ.data,
+      ...rejectedQ.data,
     ]
     for (const b of all) {
       if (!b.requested_datetime_text) continue
@@ -84,7 +98,7 @@ export function Calendar() {
       map[date].push(b)
     }
     return map
-  }, [approvedQ.data, pendingQ.data])
+  }, [approvedQ.data, pendingQ.data, cancelledQ.data, rejectedQ.data])
 
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
@@ -104,63 +118,54 @@ export function Calendar() {
     setSelectedDate(toDateKey(t.getFullYear(), t.getMonth(), t.getDate()))
   }
 
-  const selectedBookings = (selectedDate ? bookingsByDate[selectedDate] ?? [] : []).sort((a, b) => {
+  const rawSelected = selectedDate ? (bookingsByDate[selectedDate] ?? []) : []
+  const filteredSelected = (
+    panelFilter === 'all'
+      ? rawSelected
+      : rawSelected.filter((b) => b.status === panelFilter)
+  ).sort((a, b) => {
     const tA = parseTimeFromText(a.requested_datetime_text ?? '') ?? '99:99'
     const tB = parseTimeFromText(b.requested_datetime_text ?? '') ?? '99:99'
     return tA.localeCompare(tB)
   })
 
-  const isLoading = approvedQ.isLoading || pendingQ.isLoading
-  const totalCount =
-    (approvedQ.data?.pagination.total ?? 0) + (pendingQ.data?.pagination.total ?? 0)
+  const isLoading = approvedQ.isLoading || pendingQ.isLoading || cancelledQ.isLoading || rejectedQ.isLoading
+  const totalCount = approvedQ.total + pendingQ.total + cancelledQ.total + rejectedQ.total
 
   return (
     <div className="flex h-full">
+
       {/* ─── Calendar grid ─── */}
       <section className="flex-1 overflow-y-auto p-8">
 
         {/* Month navigation */}
         <div className="mb-5 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={prevMonth}
-            className="rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
-          >
+          <button type="button" onClick={prevMonth}
+            className="rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
             ←
           </button>
           <h2 className="min-w-[180px] text-center font-serif text-xl font-semibold text-bbh-ink">
             {THAI_MONTHS[month]} {year}
           </h2>
-          <button
-            type="button"
-            onClick={nextMonth}
-            className="rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
-          >
+          <button type="button" onClick={nextMonth}
+            className="rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
             →
           </button>
-          <button
-            type="button"
-            onClick={goToday}
-            className="ml-1 rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
-          >
+          <button type="button" onClick={goToday}
+            className="ml-1 rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
             วันนี้
           </button>
           <span className="ml-auto text-xs text-bbh-muted">
-            {isLoading ? (
-              <span className="animate-pulse">กำลังโหลด...</span>
-            ) : (
-              `${totalCount} นัดทั้งหมด`
-            )}
+            {isLoading
+              ? <span className="animate-pulse">กำลังโหลด...</span>
+              : `${totalCount} นัดทั้งหมด`}
           </span>
         </div>
 
         {/* Weekday headers */}
         <div className="mb-1 grid grid-cols-7 gap-1">
           {WEEKDAY_SHORT.map((d) => (
-            <div
-              key={d}
-              className="py-1 text-center text-xs font-semibold tracking-wide text-bbh-muted"
-            >
+            <div key={d} className="py-1 text-center text-xs font-semibold tracking-wide text-bbh-muted">
               {d}
             </div>
           ))}
@@ -169,15 +174,16 @@ export function Calendar() {
         {/* Day cells */}
         <div className="grid grid-cols-7 gap-1">
           {cells.map((day, i) => {
-            if (day === null) {
-              return <div key={`e-${i}`} className="h-16 rounded-xl" />
-            }
+            if (day === null) return <div key={`e-${i}`} className="h-16 rounded-xl" />
+
             const dk = toDateKey(year, month, day)
-            const isToday = dk === todayKey
+            const isToday    = dk === todayKey
             const isSelected = dk === selectedDate
-            const dayItems = bookingsByDate[dk] ?? []
-            const approvedCnt = dayItems.filter((b) => b.status === 'approved').length
-            const pendingCnt = dayItems.filter((b) => b.status === 'pending_approval').length
+            const items = bookingsByDate[dk] ?? []
+
+            const approvedCnt  = items.filter((b) => b.status === 'approved').length
+            const pendingCnt   = items.filter((b) => b.status === 'pending_approval').length
+            const cancelledCnt = items.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
 
             return (
               <button
@@ -192,15 +198,9 @@ export function Calendar() {
                     : 'border-bbh-line bg-white hover:border-bbh-green/40 hover:bg-bbh-surface'
                 }`}
               >
-                <span
-                  className={`text-sm font-semibold leading-none ${
-                    isSelected
-                      ? 'text-bbh-green-dark'
-                      : isToday
-                      ? 'text-bbh-green'
-                      : 'text-bbh-ink'
-                  }`}
-                >
+                <span className={`text-sm font-semibold leading-none ${
+                  isSelected ? 'text-bbh-green-dark' : isToday ? 'text-bbh-green' : 'text-bbh-ink'
+                }`}>
                   {day}
                 </span>
                 <div className="mt-auto flex w-full flex-col gap-0.5">
@@ -212,6 +212,11 @@ export function Calendar() {
                   {pendingCnt > 0 && (
                     <span className="truncate rounded px-1 text-[10px] font-medium leading-tight bg-amber-50 text-amber-700">
                       {pendingCnt} รอ
+                    </span>
+                  )}
+                  {cancelledCnt > 0 && (
+                    <span className="truncate rounded px-1 text-[10px] font-medium leading-tight bg-gray-100 text-gray-500">
+                      {cancelledCnt} ยกเลิก
                     </span>
                   )}
                 </div>
@@ -231,6 +236,10 @@ export function Calendar() {
             รอยืนยัน
           </span>
           <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-gray-200 bg-gray-100" />
+            ยกเลิก / ปฏิเสธ
+          </span>
+          <span className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded border-2 border-bbh-green/50 bg-white" />
             วันนี้
           </span>
@@ -245,36 +254,70 @@ export function Calendar() {
           </div>
         ) : (
           <>
-            <div className="mb-5">
+            {/* Header */}
+            <div className="mb-4">
               <p className="text-xs uppercase tracking-[0.18em] text-bbh-muted">นัดหมาย</p>
               <p className="mt-1 font-serif text-xl font-semibold text-bbh-ink">
                 {formatThaiDate(selectedDate)}
               </p>
               <p className="mt-0.5 text-sm text-bbh-muted">
-                {selectedBookings.length === 0
-                  ? 'ไม่มีนัดหมาย'
-                  : `${selectedBookings.length} นัดหมาย`}
+                {rawSelected.length === 0 ? 'ไม่มีนัดหมาย' : `${rawSelected.length} นัดหมาย`}
               </p>
             </div>
 
+            {/* Status filter tabs */}
+            {rawSelected.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {STATUS_FILTER_ITEMS.map(({ key, label }) => {
+                  const count = key === 'all'
+                    ? rawSelected.length
+                    : rawSelected.filter((b) => b.status === key).length
+                  if (key !== 'all' && count === 0) return null
+                  const active = panelFilter === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPanelFilter(key)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        active
+                          ? 'bg-bbh-green text-white'
+                          : 'border border-bbh-line text-bbh-muted hover:border-bbh-green hover:text-bbh-green'
+                      }`}
+                    >
+                      {label} {count > 0 && <span className="ml-0.5 opacity-70">({count})</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Booking cards */}
             {isLoading ? (
               <div className="space-y-3">
-                {[0, 1].map((i) => (
+                {[0, 1, 2].map((i) => (
                   <div key={i} className="h-20 animate-pulse rounded-2xl bg-bbh-surface" />
                 ))}
               </div>
-            ) : selectedBookings.length === 0 ? (
+            ) : filteredSelected.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-bbh-line p-10 text-center">
-                <p className="text-sm text-bbh-muted">ยังไม่มีนัดหมายในวันนี้</p>
+                <p className="text-sm text-bbh-muted">
+                  {rawSelected.length === 0 ? 'ยังไม่มีนัดหมายในวันนี้' : 'ไม่มีนัดในหมวดนี้'}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {selectedBookings.map((b) => {
+                {filteredSelected.map((b) => {
                   const time = parseTimeFromText(b.requested_datetime_text ?? '')
+                  const dimmed = b.status === 'cancelled' || b.status === 'rejected' || b.status === 'expired'
                   return (
                     <div
                       key={b.request_uid}
-                      className="rounded-2xl border border-bbh-line bg-white p-4"
+                      className={`rounded-2xl border p-4 transition ${
+                        dimmed
+                          ? 'border-bbh-line bg-bbh-surface opacity-60'
+                          : 'border-bbh-line bg-white'
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
@@ -287,18 +330,18 @@ export function Calendar() {
                       </div>
 
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                        {time ? (
+                        {time && (
                           <span className="font-semibold text-bbh-ink">{time} น.</span>
-                        ) : null}
+                        )}
                         <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-bbh-muted">
                           {APPT_TYPE_LABELS[b.appointment_type] ?? b.appointment_type}
                         </span>
                         <SourceBadge source={b.booking_source} />
                       </div>
 
-                      {b.symptom ? (
+                      {b.symptom && (
                         <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>
-                      ) : null}
+                      )}
                     </div>
                   )
                 })}

@@ -1,0 +1,73 @@
+"""Booking request/response schemas."""
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+BookingStatus = Literal[
+    "draft", "pending_approval", "approved", "rejected", "cancelled", "expired"
+]
+BookingSource = Literal["line", "phone", "whatsapp", "email", "walkin"]
+AppointmentType = Literal["new", "followup", "procedure", "consult"]
+
+
+class BookingListItem(BaseModel):
+    request_uid: str
+    status: BookingStatus
+    patient_name: str | None = None
+    phone: str | None = None
+    requested_datetime_text: str | None = None
+    symptom: str | None = None
+    booking_source: BookingSource
+    appointment_type: AppointmentType
+    created_at: datetime
+
+
+class BookingOut(BookingListItem):
+    channel: str
+    external_user_id: str
+    requested_date: str | None = None
+    requested_time: str | None = None
+    service_type: str | None = None
+    doctor_code: str | None = None
+    duration_min: int
+    calendar_event_id: str | None = None
+    calendar_event_url: str | None = None
+    calendar_status: str
+    assigned_doctor_id: int | None = None
+    patient_id: int | None = None
+    notes: str | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    updated_at: datetime
+
+
+class PaginationMeta(BaseModel):
+    page: int
+    limit: int
+    total: int
+    total_pages: int
+
+
+class BookingListResponse(BaseModel):
+    data: list[BookingListItem]
+    pagination: PaginationMeta
+
+
+class ApproveRequest(BaseModel):
+    start_at: datetime = Field(description="ISO 8601 datetime (Asia/Bangkok). Slot start.")
+    duration_min: int = Field(default=60, ge=15, le=240)
+
+
+class RejectRequest(BaseModel):
+    reason: str = Field(default="", max_length=500)
+
+
+class ApproveResponse(BaseModel):
+    ok: bool
+    calendar_event_id: str
+    calendar_event_url: str
+
+
+class SimpleOkResponse(BaseModel):
+    ok: bool

@@ -48,7 +48,7 @@ export function LoginForm({
             value={email}
             onChange={(event) => onEmailChange(event.target.value)}
             className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none transition placeholder:text-bbh-muted/60 focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10 disabled:cursor-not-allowed disabled:opacity-70"
-            placeholder="กรุณากรอกอีเมล"
+            placeholder="กรอกอีเมล"
             autoComplete="email"
             disabled={isSubmitting}
             required

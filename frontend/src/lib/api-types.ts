@@ -252,6 +252,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Bookings
+         * @description List bookings with optional status filter + pagination.
+         */
+        get: operations["list_bookings_api_bookings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookings/{request_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Booking
+         * @description Get a single booking by request_uid.
+         */
+        get: operations["get_booking_api_bookings__request_uid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookings/{request_uid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Booking
+         * @description Check Google Calendar conflict, create event, mark approved, push patient LINE.
+         */
+        post: operations["approve_booking_api_bookings__request_uid__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookings/{request_uid}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Booking
+         * @description Mark booking rejected, push patient LINE apology.
+         */
+        post: operations["reject_booking_api_bookings__request_uid__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -274,6 +354,29 @@ export interface components {
              */
             approved_by: string;
         };
+        /** ApproveRequest */
+        ApproveRequest: {
+            /**
+             * Start At
+             * Format: date-time
+             * @description ISO 8601 datetime (Asia/Bangkok). Slot start.
+             */
+            start_at: string;
+            /**
+             * Duration Min
+             * @default 60
+             */
+            duration_min: number;
+        };
+        /** ApproveResponse */
+        ApproveResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Calendar Event Id */
+            calendar_event_id: string;
+            /** Calendar Event Url */
+            calendar_event_url: string;
+        };
         /** BookingCreate */
         BookingCreate: {
             /** User Id */
@@ -292,6 +395,113 @@ export interface components {
             raw_summary?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** BookingListItem */
+        BookingListItem: {
+            /** Request Uid */
+            request_uid: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired";
+            /** Patient Name */
+            patient_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Requested Datetime Text */
+            requested_datetime_text?: string | null;
+            /** Symptom */
+            symptom?: string | null;
+            /**
+             * Booking Source
+             * @enum {string}
+             */
+            booking_source: "line" | "phone" | "whatsapp" | "email" | "walkin";
+            /**
+             * Appointment Type
+             * @enum {string}
+             */
+            appointment_type: "new" | "followup" | "procedure" | "consult";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** BookingListResponse */
+        BookingListResponse: {
+            /** Data */
+            data: components["schemas"]["BookingListItem"][];
+            pagination: components["schemas"]["PaginationMeta"];
+        };
+        /** BookingOut */
+        BookingOut: {
+            /** Request Uid */
+            request_uid: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired";
+            /** Patient Name */
+            patient_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Requested Datetime Text */
+            requested_datetime_text?: string | null;
+            /** Symptom */
+            symptom?: string | null;
+            /**
+             * Booking Source
+             * @enum {string}
+             */
+            booking_source: "line" | "phone" | "whatsapp" | "email" | "walkin";
+            /**
+             * Appointment Type
+             * @enum {string}
+             */
+            appointment_type: "new" | "followup" | "procedure" | "consult";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Channel */
+            channel: string;
+            /** External User Id */
+            external_user_id: string;
+            /** Requested Date */
+            requested_date?: string | null;
+            /** Requested Time */
+            requested_time?: string | null;
+            /** Service Type */
+            service_type?: string | null;
+            /** Doctor Code */
+            doctor_code?: string | null;
+            /** Duration Min */
+            duration_min: number;
+            /** Calendar Event Id */
+            calendar_event_id?: string | null;
+            /** Calendar Event Url */
+            calendar_event_url?: string | null;
+            /** Calendar Status */
+            calendar_status: string;
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
+            /** Patient Id */
+            patient_id?: number | null;
+            /** Notes */
+            notes?: string | null;
+            /** Approved By */
+            approved_by?: string | null;
+            /** Approved At */
+            approved_at?: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -320,6 +530,17 @@ export interface components {
         MeResponse: {
             user: components["schemas"]["UserOut"];
         };
+        /** PaginationMeta */
+        PaginationMeta: {
+            /** Page */
+            page: number;
+            /** Limit */
+            limit: number;
+            /** Total */
+            total: number;
+            /** Total Pages */
+            total_pages: number;
+        };
         /** RejectBooking */
         RejectBooking: {
             /**
@@ -333,6 +554,14 @@ export interface components {
              */
             rejected_by: string;
         };
+        /** RejectRequest */
+        RejectRequest: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
         /** SessionUpdate */
         SessionUpdate: {
             /**
@@ -345,6 +574,11 @@ export interface components {
              * @default active
              */
             current_state: string;
+        };
+        /** SimpleOkResponse */
+        SimpleOkResponse: {
+            /** Ok */
+            ok: boolean;
         };
         /** UserOut */
         UserOut: {
@@ -807,6 +1041,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bookings_api_bookings_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_booking_api_bookings__request_uid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_booking_api_bookings__request_uid__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_booking_api_bookings__request_uid__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
                 };
             };
             /** @description Validation Error */

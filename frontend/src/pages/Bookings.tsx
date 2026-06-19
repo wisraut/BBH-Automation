@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
+import { NewBookingModal } from '../components/bookings/NewBookingModal'
 import { RejectModal } from '../components/bookings/RejectModal'
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
@@ -34,6 +36,7 @@ export function Bookings() {
   const [filter, setFilter] = useState<BookingStatus | 'all'>('pending_approval')
   const [page, setPage] = useState(1)
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
+  const [newBookingOpen, setNewBookingOpen] = useState(false)
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
 
@@ -54,9 +57,9 @@ export function Bookings() {
   const total = list.data?.pagination.total ?? 0
 
   return (
-    <div className="flex h-full">
-      <section className="flex-1 overflow-y-auto p-8">
-        <div className="mb-5 flex flex-wrap items-center gap-2">
+    <div className="flex h-full overflow-hidden rounded-[28px] border border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur">
+      <section className="flex-1 overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-7">
+        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
           {FILTERS.map((item) => {
             const active = item.key === filter
             return (
@@ -66,7 +69,7 @@ export function Bookings() {
                 onClick={() => handleFilter(item.key)}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   active
-                    ? 'bg-bbh-green text-white'
+                    ? 'bg-bbh-green text-white shadow-md shadow-bbh-green/15'
                     : 'border border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green'
                 }`}
               >
@@ -75,6 +78,13 @@ export function Bookings() {
             )
           })}
           <span className="ml-auto text-xs text-bbh-muted">{total} รายการ</span>
+          <button
+            type="button"
+            onClick={() => setNewBookingOpen(true)}
+            className="flex items-center gap-1.5 rounded-full bg-bbh-green px-4 py-1.5 text-sm font-semibold text-white shadow-md shadow-bbh-green/15 transition hover:bg-bbh-green-dark"
+          >
+            <Plus size={16} /> จองใหม่
+          </button>
         </div>
 
         {list.isLoading ? (
@@ -116,10 +126,10 @@ export function Bookings() {
                 key={row.request_uid}
                 type="button"
                 onClick={() => setSelectedUid(row.request_uid)}
-                className={`flex w-full items-center gap-4 rounded-2xl border bg-white px-4 py-3 text-left transition ${
+                className={`flex w-full items-center gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition ${
                   active
-                    ? 'border-bbh-green ring-4 ring-bbh-green/10'
-                    : 'border-bbh-line hover:border-bbh-green/40'
+                    ? 'border-bbh-green shadow-bbh-card ring-4 ring-bbh-green/10'
+                    : 'border-bbh-line hover:border-bbh-green/40 hover:shadow-bbh-card'
                 }`}
               >
                 <div className="flex-1 overflow-hidden">
@@ -153,9 +163,9 @@ export function Bookings() {
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
+              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
             >
-              ← ก่อนหน้า
+              <ChevronLeft size={16} /> ก่อนหน้า
             </button>
             <span className="text-bbh-muted">
               หน้า {page} / {totalPages}
@@ -164,18 +174,20 @@ export function Bookings() {
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
+              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
             >
-              ถัดไป →
+              ถัดไป <ChevronRight size={16} />
             </button>
           </div>
         ) : null}
       </section>
 
-      <aside className="w-[420px] overflow-y-auto border-l border-bbh-line bg-white p-6">
+      <aside className="w-[420px] overflow-y-auto border-l border-bbh-line bg-white/95 p-6">
         {!selectedUid ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
-            เลือกรายการเพื่อดูรายละเอียด
+            <div className="rounded-3xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
+              เลือกรายการเพื่อดูรายละเอียด
+            </div>
           </div>
         ) : detail.isLoading ? (
           <div className="h-32 animate-pulse rounded-2xl bg-bbh-surface" />
@@ -240,16 +252,16 @@ export function Bookings() {
                 <button
                   type="button"
                   onClick={() => setApproveOpen(true)}
-                  className="flex-1 rounded-xl bg-bbh-green px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bbh-green-dark"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-bbh-green px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bbh-green-dark"
                 >
-                  ✅ ยืนยันนัด
+                  <Check size={16} /> ยืนยันนัด
                 </button>
                 <button
                   type="button"
                   onClick={() => setRejectOpen(true)}
-                  className="flex-1 rounded-xl border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
                 >
-                  ❌ ปฏิเสธ
+                  <X size={16} /> ปฏิเสธ
                 </button>
               </div>
             ) : null}
@@ -268,6 +280,16 @@ export function Bookings() {
         open={rejectOpen}
         onClose={() => setRejectOpen(false)}
         onRejected={() => void list.refetch()}
+      />
+      <NewBookingModal
+        open={newBookingOpen}
+        onClose={() => setNewBookingOpen(false)}
+        onCreated={(requestUid) => {
+          setFilter('pending_approval')
+          setPage(1)
+          setSelectedUid(requestUid)
+          void list.refetch()
+        }}
       />
     </div>
   )

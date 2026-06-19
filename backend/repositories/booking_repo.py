@@ -1,4 +1,6 @@
 """CRUD helpers for booking_requests — parameterized SQL only."""
+import json
+import uuid
 from typing import Any
 
 from core.mysql import mysql_db
@@ -57,6 +59,53 @@ def get_by_uid(uid: str) -> dict[str, Any] | None:
                 (uid,),
             )
             return cur.fetchone()
+
+
+def create_manual_booking(
+    *,
+    patient_name: str,
+    phone: str,
+    requested_date: str,
+    requested_time: str,
+    requested_datetime_text: str,
+    symptom: str,
+    booking_source: str,
+    created_by: str,
+) -> str:
+    request_uid = str(uuid.uuid4())
+    external_user_id = f"web-{request_uid}"
+    raw_summary = {
+        "created_by": created_by,
+        "created_from": "web_dashboard",
+    }
+
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO booking_requests
+                    (request_uid, channel, external_user_id, status,
+                     patient_name, phone, requested_date, requested_time,
+                     requested_datetime_text, symptom, booking_source, raw_summary)
+                VALUES
+                    (%s, 'web_dashboard', %s, 'pending_approval',
+                     %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    request_uid,
+                    external_user_id,
+                    patient_name,
+                    phone,
+                    requested_date,
+                    requested_time,
+                    requested_datetime_text,
+                    symptom,
+                    booking_source,
+                    json.dumps(raw_summary, ensure_ascii=False),
+                ),
+            )
+        conn.commit()
+    return request_uid
 
 
 def update_approved(

@@ -7,6 +7,8 @@ from core.security import require_user
 from schemas.bookings import (
     ApproveRequest,
     ApproveResponse,
+    BookingCreateRequest,
+    BookingCreateResponse,
     BookingListResponse,
     BookingOut,
     RejectRequest,
@@ -28,6 +30,12 @@ def list_bookings(
 ) -> dict:
     """List bookings with optional status filter + pagination."""
     return booking_service.list_bookings(status=status, page=page, limit=limit)
+
+
+@router.post("", response_model=BookingCreateResponse)
+def create_booking(body: BookingCreateRequest, user: _CroOrAdmin) -> dict:
+    """Create a manual booking from Web Dashboard using JWT auth."""
+    return booking_service.create_booking(body=body, user=user)
 
 
 @router.get("/{request_uid}", response_model=BookingOut)

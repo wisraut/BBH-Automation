@@ -54,6 +54,20 @@ class BookingListResponse(BaseModel):
     pagination: PaginationMeta
 
 
+class BookingCreateRequest(BaseModel):
+    patient_name: str = Field(min_length=1, max_length=120)
+    phone: str = Field(min_length=1, max_length=40)
+    requested_date: str = Field(min_length=1, max_length=20)
+    requested_time: str = Field(min_length=1, max_length=20)
+    symptom: str = Field(default="", max_length=1000)
+    booking_source: BookingSource = "phone"
+
+
+class BookingCreateResponse(BaseModel):
+    ok: bool
+    request_uid: str
+
+
 class ApproveRequest(BaseModel):
     start_at: datetime = Field(description="ISO 8601 datetime (Asia/Bangkok). Slot start.")
     duration_min: int = Field(default=60, ge=15, le=240)

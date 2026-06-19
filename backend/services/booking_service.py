@@ -12,6 +12,23 @@ from utils.pagination import paginate
 TZ_BANGKOK = timezone(timedelta(hours=7))
 
 
+def _normalize_booking_date(value: str) -> tuple[str, str]:
+    clean = value.strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            parsed = datetime.strptime(clean, fmt)
+            return parsed.strftime("%Y-%m-%d"), parsed.strftime("%d/%m/%Y")
+        except ValueError:
+            continue
+    raise HTTPException(
+        status_code=422,
+        detail={
+            "code": "BOOKING_INVALID_DATE",
+            "message": "Invalid booking date format. Use YYYY-MM-DD.",
+        },
+    )
+
+
 def list_bookings(*, status: str | None, page: int, limit: int) -> dict[str, Any]:
     rows, total = booking_repo.list_bookings(status=status, page=page, limit=limit)
     return paginate(rows=rows, total=total, page=page, limit=limit)
@@ -25,6 +42,22 @@ def get_booking(uid: str) -> dict[str, Any]:
             detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
         )
     return row
+
+
+def create_booking(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
+    requested_date, display_date = _normalize_booking_date(body.requested_date)
+    requested_time = body.requested_time.strip()
+    request_uid = booking_repo.create_manual_booking(
+        patient_name=body.patient_name.strip(),
+        phone=body.phone.strip(),
+        requested_date=requested_date,
+        requested_time=requested_time,
+        requested_datetime_text=f"{display_date} {requested_time}",
+        symptom=body.symptom.strip(),
+        booking_source=body.booking_source,
+        created_by=str(user.get("email") or user.get("id") or "web"),
+    )
+    return {"ok": True, "request_uid": request_uid}
 
 
 def approve_booking(

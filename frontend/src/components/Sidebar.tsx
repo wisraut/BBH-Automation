@@ -1,4 +1,5 @@
 import type { Role } from '../lib/auth'
+import bbhDashboardLogo from '../assets/bbh-logo-dashboard.png'
 
 export type PageKey =
   | 'bookings'
@@ -20,7 +21,6 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { key: 'bookings', label: 'การจอง', roles: ['cro', 'admin'] },
-  { key: 'new-booking', label: 'จองใหม่', roles: ['cro', 'admin'] },
   { key: 'calendar', label: 'ปฏิทิน', roles: ['cro', 'admin'] },
   { key: 'schedule', label: 'ตารางงาน', roles: ['doctor', 'admin'] },
   { key: 'patients', label: 'คนไข้', roles: ['cro', 'doctor', 'admin'] },
@@ -41,18 +41,25 @@ export function Sidebar({ role, current, onNavigate }: SidebarProps) {
   const items = NAV.filter((item) => item.roles.includes(role))
 
   return (
-    <aside className="flex h-full w-60 flex-col border-r border-bbh-line bg-white">
-      <div className="flex items-center gap-3 border-b border-bbh-line px-6 py-5">
-        <div className="grid h-9 w-9 place-items-center rounded-xl bg-bbh-green text-white">
-          <span className="font-serif text-base font-semibold">B</span>
+    <aside className="flex h-full w-64 flex-col border-r border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur">
+      <div className="border-b border-bbh-line px-6 py-6">
+        <div className="flex items-center gap-3">
+          <img
+            src={bbhDashboardLogo}
+            alt="Better Being Hospital"
+            className="h-11 w-11 object-contain"
+          />
+          <div>
+            <p className="font-serif text-lg font-semibold leading-none text-bbh-ink">BBH</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-bbh-muted">Portal</p>
+          </div>
         </div>
-        <div>
-          <p className="font-serif text-lg font-semibold leading-none text-bbh-ink">BBH</p>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-bbh-muted">Portal</p>
+        <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-bbh-green-soft">
+          <div className="h-full w-2/3 rounded-full bg-bbh-green" />
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-4 py-5">
         {items.map((item) => {
           const active = item.key === current
           return (
@@ -60,10 +67,10 @@ export function Sidebar({ role, current, onNavigate }: SidebarProps) {
               key={item.key}
               type="button"
               onClick={() => onNavigate(item.key)}
-              className={`mb-1 flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+              className={`mb-1.5 flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
                 active
-                  ? 'bg-bbh-green-soft text-bbh-green-dark'
-                  : 'text-bbh-muted hover:bg-bbh-surface hover:text-bbh-ink'
+                  ? 'bg-bbh-green text-white shadow-lg shadow-bbh-green/20'
+                  : 'text-bbh-muted hover:bg-bbh-green-soft hover:text-bbh-green-dark'
               }`}
             >
               {item.label}

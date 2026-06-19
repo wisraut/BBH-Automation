@@ -37,11 +37,11 @@ function Dashboard() {
   if (!user) return null
 
   return (
-    <div className="flex h-screen bg-bbh-surface text-bbh-ink">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
       <Sidebar role={user.role} current={page} onNavigate={setPage} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar title={pageTitle(page)} subtitle={pageSubtitle(page)} />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden p-5">
           {page === 'bookings' ? (
             <ProtectedRoute allow={['cro', 'admin']}>
               <Bookings />

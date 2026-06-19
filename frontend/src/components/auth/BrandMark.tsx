@@ -1,17 +1,13 @@
+import bbhLogoFull from '../../assets/bbh-logo-full.jpg'
+
 export function BrandMark() {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center">
       <img
-        src="/bbh-logo-mark.png"
+        src={bbhLogoFull}
         alt="Better Being Hospital"
-        className="h-14 w-14 rounded-2xl object-contain"
+        className="h-24 w-auto max-w-[260px] object-contain"
       />
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-bbh-green">
-          BBH Portal
-        </p>
-        <p className="text-sm text-bbh-muted">Better Being Hospital</p>
-      </div>
     </div>
   )
 }

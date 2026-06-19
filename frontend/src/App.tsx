@@ -10,7 +10,10 @@ import { AuthProvider } from './contexts/AuthProvider'
 import { ToastProvider } from './contexts/ToastProvider'
 import { useAuth } from './lib/auth'
 import { queryClient } from './lib/queryClient'
+import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
+import { Calendar } from './pages/Calendar'
+import { Patients } from './pages/Patients'
 import { Login } from './routes/Login'
 
 const DEFAULT_PAGE_BY_ROLE: Record<string, PageKey> = {
@@ -48,11 +51,15 @@ function Dashboard() {
             </ProtectedRoute>
           ) : null}
           {page === 'new-booking' ? <Placeholder title="จองใหม่" /> : null}
-          {page === 'calendar' ? <Placeholder title="ปฏิทิน" /> : null}
+          {page === 'calendar' ? <Calendar /> : null}
           {page === 'schedule' ? <Placeholder title="ตารางงานแพทย์" /> : null}
-          {page === 'patients' ? <Placeholder title="คนไข้" /> : null}
+          {page === 'patients' ? (
+            <ProtectedRoute allow={['cro', 'doctor', 'admin']}>
+              <Patients />
+            </ProtectedRoute>
+          ) : null}
           {page === 'reports' ? <Placeholder title="รายงาน" /> : null}
-          {page === 'ai' ? <Placeholder title="AI Assistant" /> : null}
+          {page === 'ai' ? <AiAssistant /> : null}
           {page === 'users' ? <Placeholder title="ผู้ใช้" /> : null}
           {page === 'system-health' ? <Placeholder title="สถานะระบบ" /> : null}
           {page === 'account' ? <Placeholder title="บัญชี" /> : null}

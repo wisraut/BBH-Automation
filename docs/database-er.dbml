@@ -1,0 +1,229 @@
+// BBH Database - ER Diagram
+// Database: bbh_bot_ops (MySQL 8.4)
+// Last sync: 2026-06-18
+// Import at https://dbdiagram.io/d
+
+Project bbh_bot_ops {
+  database_type: "MySQL"
+  Note: "BBH operational database for auth/users, LINE booking flow, doctor work, AI assistant, and notifications."
+}
+
+Table users {
+  id int [pk, increment, unsigned]
+  email varchar(191) [not null, unique]
+  password_hash varchar(255) [not null, note: "Hash only; no plain password"]
+  display_name varchar(120) [not null]
+  role enum("admin", "doctor", "cro") [not null]
+  specialty varchar(120) [note: "doctor only"]
+  avatar_url varchar(500)
+  is_active tinyint [not null, default: 1]
+  last_login_at datetime
+  last_logout_at datetime
+  password_changed_at datetime
+  phone varchar(20)
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table auth_audit_logs {
+  id int [pk, increment, unsigned]
+  event_type enum("login_success", "login_fail", "logout", "password_change") [not null]
+  user_id int [unsigned]
+  email varchar(191) [not null, note: "Attempt email, kept even when user_id is null"]
+  ip_address varchar(45) [not null]
+  user_agent varchar(255)
+  fail_reason varchar(80)
+  created_at datetime [not null]
+}
+
+Table patients {
+  id int [pk, increment, unsigned]
+  hn varchar(20) [unique]
+  display_name varchar(120) [not null]
+  phone varchar(20)
+  email varchar(191)
+  dob date
+  gender enum("male", "female", "other", "unknown")
+  notes text
+  created_by int [unsigned]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table bot_sessions {
+  id bigint [pk, increment, unsigned]
+  channel varchar(40) [not null]
+  external_user_id varchar(191) [not null, note: "Unique with channel"]
+  dify_conversation_id varchar(191)
+  current_intent varchar(80)
+  current_state varchar(80) [not null, default: "idle"]
+  last_message_at datetime
+  metadata json
+  patient_id int [unsigned]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+
+  indexes {
+    (channel, external_user_id) [unique, name: "uq_bot_sessions_channel_user"]
+  }
+}
+
+Table booking_requests {
+  id bigint [pk, increment, unsigned]
+  request_uid char(36) [not null, unique]
+  channel varchar(40) [not null, default: "line_main"]
+  external_user_id varchar(191) [not null]
+  session_id bigint [unsigned]
+  patient_id int [unsigned]
+  assigned_doctor_id int [unsigned]
+  status enum("draft", "pending_approval", "approved", "rejected", "cancelled", "expired") [not null, default: "draft"]
+  patient_name varchar(191)
+  phone varchar(80)
+  requested_date date
+  requested_time time
+  requested_datetime_text varchar(191)
+  symptom text
+  service_type varchar(120)
+  doctor_code varchar(80)
+  booking_source enum("line", "phone", "whatsapp", "email", "walkin") [not null, default: "line"]
+  appointment_type enum("new", "followup", "procedure", "consult") [not null, default: "new"]
+  duration_min int [not null, unsigned, default: 60]
+  started_datetime datetime
+  ended_datetime datetime
+  visit_outcome enum("attended", "no_show", "cancelled", "rescheduled")
+  rescheduled_to_uid char(36)
+  calendar_provider varchar(40) [not null, default: "google"]
+  calendar_id varchar(191)
+  calendar_event_id varchar(191)
+  calendar_event_url text
+  calendar_status enum("not_created", "pending_event", "created", "failed") [not null, default: "not_created"]
+  raw_summary json
+  notes text
+  created_by varchar(80) [not null, default: "bot"]
+  approved_by varchar(191)
+  approved_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table booking_messages {
+  id bigint [pk, increment, unsigned]
+  booking_request_id bigint [unsigned]
+  session_id bigint [unsigned]
+  direction enum("in", "out", "system") [not null]
+  message_type varchar(40) [not null, default: "text"]
+  message_text text
+  dify_answer text
+  route_prefix varchar(80)
+  raw_payload json
+  created_at datetime [not null]
+}
+
+Table booking_audit_logs {
+  id bigint [pk, increment, unsigned]
+  booking_request_id bigint [not null, unsigned]
+  actor_type enum("bot", "cro", "system") [not null]
+  actor_id varchar(191)
+  action varchar(80) [not null]
+  from_status varchar(40)
+  to_status varchar(40)
+  detail json
+  created_at datetime [not null]
+}
+
+Table booking_attachments {
+  id int [pk, increment, unsigned]
+  booking_uid char(36) [not null]
+  uploaded_by enum("patient", "staff") [not null]
+  uploaded_by_user_id int [unsigned]
+  filename varchar(255) [not null]
+  file_path varchar(500) [not null, note: "Path under /app/credentials/attachments"]
+  file_size int [not null, unsigned]
+  mime_type varchar(100) [not null]
+  thumbnail_path varchar(500)
+  created_at datetime [not null]
+}
+
+Table doctor_reports {
+  id int [pk, increment, unsigned]
+  patient_id int [unsigned]
+  patient_name varchar(120) [note: "Denormalized for search when patient_id is null"]
+  uploaded_by int [not null, unsigned]
+  filename varchar(255) [not null]
+  file_path varchar(500) [not null]
+  file_size int [not null, unsigned]
+  mime_type varchar(100) [not null]
+  notebooklm_url varchar(500)
+  notes text
+  status enum("uploaded", "sent_notebooklm", "reviewed") [not null, default: "uploaded"]
+  reviewed_by int [unsigned]
+  reviewed_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ai_conversations {
+  id int [pk, increment, unsigned]
+  user_id int [not null, unsigned]
+  dify_conversation_id varchar(191)
+  title varchar(255)
+  context_patient_id int [unsigned]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ai_messages {
+  id int [pk, increment, unsigned]
+  conversation_id int [not null, unsigned]
+  role enum("user", "assistant") [not null]
+  content text [not null]
+  sources json [note: "KB citations"]
+  tokens_used int [unsigned]
+  latency_ms int [unsigned]
+  created_at datetime [not null]
+}
+
+Table notifications {
+  id int [pk, increment, unsigned]
+  user_id int [unsigned]
+  role enum("admin", "doctor", "cro") [note: "Role target when user_id is null"]
+  type enum("new_booking", "line_reply", "lab_result", "mention", "system") [not null]
+  title varchar(255) [not null]
+  body text
+  link_url varchar(500)
+  is_read tinyint [not null, default: 0]
+  read_at datetime
+  created_at datetime [not null]
+}
+
+Table patient_consent_logs {
+  id int [pk, increment, unsigned]
+  patient_id int [not null, unsigned]
+  viewed_by int [not null, unsigned]
+  action enum("view", "export", "share", "edit") [not null]
+  ip_address varchar(45) [not null]
+  reason varchar(255)
+  created_at datetime [not null]
+}
+
+Ref auth_audit_user: auth_audit_logs.user_id > users.id [delete: set null]
+Ref patients_created_by: patients.created_by > users.id [delete: set null]
+Ref bot_sessions_patient: bot_sessions.patient_id > patients.id [delete: set null]
+Ref booking_requests_session: booking_requests.session_id > bot_sessions.id [delete: set null]
+Ref booking_requests_patient: booking_requests.patient_id > patients.id [delete: set null]
+Ref booking_requests_assigned_doctor: booking_requests.assigned_doctor_id > users.id [delete: set null]
+Ref booking_requests_rescheduled_to: booking_requests.rescheduled_to_uid > booking_requests.request_uid [delete: set null]
+Ref booking_messages_request: booking_messages.booking_request_id > booking_requests.id [delete: set null]
+Ref booking_messages_session: booking_messages.session_id > bot_sessions.id [delete: set null]
+Ref booking_audit_request: booking_audit_logs.booking_request_id > booking_requests.id [delete: cascade]
+Ref booking_attachments_booking: booking_attachments.booking_uid > booking_requests.request_uid [delete: cascade]
+Ref booking_attachments_uploaded_by_user: booking_attachments.uploaded_by_user_id > users.id [delete: set null]
+Ref doctor_reports_patient: doctor_reports.patient_id > patients.id [delete: set null]
+Ref doctor_reports_uploaded_by: doctor_reports.uploaded_by > users.id [delete: restrict]
+Ref doctor_reports_reviewed_by: doctor_reports.reviewed_by > users.id [delete: set null]
+Ref ai_conversations_user: ai_conversations.user_id > users.id [delete: cascade]
+Ref ai_conversations_context_patient: ai_conversations.context_patient_id > patients.id [delete: set null]
+Ref ai_messages_conversation: ai_messages.conversation_id > ai_conversations.id [delete: cascade]
+Ref notifications_user: notifications.user_id > users.id [delete: cascade]
+Ref patient_consent_patient: patient_consent_logs.patient_id > patients.id [delete: cascade]
+Ref patient_consent_viewed_by: patient_consent_logs.viewed_by > users.id [delete: restrict]

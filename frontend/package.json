@@ -12,6 +12,8 @@
     "gen-types:prod": "openapi-typescript https://bridge.bbh-hospital.com/openapi.json -o src/lib/api-types.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.0",
+    "@tanstack/react-query-devtools": "^5.101.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -1,13 +1,27 @@
 """LINE-Dify Hospital Bridge entry point."""
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from api import booking, cro_webhook, health, line_webhook, session
+from api import auth, booking, cro_webhook, health, line_webhook, session
 from core.config import SERVER_PORT
 from core.lifespan import lifespan
 
 app = FastAPI(title="LINE-Dify Hospital Bridge", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://bbh-hospital.com",
+        "https://app.bbh-hospital.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(line_webhook.router)
 app.include_router(cro_webhook.router)
 app.include_router(session.router)

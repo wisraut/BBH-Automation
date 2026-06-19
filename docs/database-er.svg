@@ -1,0 +1,296 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="2400" viewBox="0 0 1800 2400" role="img" aria-labelledby="title desc">
+  <title id="title">BBH Database ER Diagram</title>
+  <desc id="desc">ER diagram for bbh_bot_ops MySQL database, grouped into auth, booking, doctor work, and AI notifications areas.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f8fb; }
+      .panel { fill: #ffffff; stroke: #cfd6e4; stroke-width: 2; rx: 18; }
+      .panelTitle { font: 700 30px Arial, sans-serif; fill: #172033; }
+      .subtitle { font: 400 18px Arial, sans-serif; fill: #526079; }
+      .table { fill: #ffffff; stroke: #26364d; stroke-width: 2; rx: 10; }
+      .tableHead { fill: #26364d; }
+      .tableName { font: 700 18px Arial, sans-serif; fill: #ffffff; }
+      .col { font: 400 15px Consolas, "Courier New", monospace; fill: #182235; }
+      .key { font: 700 15px Consolas, "Courier New", monospace; fill: #0f5132; }
+      .rel { stroke: #6f7f95; stroke-width: 2.2; fill: none; marker-end: url(#crow); }
+      .relSoft { stroke: #95a1b5; stroke-width: 2; fill: none; marker-end: url(#crow); }
+      .relLabel { font: 600 13px Arial, sans-serif; fill: #3f4b5f; paint-order: stroke; stroke: #ffffff; stroke-width: 5; stroke-linejoin: round; }
+      .note { font: 400 16px Arial, sans-serif; fill: #526079; }
+      .legendBox { fill: #eef3f9; stroke: #c7d2e1; stroke-width: 1; rx: 8; }
+    </style>
+    <marker id="crow" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M 1 1 L 12 7 L 1 13" fill="none" stroke="#6f7f95" stroke-width="2"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="2400"/>
+  <text x="70" y="70" class="panelTitle" style="font-size:38px">BBH Database - ER Diagram</text>
+  <text x="70" y="105" class="subtitle">Database: bbh_bot_ops (MySQL 8.4) · Last sync: 2026-06-18 · 13 tables · 21 foreign keys</text>
+  <rect class="legendBox" x="1300" y="45" width="420" height="74"/>
+  <text x="1325" y="75" class="note">Legend: PK = primary key · UK = unique key · FK = foreign key</text>
+  <text x="1325" y="102" class="note">Arrows point from parent table to child table.</text>
+
+  <!-- Panel 1 -->
+  <rect class="panel" x="60" y="150" width="1680" height="390"/>
+  <text x="90" y="198" class="panelTitle">1. Auth &amp; Users</text>
+  <text x="90" y="225" class="subtitle">Dashboard users and login/logout/password audit trail.</text>
+
+  <path class="rel" d="M 600 342 C 720 342, 740 342, 860 342"/>
+  <text x="685" y="326" class="relLabel">logs attempts</text>
+
+  <g transform="translate(160,260)">
+    <rect class="table" width="440" height="215"/>
+    <rect class="tableHead" width="440" height="38" rx="9"/>
+    <text x="18" y="25" class="tableName">users</text>
+    <text x="18" y="64" class="key">int id PK</text>
+    <text x="18" y="88" class="key">varchar email UK</text>
+    <text x="18" y="112" class="col">varchar password_hash</text>
+    <text x="18" y="136" class="col">varchar display_name</text>
+    <text x="18" y="160" class="col">enum role admin/doctor/cro</text>
+    <text x="18" y="184" class="col">tinyint is_active</text>
+  </g>
+
+  <g transform="translate(860,260)">
+    <rect class="table" width="460" height="215"/>
+    <rect class="tableHead" width="460" height="38" rx="9"/>
+    <text x="18" y="25" class="tableName">auth_audit_logs</text>
+    <text x="18" y="64" class="key">int id PK</text>
+    <text x="18" y="88" class="col">enum event_type</text>
+    <text x="18" y="112" class="key">int user_id FK</text>
+    <text x="18" y="136" class="col">varchar email</text>
+    <text x="18" y="160" class="col">varchar ip_address</text>
+    <text x="18" y="184" class="col">varchar fail_reason</text>
+  </g>
+
+  <!-- Panel 2 -->
+  <rect class="panel" x="60" y="580" width="1680" height="780"/>
+  <text x="90" y="628" class="panelTitle">2. LINE bot + Booking flow</text>
+  <text x="90" y="655" class="subtitle">LINE sessions, patient links, bookings, messages, audit rows, attachments, and reschedule chain.</text>
+
+  <!-- booking relationships -->
+  <path class="rel" d="M 375 848 C 450 848, 500 848, 575 848"/>
+  <text x="438" y="830" class="relLabel">links LINE</text>
+  <path class="rel" d="M 850 855 C 935 855, 1000 855, 1085 855"/>
+  <text x="930" y="837" class="relLabel">starts booking</text>
+  <path class="rel" d="M 375 912 C 590 1020, 840 1010, 1085 910"/>
+  <text x="650" y="1010" class="relLabel">books visit</text>
+  <path class="rel" d="M 375 1070 C 590 1100, 850 1010, 1085 955"/>
+  <text x="655" y="1080" class="relLabel">assigned doctor</text>
+  <path class="relSoft" d="M 1325 995 C 1540 1050, 1540 740, 1325 800"/>
+  <text x="1460" y="900" class="relLabel">reschedules</text>
+  <path class="rel" d="M 1205 1025 C 1205 1082, 1205 1105, 1205 1162"/>
+  <text x="1220" y="1100" class="relLabel">has messages</text>
+  <path class="rel" d="M 735 955 C 825 1090, 1010 1188, 1085 1220"/>
+  <text x="820" y="1120" class="relLabel">session messages</text>
+  <path class="rel" d="M 1325 875 C 1375 875, 1400 875, 1450 875"/>
+  <text x="1345" y="857" class="relLabel">tracks changes</text>
+  <path class="rel" d="M 1325 955 C 1375 1045, 1400 1130, 1450 1205"/>
+  <text x="1345" y="1078" class="relLabel">has files</text>
+  <path class="rel" d="M 375 1110 C 780 1320, 1120 1308, 1450 1275"/>
+  <text x="910" y="1322" class="relLabel">uploads files</text>
+
+  <g transform="translate(105,710)">
+    <rect class="table" width="270" height="180"/>
+    <rect class="tableHead" width="270" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">patients</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">varchar hn UK</text>
+    <text x="16" y="112" class="col">varchar display_name</text>
+    <text x="16" y="136" class="col">varchar phone</text>
+    <text x="16" y="160" class="col">varchar email</text>
+  </g>
+
+  <g transform="translate(105,950)">
+    <rect class="table" width="270" height="180"/>
+    <rect class="tableHead" width="270" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">users</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">varchar email UK</text>
+    <text x="16" y="112" class="col">enum role</text>
+  </g>
+
+  <g transform="translate(575,725)">
+    <rect class="table" width="275" height="230"/>
+    <rect class="tableHead" width="275" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">bot_sessions</text>
+    <text x="16" y="64" class="key">bigint id PK</text>
+    <text x="16" y="88" class="key">channel + external_user_id UK</text>
+    <text x="16" y="112" class="col">varchar dify_conversation_id</text>
+    <text x="16" y="136" class="col">varchar current_intent</text>
+    <text x="16" y="160" class="col">varchar current_state</text>
+    <text x="16" y="184" class="col">json metadata</text>
+    <text x="16" y="208" class="key">int patient_id FK</text>
+  </g>
+
+  <g transform="translate(1085,700)">
+    <rect class="table" width="240" height="325"/>
+    <rect class="tableHead" width="240" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">booking_requests</text>
+    <text x="16" y="64" class="key">bigint id PK</text>
+    <text x="16" y="88" class="key">char request_uid UK</text>
+    <text x="16" y="112" class="key">bigint session_id FK</text>
+    <text x="16" y="136" class="key">int patient_id FK</text>
+    <text x="16" y="160" class="key">int assigned_doctor_id FK</text>
+    <text x="16" y="184" class="col">enum status</text>
+    <text x="16" y="208" class="col">date/time requested</text>
+    <text x="16" y="232" class="col">text symptom</text>
+    <text x="16" y="256" class="col">enum booking_source</text>
+    <text x="16" y="280" class="col">enum visit_outcome</text>
+    <text x="16" y="304" class="key">char rescheduled_to_uid FK</text>
+  </g>
+
+  <g transform="translate(1085,1162)">
+    <rect class="table" width="285" height="160"/>
+    <rect class="tableHead" width="285" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">booking_messages</text>
+    <text x="16" y="64" class="key">bigint id PK</text>
+    <text x="16" y="88" class="key">bigint booking_request_id FK</text>
+    <text x="16" y="112" class="key">bigint session_id FK</text>
+    <text x="16" y="136" class="col">direction, message, payload</text>
+  </g>
+
+  <g transform="translate(1450,760)">
+    <rect class="table" width="250" height="210"/>
+    <rect class="tableHead" width="250" height="38" rx="9"/>
+    <text x="14" y="25" class="tableName">booking_audit_logs</text>
+    <text x="14" y="64" class="key">bigint id PK</text>
+    <text x="14" y="88" class="key">bigint booking_request_id FK</text>
+    <text x="14" y="112" class="col">enum actor_type</text>
+    <text x="14" y="136" class="col">varchar actor_id</text>
+    <text x="14" y="160" class="col">varchar action</text>
+    <text x="14" y="184" class="col">status diff, detail</text>
+  </g>
+
+  <g transform="translate(1450,1120)">
+    <rect class="table" width="250" height="210"/>
+    <rect class="tableHead" width="250" height="38" rx="9"/>
+    <text x="14" y="25" class="tableName">booking_attachments</text>
+    <text x="14" y="64" class="key">int id PK</text>
+    <text x="14" y="88" class="key">char booking_uid FK</text>
+    <text x="14" y="112" class="key">int uploaded_by_user_id FK</text>
+    <text x="14" y="136" class="col">enum uploaded_by</text>
+    <text x="14" y="160" class="col">filename, mime_type</text>
+    <text x="14" y="184" class="col">file_path, thumbnail_path</text>
+  </g>
+
+  <!-- Panel 3 -->
+  <rect class="panel" x="60" y="1400" width="1680" height="470"/>
+  <text x="90" y="1448" class="panelTitle">3. Doctor work</text>
+  <text x="90" y="1475" class="subtitle">Patient records, report uploads/reviews, and PDPA access audit log.</text>
+
+  <path class="rel" d="M 340 1625 C 450 1625, 505 1585, 615 1585"/>
+  <text x="447" y="1595" class="relLabel">creates</text>
+  <path class="rel" d="M 870 1595 C 975 1595, 1030 1595, 1135 1595"/>
+  <text x="980" y="1578" class="relLabel">has reports</text>
+  <path class="rel" d="M 340 1670 C 615 1745, 900 1730, 1135 1685"/>
+  <text x="700" y="1750" class="relLabel">uploads/reviews</text>
+  <path class="rel" d="M 870 1650 C 970 1765, 1110 1770, 1215 1750"/>
+  <text x="990" y="1788" class="relLabel">audit access</text>
+  <path class="rel" d="M 340 1705 C 610 1840, 1010 1840, 1215 1810"/>
+  <text x="730" y="1848" class="relLabel">viewed by</text>
+
+  <g transform="translate(105,1530)">
+    <rect class="table" width="235" height="210"/>
+    <rect class="tableHead" width="235" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">users</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">varchar email UK</text>
+    <text x="16" y="112" class="col">enum role</text>
+  </g>
+
+  <g transform="translate(615,1510)">
+    <rect class="table" width="255" height="245"/>
+    <rect class="tableHead" width="255" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">patients</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">varchar hn UK</text>
+    <text x="16" y="112" class="col">display_name, phone</text>
+    <text x="16" y="136" class="col">email, dob, gender</text>
+    <text x="16" y="160" class="col">text notes</text>
+    <text x="16" y="184" class="key">int created_by FK</text>
+  </g>
+
+  <g transform="translate(1135,1505)">
+    <rect class="table" width="270" height="250"/>
+    <rect class="tableHead" width="270" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">doctor_reports</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">int patient_id FK</text>
+    <text x="16" y="112" class="key">int uploaded_by FK</text>
+    <text x="16" y="136" class="key">int reviewed_by FK</text>
+    <text x="16" y="160" class="col">varchar patient_name</text>
+    <text x="16" y="184" class="col">filename, file_path</text>
+    <text x="16" y="208" class="col">notebooklm_url</text>
+    <text x="16" y="232" class="col">enum status</text>
+  </g>
+
+  <g transform="translate(1215,1765)">
+    <rect class="table" width="300" height="95"/>
+    <rect class="tableHead" width="300" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">patient_consent_logs</text>
+    <text x="16" y="64" class="key">id PK · patient_id FK · viewed_by FK</text>
+    <text x="16" y="86" class="col">action, ip_address, reason</text>
+  </g>
+
+  <!-- Panel 4 -->
+  <rect class="panel" x="60" y="1910" width="1680" height="420"/>
+  <text x="90" y="1958" class="panelTitle">4. AI Assistant + Notifications</text>
+  <text x="90" y="1985" class="subtitle">Staff AI conversations, AI messages, patient context, and dashboard badges.</text>
+
+  <path class="rel" d="M 345 2100 C 470 2100, 520 2100, 645 2100"/>
+  <text x="455" y="2082" class="relLabel">starts chat</text>
+  <path class="rel" d="M 345 2220 C 475 2200, 520 2145, 645 2145"/>
+  <text x="450" y="2210" class="relLabel">sets context</text>
+  <path class="rel" d="M 890 2118 C 1010 2118, 1060 2118, 1180 2118"/>
+  <text x="1000" y="2100" class="relLabel">has messages</text>
+  <path class="rel" d="M 345 2050 C 900 1975, 1230 2022, 1445 2085"/>
+  <text x="905" y="2022" class="relLabel">receives</text>
+
+  <g transform="translate(105,2030)">
+    <rect class="table" width="240" height="125"/>
+    <rect class="tableHead" width="240" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">users</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">varchar email UK</text>
+    <text x="16" y="112" class="col">enum role</text>
+  </g>
+
+  <g transform="translate(105,2175)">
+    <rect class="table" width="240" height="100"/>
+    <rect class="tableHead" width="240" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">patients</text>
+    <text x="16" y="64" class="key">int id PK · varchar hn UK</text>
+    <text x="16" y="88" class="col">display_name</text>
+  </g>
+
+  <g transform="translate(645,2045)">
+    <rect class="table" width="245" height="155"/>
+    <rect class="tableHead" width="245" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">ai_conversations</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">int user_id FK</text>
+    <text x="16" y="112" class="key">int context_patient_id FK</text>
+    <text x="16" y="136" class="col">dify_conversation_id, title</text>
+  </g>
+
+  <g transform="translate(1180,2045)">
+    <rect class="table" width="240" height="155"/>
+    <rect class="tableHead" width="240" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">ai_messages</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">int conversation_id FK</text>
+    <text x="16" y="112" class="col">role, content</text>
+    <text x="16" y="136" class="col">sources, tokens, latency</text>
+  </g>
+
+  <g transform="translate(1445,2030)">
+    <rect class="table" width="240" height="185"/>
+    <rect class="tableHead" width="240" height="38" rx="9"/>
+    <text x="16" y="25" class="tableName">notifications</text>
+    <text x="16" y="64" class="key">int id PK</text>
+    <text x="16" y="88" class="key">int user_id FK</text>
+    <text x="16" y="112" class="col">enum role target</text>
+    <text x="16" y="136" class="col">enum type</text>
+    <text x="16" y="160" class="col">title, link_url, is_read</text>
+  </g>
+</svg>

@@ -1,0 +1,75 @@
+<mxfile host="app.diagrams.net" modified="2026-06-18T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="bbh-bot-ops-er" name="BBH bbh_bot_ops ER">
+    <mxGraphModel dx="2200" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="BBH Database - bbh_bot_ops ER Diagram&#xa;MySQL 8.4 · 13 tables · 21 FKs · Last sync 2026-06-18" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="60" y="35" width="900" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="users" value="&lt;b&gt;users&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;email varchar UK&lt;br&gt;password_hash varchar&lt;br&gt;display_name varchar&lt;br&gt;role enum admin/doctor/cro&lt;br&gt;phone varchar&lt;br&gt;is_active tinyint" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="80" y="140" width="260" height="185" as="geometry"/>
+        </mxCell>
+        <mxCell id="auth_audit_logs" value="&lt;b&gt;auth_audit_logs&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;event_type enum&lt;br&gt;user_id int FK&lt;br&gt;email varchar&lt;br&gt;ip_address varchar&lt;br&gt;fail_reason varchar" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="440" y="140" width="280" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="patients" value="&lt;b&gt;patients&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;hn varchar UK&lt;br&gt;display_name varchar&lt;br&gt;phone varchar&lt;br&gt;email varchar&lt;br&gt;dob date&lt;br&gt;gender enum&lt;br&gt;created_by int FK" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="80" y="420" width="260" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="bot_sessions" value="&lt;b&gt;bot_sessions&lt;/b&gt;&lt;hr&gt;id bigint PK&lt;br&gt;channel + external_user_id UK&lt;br&gt;dify_conversation_id varchar&lt;br&gt;current_intent varchar&lt;br&gt;current_state varchar&lt;br&gt;metadata json&lt;br&gt;patient_id int FK" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="440" y="430" width="300" height="205" as="geometry"/>
+        </mxCell>
+        <mxCell id="booking_requests" value="&lt;b&gt;booking_requests&lt;/b&gt;&lt;hr&gt;id bigint PK&lt;br&gt;request_uid char UK&lt;br&gt;session_id bigint FK&lt;br&gt;patient_id int FK&lt;br&gt;assigned_doctor_id int FK&lt;br&gt;status enum&lt;br&gt;requested_date/time&lt;br&gt;booking_source enum&lt;br&gt;appointment_type enum&lt;br&gt;visit_outcome enum&lt;br&gt;rescheduled_to_uid char FK" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="850" y="385" width="300" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="booking_messages" value="&lt;b&gt;booking_messages&lt;/b&gt;&lt;hr&gt;id bigint PK&lt;br&gt;booking_request_id bigint FK&lt;br&gt;session_id bigint FK&lt;br&gt;direction enum&lt;br&gt;message_type varchar&lt;br&gt;message_text text&lt;br&gt;raw_payload json" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="850" y="760" width="300" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="booking_audit_logs" value="&lt;b&gt;booking_audit_logs&lt;/b&gt;&lt;hr&gt;id bigint PK&lt;br&gt;booking_request_id bigint FK&lt;br&gt;actor_type enum&lt;br&gt;actor_id varchar&lt;br&gt;action varchar&lt;br&gt;from_status/to_status&lt;br&gt;detail json" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="1260" y="400" width="300" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="booking_attachments" value="&lt;b&gt;booking_attachments&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;booking_uid char FK&lt;br&gt;uploaded_by_user_id int FK&lt;br&gt;uploaded_by enum&lt;br&gt;filename varchar&lt;br&gt;file_path varchar&lt;br&gt;mime_type varchar" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="1260" y="690" width="300" height="205" as="geometry"/>
+        </mxCell>
+        <mxCell id="doctor_reports" value="&lt;b&gt;doctor_reports&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;patient_id int FK&lt;br&gt;uploaded_by int FK&lt;br&gt;reviewed_by int FK&lt;br&gt;patient_name varchar&lt;br&gt;filename/file_path&lt;br&gt;notebooklm_url varchar&lt;br&gt;status enum" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="80" y="760" width="300" height="220" as="geometry"/>
+        </mxCell>
+        <mxCell id="patient_consent_logs" value="&lt;b&gt;patient_consent_logs&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;patient_id int FK&lt;br&gt;viewed_by int FK&lt;br&gt;action enum&lt;br&gt;ip_address varchar&lt;br&gt;reason varchar" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="440" y="760" width="300" height="175" as="geometry"/>
+        </mxCell>
+        <mxCell id="ai_conversations" value="&lt;b&gt;ai_conversations&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;user_id int FK&lt;br&gt;context_patient_id int FK&lt;br&gt;dify_conversation_id varchar&lt;br&gt;title varchar" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="80" y="1090" width="300" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="ai_messages" value="&lt;b&gt;ai_messages&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;conversation_id int FK&lt;br&gt;role enum&lt;br&gt;content text&lt;br&gt;sources json&lt;br&gt;tokens_used int&lt;br&gt;latency_ms int" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="440" y="1090" width="300" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="notifications" value="&lt;b&gt;notifications&lt;/b&gt;&lt;hr&gt;id int PK&lt;br&gt;user_id int FK&lt;br&gt;role enum target&lt;br&gt;type enum&lt;br&gt;title varchar&lt;br&gt;link_url varchar&lt;br&gt;is_read tinyint" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#ffffff;strokeColor=#26364d;fontFamily=Consolas;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="850" y="1090" width="300" height="190" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" value="logs attempts" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="auth_audit_logs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="creates" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="patients"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="links LINE" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="patients" target="bot_sessions"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="starts booking" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="bot_sessions" target="booking_requests"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="books visit" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="patients" target="booking_requests"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="assigned doctor" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="booking_requests"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="reschedules" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="booking_requests" target="booking_requests"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="has messages" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="booking_requests" target="booking_messages"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="session messages" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="bot_sessions" target="booking_messages"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="tracks changes" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="booking_requests" target="booking_audit_logs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="has files" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="booking_requests" target="booking_attachments"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" value="uploads files" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="booking_attachments"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" value="has reports" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="patients" target="doctor_reports"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e14" value="uploaded by" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="doctor_reports"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e15" value="reviewed by" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="doctor_reports"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e16" value="starts chat" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="ai_conversations"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e17" value="sets context" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="patients" target="ai_conversations"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e18" value="has messages" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="ai_conversations" target="ai_messages"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e19" value="receives" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="notifications"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e20" value="audit access" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="patients" target="patient_consent_logs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e21" value="viewed by" style="endArrow=ERmany;startArrow=ERone;html=1;rounded=0;strokeColor=#6f7f95;fontSize=12" edge="1" parent="1" source="users" target="patient_consent_logs"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import ai, auth, booking, bookings_api, cro_webhook, health, line_webhook, session
+from api import ai, auth, booking, bookings_api, calendar_api, cro_webhook, health, line_webhook, session
 from core.config import SERVER_PORT
 from core.lifespan import lifespan
 
@@ -16,6 +16,7 @@ app.add_middleware(
         "https://bbh-hospital.com",
         "https://app.bbh-hospital.com",
     ],
+    allow_origin_regex=r"^https?://(192\.168|10|172\.(1[6-9]|2[0-9]|3[01]))\..*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,6 +29,7 @@ app.include_router(cro_webhook.router)
 app.include_router(session.router)
 app.include_router(booking.router)
 app.include_router(bookings_api.router)
+app.include_router(calendar_api.router)
 
 
 if __name__ == "__main__":

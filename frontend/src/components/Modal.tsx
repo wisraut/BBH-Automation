@@ -7,9 +7,10 @@ interface ModalProps {
   title: string
   onClose: () => void
   children: ReactNode
+  size?: 'md' | 'lg'
 }
 
-export function Modal({ open, title, onClose, children }: ModalProps) {
+export function Modal({ open, title, onClose, children, size = 'md' }: ModalProps) {
   useEffect(() => {
     if (!open) return
     function onKey(event: KeyboardEvent) {
@@ -22,16 +23,20 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6">
       <button
         type="button"
         aria-label="ปิด"
         onClick={onClose}
         className="absolute inset-0 bg-bbh-ink/45 backdrop-blur-[2px]"
       />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[28px] border border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20">
+      <div
+        className={`relative z-10 flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden rounded-[28px] border border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 sm:max-h-[calc(100vh-5rem)] ${
+          size === 'lg' ? 'max-w-2xl' : 'max-w-md'
+        }`}
+      >
         <div className="h-1 bg-bbh-green" />
-        <div className="flex items-start justify-between gap-4 border-b border-bbh-line bg-bbh-surface px-7 py-5">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-bbh-line bg-bbh-surface px-7 py-4">
           <h2 className="font-serif text-xl font-semibold text-bbh-ink">{title}</h2>
           <button
             type="button"
@@ -42,7 +47,7 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
             <X size={18} />
           </button>
         </div>
-        <div className="bg-white px-7 py-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-7 py-5">{children}</div>
       </div>
     </div>
   )

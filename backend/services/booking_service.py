@@ -1,4 +1,5 @@
 """Booking business logic — list, approve (calendar + LINE push), reject (LINE push)."""
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -9,6 +10,7 @@ from integrations.line_client import PRIMARY, push as line_push
 from repositories import booking_repo
 from utils.pagination import paginate
 
+logger = logging.getLogger(__name__)
 TZ_BANGKOK = timezone(timedelta(hours=7))
 
 
@@ -191,6 +193,47 @@ def reject_booking(
     body += "\nเจ้าหน้าที่จะติดต่อกลับเพื่อหาวันใหม่ครับ"
     _safe_push_patient(row.get("external_user_id"), body)
 
+    return {"ok": True}
+
+
+def cancel_booking(
+    *, uid: str, reason: str, user: dict[str, Any]
+) -> dict[str, bool]:
+    row = booking_repo.get_by_uid(uid)
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
+        )
+    if row["status"] != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "BOOKING_INVALID_STATE",
+                "message": f"รายการนี้ {row['status']} แล้ว — cancel ไม่ได้",
+            },
+        )
+
+    cancelled = booking_repo.update_cancelled(
+        uid=uid,
+        reason=reason,
+        cancelled_by=str(user.get("email") or user.get("sub") or "cro"),
+    )
+    if not cancelled:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "BOOKING_INVALID_STATE",
+                "message": "Booking was already updated by another user.",
+            },
+        )
+
+    event_id = cancelled.get("calendar_event_id")
+    if event_id:
+        try:
+            calendar_client.cancel_event(event_id)
+        except Exception:  # noqa: BLE001 - calendar cleanup is best-effort after DB wins
+            logger.exception("Failed to cancel Google Calendar event for booking %s", uid)
     return {"ok": True}
 
 

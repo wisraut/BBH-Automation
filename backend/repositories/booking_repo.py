@@ -1,6 +1,7 @@
 """CRUD helpers for booking_requests - parameterized SQL only."""
 import json
 import uuid
+from datetime import date, time, timedelta
 from typing import Any
 
 from core.mysql import mysql_db
@@ -58,7 +59,24 @@ def get_by_uid(uid: str) -> dict[str, Any] | None:
                 "WHERE request_uid = %s LIMIT 1",
                 (uid,),
             )
-            return cur.fetchone()
+            row = cur.fetchone()
+            return _serialize_booking_row(row) if row else None
+
+
+def _serialize_booking_row(row: dict[str, Any]) -> dict[str, Any]:
+    requested_date = row.get("requested_date")
+    requested_time = row.get("requested_time")
+    if isinstance(requested_date, date):
+        row["requested_date"] = requested_date.isoformat()
+    if isinstance(requested_time, time):
+        row["requested_time"] = requested_time.strftime("%H:%M:%S")
+    elif isinstance(requested_time, timedelta):
+        total_seconds = int(requested_time.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        row["requested_time"] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    return row
 
 
 def create_manual_booking(
@@ -231,16 +249,107 @@ def _next_hn(cur: Any, year_yy: str) -> str:
 def update_rejected(*, uid: str, reason: str, rejected_by: str) -> int:
     """Atomic: only flip pending_approval -> rejected. Returns affected row count."""
     with mysql_db() as conn:
-        with conn.cursor() as cur:
-            rows = cur.execute(
-                """
-                UPDATE booking_requests SET
-                    status      = 'rejected',
-                    notes       = %s,
-                    approved_by = %s
-                WHERE request_uid = %s AND status = 'pending_approval'
-                """,
-                (reason, rejected_by, uid),
-            )
-        conn.commit()
+        try:
+            with conn.cursor() as cur:
+                rows = cur.execute(
+                    """
+                    UPDATE booking_requests SET
+                        status = 'rejected',
+                        notes  = %s
+                    WHERE request_uid = %s AND status = 'pending_approval'
+                    """,
+                    (reason, uid),
+                )
+                if rows:
+                    _insert_booking_audit(
+                        cur,
+                        uid=uid,
+                        actor_id=rejected_by,
+                        action="rejected",
+                        from_status="pending_approval",
+                        to_status="rejected",
+                        detail={"reason": reason},
+                    )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
     return rows
+
+
+def update_cancelled(*, uid: str, reason: str, cancelled_by: str) -> dict[str, Any] | None:
+    """Atomic: only flip approved -> cancelled. Returns calendar data if updated."""
+    with mysql_db() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, calendar_event_id
+                    FROM booking_requests
+                    WHERE request_uid = %s AND status = 'approved'
+                    FOR UPDATE
+                    """,
+                    (uid,),
+                )
+                booking = cur.fetchone()
+                if not booking:
+                    conn.rollback()
+                    return None
+
+                rows = cur.execute(
+                    """
+                    UPDATE booking_requests SET
+                        status          = 'cancelled',
+                        calendar_status = 'cancelled',
+                        notes           = %s
+                    WHERE request_uid = %s AND status = 'approved'
+                    """,
+                    (reason, uid),
+                )
+                if rows == 0:
+                    conn.rollback()
+                    return None
+
+                _insert_booking_audit(
+                    cur,
+                    uid=uid,
+                    actor_id=cancelled_by,
+                    action="cancelled",
+                    from_status="approved",
+                    to_status="cancelled",
+                    detail={"reason": reason},
+                )
+            conn.commit()
+            return {"calendar_event_id": booking.get("calendar_event_id")}
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def _insert_booking_audit(
+    cur: Any,
+    *,
+    uid: str,
+    actor_id: str,
+    action: str,
+    from_status: str,
+    to_status: str,
+    detail: dict[str, Any],
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO booking_audit_logs
+            (booking_request_id, actor_type, actor_id, action, from_status, to_status, detail)
+        SELECT id, 'cro', %s, %s, %s, %s, %s
+        FROM booking_requests
+        WHERE request_uid = %s
+        """,
+        (
+            actor_id,
+            action,
+            from_status,
+            to_status,
+            json.dumps(detail, ensure_ascii=False),
+            uid,
+        ),
+    )

@@ -11,6 +11,7 @@ from schemas.bookings import (
     BookingCreateResponse,
     BookingListResponse,
     BookingOut,
+    CancelRequest,
     RejectRequest,
     SimpleOkResponse,
 )
@@ -60,3 +61,9 @@ def approve_booking(request_uid: str, body: ApproveRequest, user: _CroOrAdmin) -
 def reject_booking(request_uid: str, body: RejectRequest, user: _CroOrAdmin) -> dict:
     """Mark booking rejected, push patient LINE apology."""
     return booking_service.reject_booking(uid=request_uid, reason=body.reason, user=user)
+
+
+@router.post("/{request_uid}/cancel", response_model=SimpleOkResponse)
+def cancel_booking(request_uid: str, body: CancelRequest, user: _CroOrAdmin) -> dict:
+    """Cancel an approved booking and remove its Google Calendar event."""
+    return booking_service.cancel_booking(uid=request_uid, reason=body.reason, user=user)

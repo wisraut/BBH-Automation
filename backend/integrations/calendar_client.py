@@ -67,6 +67,35 @@ def check_availability(start: datetime, duration_min: int = DEFAULT_DURATION_MIN
         return False
 
 
+def list_events(time_min: datetime, time_max: datetime) -> list[dict]:
+    """
+    List calendar events in [time_min, time_max].
+    Returns normalized event fields safe for the dashboard.
+    """
+    resp = _get_service().events().list(
+        calendarId=GOOGLE_CALENDAR_ID,
+        timeMin=time_min.isoformat(),
+        timeMax=time_max.isoformat(),
+        singleEvents=True,
+        orderBy="startTime",
+    ).execute()
+    events = []
+    for item in resp.get("items", []):
+        start = item.get("start", {})
+        end = item.get("end", {})
+        events.append({
+            "id": item.get("id", ""),
+            "summary": item.get("summary", "(No title)"),
+            "description": item.get("description"),
+            "html_link": item.get("htmlLink"),
+            "status": item.get("status"),
+            "start": start.get("dateTime") or start.get("date"),
+            "end": end.get("dateTime") or end.get("date"),
+            "all_day": "date" in start and "dateTime" not in start,
+        })
+    return events
+
+
 def book_event(summary: str, description: str, start: datetime,
                duration_min: int = DEFAULT_DURATION_MIN,
                attendee_emails: Optional[list] = None) -> dict:

@@ -79,66 +79,68 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
   }
 
   return (
-    <Modal open={open} title="จองใหม่" onClose={onClose}>
+    <Modal open={open} title="จองใหม่" onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">ชื่อคนไข้</span>
-          <input
-            value={patientName}
-            onChange={(event) => setPatientName(event.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
-            required
-          />
-        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">ชื่อคนไข้</span>
+            <input
+              value={patientName}
+              onChange={(event) => setPatientName(event.target.value)}
+              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              required
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">เบอร์โทร</span>
-          <input
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
-            required
-          />
-        </label>
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">เบอร์โทร</span>
+            <input
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              required
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">วันเวลา</span>
-          <input
-            type="datetime-local"
-            value={dateTime}
-            onChange={(event) => setDateTime(event.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
-            required
-          />
-        </label>
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">วันเวลา</span>
+            <input
+              type="datetime-local"
+              value={dateTime}
+              onChange={(event) => setDateTime(event.target.value)}
+              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              required
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">Source</span>
-          <select
-            value={source}
-            onChange={(event) => setSource(event.target.value as BookingSource)}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
-          >
-            {SOURCE_OPTIONS.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">Source</span>
+            <select
+              value={source}
+              onChange={(event) => setSource(event.target.value as BookingSource)}
+              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            >
+              {SOURCE_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <label className="block">
           <span className="text-sm font-medium text-bbh-ink">อาการ</span>
           <textarea
             value={symptom}
             onChange={(event) => setSymptom(event.target.value)}
-            rows={4}
+            rows={3}
             maxLength={1000}
-            className="mt-2 w-full rounded-2xl border border-bbh-line bg-white px-4 py-3 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className="mt-1.5 w-full rounded-2xl border border-bbh-line bg-white px-4 py-3 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
           />
         </label>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex items-center justify-end gap-2 pt-1">
           <button
             type="button"
             onClick={onClose}

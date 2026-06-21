@@ -3,7 +3,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type { BookingListResponse, BookingStatus } from './useBookings'
 
-const PAGE_SIZE = 200
+const PAGE_SIZE = 100
 
 export function useAllBookings(status: BookingStatus) {
   const page1 = useQuery({

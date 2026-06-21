@@ -77,6 +77,10 @@ class RejectRequest(BaseModel):
     reason: str = Field(default="", max_length=500)
 
 
+class CancelRequest(BaseModel):
+    reason: str = Field(default="Cancelled by CRO", max_length=500)
+
+
 class ApproveResponse(BaseModel):
     ok: bool
     calendar_event_id: str

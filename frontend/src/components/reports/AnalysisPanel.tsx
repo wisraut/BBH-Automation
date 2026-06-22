@@ -49,7 +49,7 @@ export function AnalysisPanel({
             className="inline-flex items-center gap-2 rounded-xl border border-bbh-green px-3 py-1.5 text-xs font-semibold text-bbh-green hover:bg-bbh-green-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Brain size={15} />
-            Analyze
+            วิเคราะห์
           </button>
         ) : null}
       </div>
@@ -96,3 +96,4 @@ export function AnalysisPanel({
     </section>
   )
 }
+

@@ -16,6 +16,7 @@ import { useReport } from '../hooks/useReport'
 import { useReportAnalyses } from '../hooks/useReportAnalyses'
 import { useUpdatePatient } from '../hooks/useUpdatePatient'
 import { useUploadReport } from '../hooks/useUploadReport'
+import { useToast } from '../hooks/useToast'
 import { getToken } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import type { components } from '../lib/api-types'
@@ -62,6 +63,7 @@ async function openReportFile(reportId: number) {
 
 export function Patients() {
   const { user } = useAuth()
+  const toast = useToast()
   const canWritePatient = user?.role === 'cro' || user?.role === 'admin'
   const canAnalyze = user?.role === 'doctor' || user?.role === 'admin'
 
@@ -128,14 +130,20 @@ export function Patients() {
       createPatient.mutate(body as PatientCreateRequest, {
         onSuccess: (patient) => {
           setSelectedId(patient.id)
+          toast.show('success', 'สร้างคนไข้สำเร็จ')
           setPatientModal(null)
         },
+        onError: () => toast.show('error', 'สร้างคนไข้ไม่สำเร็จ'),
       })
       return
     }
     if (selectedId == null) return
     updatePatient.mutate({ id: selectedId, body: body as PatientUpdateRequest }, {
-      onSuccess: () => setPatientModal(null),
+      onSuccess: () => {
+        toast.show('success', 'บันทึกข้อมูลคนไข้สำเร็จ')
+        setPatientModal(null)
+      },
+      onError: () => toast.show('error', 'บันทึกข้อมูลคนไข้ไม่สำเร็จ'),
     })
   }
 
@@ -144,8 +152,10 @@ export function Patients() {
     uploadReport.mutate({ patientId: selectedId, formData }, {
       onSuccess: (result) => {
         setSelectedReportId(result.id)
+        toast.show('success', 'อัพโหลด Report สำเร็จ')
         setUploadOpen(false)
       },
+      onError: () => toast.show('error', 'อัพโหลด Report ไม่สำเร็จ'),
     })
   }
 
@@ -262,7 +272,7 @@ export function Patients() {
                 ) : null}
                 <button type="button" onClick={() => setUploadOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-bbh-green px-3 py-2 text-sm font-semibold text-white">
                   <Upload size={16} />
-                  Upload report
+                  อัพโหลด Report
                 </button>
               </div>
             </section>
@@ -344,8 +354,8 @@ export function Patients() {
                     canDecide={canAnalyze}
                     analyzing={analyzeReport.isPending}
                     decidingId={decideTriage.isPending ? decideTriage.variables?.analysisId ?? null : null}
-                    onAnalyze={selectedReportId && canAnalyze ? () => analyzeReport.mutate({ reportId: selectedReportId }) : undefined}
-                    onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }) : undefined}
+                    onAnalyze={selectedReportId && canAnalyze ? () => analyzeReport.mutate({ reportId: selectedReportId }, { onSuccess: () => toast.show('success', 'วิเคราะห์ Report สำเร็จ'), onError: () => toast.show('error', 'วิเคราะห์ Report ไม่สำเร็จ') }) : undefined}
+                    onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }, { onSuccess: () => toast.show('success', 'บันทึก triage สำเร็จ'), onError: () => toast.show('error', 'บันทึก triage ไม่สำเร็จ') }) : undefined}
                   />
                 </section>
               </aside>
@@ -371,4 +381,5 @@ export function Patients() {
     </div>
   )
 }
+
 

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { User, X } from 'lucide-react'
 
+import { AiSessionsList } from '../components/ai/AiSessionsList'
+import { PatientPickerModal } from '../components/ai/PatientPickerModal'
 import { useAiChat } from '../hooks/useAiChat'
 import { useAuth } from '../lib/auth'
 
@@ -10,30 +13,12 @@ const ROLE_CONTEXT: Record<string, { label: string; hint: string }> = {
   },
   cro: {
     label: 'โหมด CRO',
-    hint: 'AI ตอบคำถามเกี่ยวกับคลินิก บริการ และข้อมูลทั่วไปของ BBH',
+    hint: 'AI ตอบคำถามเกี่ยวกับโรงพยาบาล บริการ และข้อมูลทั่วไปของ BBH',
   },
   admin: {
     label: 'โหมดผู้ดูแล',
-    hint: 'AI ตอบคำถามเกี่ยวกับคลินิก บริการ และข้อมูลทั่วไปของ BBH',
+    hint: 'AI ตอบคำถามเกี่ยวกับโรงพยาบาล บริการ และข้อมูลทั่วไปของ BBH',
   },
-}
-
-const SUGGESTIONS: Record<string, string[]> = {
-  doctor: [
-    'สรุปค่า HbA1c สูงกว่า 7% มีนัยยะอะไรต่อคนไข้เบาหวาน',
-    'ยา Metformin มีข้อควรระวังอะไรบ้าง',
-    'อธิบาย Functional Medicine approach สำหรับ Leaky Gut',
-  ],
-  cro: [
-    'คลินิกให้บริการรักษาโรคอะไรบ้าง',
-    'ค่าแพทย์นัดแรกเท่าไหร่',
-    'Walk-in ได้ไหม ต้องจองล่วงหน้าหรือเปล่า',
-  ],
-  admin: [
-    'คลินิกให้บริการรักษาโรคอะไรบ้าง',
-    'ค่าแพทย์นัดแรกเท่าไหร่',
-    'Walk-in ได้ไหม ต้องจองล่วงหน้าหรือเปล่า',
-  ],
 }
 
 function TypingDots() {
@@ -90,14 +75,18 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
 
 export function AiAssistant() {
   const { user } = useAuth()
-  const { messages, isLoading, error, send, reset } = useAiChat()
+  const {
+    messages, isLoading, error, send,
+    sessions, current, currentId, createNew, switchTo, remove, patchById,
+  } = useAiChat()
   const [input, setInput] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const role = user?.role ?? 'cro'
   const ctx = ROLE_CONTEXT[role] ?? ROLE_CONTEXT.cro
-  const suggestions = SUGGESTIONS[role] ?? SUGGESTIONS.cro
+  const pinned = current?.pinnedPatient ?? null
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -118,7 +107,16 @@ export function AiAssistant() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      <AiSessionsList
+        sessions={sessions}
+        currentId={currentId}
+        onSelect={switchTo}
+        onNew={() => { createNew(); inputRef.current?.focus() }}
+        onDelete={remove}
+      />
+
+      <div className="flex h-full flex-1 flex-col">
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between border-b border-bbh-line bg-white px-6 py-3">
@@ -131,13 +129,30 @@ export function AiAssistant() {
             <p className="text-xs text-bbh-muted">{ctx.label} · Dify + Gemini Flash</p>
           </div>
         </div>
-        {messages.length > 0 && (
+
+        {pinned ? (
+          <div className="flex items-center gap-2 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-3 py-1.5 text-xs font-semibold text-bbh-green-dark">
+            <User size={14} />
+            <span>
+              {pinned.hn ? `HN ${pinned.hn} · ` : ''}{pinned.display_name}
+            </span>
+            <button
+              type="button"
+              onClick={() => currentId && patchById(currentId, () => ({ pinnedPatient: null }))}
+              className="ml-1 rounded-full p-0.5 transition hover:bg-white/60"
+              aria-label="ยกเลิก"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            onClick={reset}
-            className="rounded-xl border border-bbh-line px-3 py-1.5 text-xs font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-1.5 text-xs font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
           >
-            สนทนาใหม่
+            <User size={14} />
+            เลือกคนไข้
           </button>
         )}
       </div>
@@ -155,22 +170,9 @@ export function AiAssistant() {
                 BBH AI Assistant
               </p>
               <p className="mt-1 text-sm text-bbh-muted">{ctx.hint}</p>
-            </div>
-
-            <div className="w-full max-w-lg space-y-2">
-              <p className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">
-                ตัวอย่างคำถาม
+              <p className="mt-4 text-xs text-bbh-muted">
+                พิมพ์คำถามด้านล่างเพื่อเริ่มสนทนา
               </p>
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => { setInput(s); inputRef.current?.focus() }}
-                  className="w-full rounded-2xl border border-bbh-line bg-white px-4 py-3 text-left text-sm text-bbh-ink transition hover:border-bbh-green hover:bg-bbh-green-soft"
-                >
-                  {s}
-                </button>
-              ))}
             </div>
           </div>
         ) : (
@@ -231,10 +233,19 @@ export function AiAssistant() {
             </svg>
           </button>
         </div>
-        <p className="mt-2 text-center text-[11px] text-bbh-muted">
-          AI อาจให้ข้อมูลที่ไม่ถูกต้อง — ตรวจสอบกับแพทย์เสมอ
-        </p>
       </div>
+      </div>
+
+      <PatientPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(p) => {
+          const sid = currentId ?? createNew()
+          patchById(sid, () => ({
+            pinnedPatient: { id: p.id, hn: p.hn ?? null, display_name: p.display_name },
+          }))
+        }}
+      />
     </div>
   )
 }

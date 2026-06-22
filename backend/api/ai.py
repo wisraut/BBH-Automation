@@ -19,5 +19,6 @@ def chat(
     return ai_service.chat(
         message=body.message,
         conversation_id=body.conversation_id,
+        patient_id=body.patient_id,
         user=user,
     )

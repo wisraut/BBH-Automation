@@ -1,6 +1,8 @@
-import { useCallback, useRef, useState } from 'react'
+// AI chat — sends to /api/ai/chat, persists every message into the active session.
+import { useCallback, useState } from 'react'
 
 import { api, ApiError } from '../lib/api'
+import { useAiSessions } from './useAiSessions'
 
 export interface ChatMessage {
   id: string
@@ -14,48 +16,91 @@ interface ChatResponse {
   conversation_id: string
 }
 
+function deriveTitle(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, ' ')
+  return trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed
+}
+
 export function useAiChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const store = useAiSessions()
+  const {
+    sessions, current, currentId, createNew, switchTo, remove,
+    patchById, ensureCurrent,
+  } = store
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const convIdRef = useRef<string>('')
 
-  const send = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return
+  const messages = current?.messages ?? []
 
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      text: text.trim(),
-      ts: new Date(),
-    }
-    setMessages((prev) => [...prev, userMsg])
-    setIsLoading(true)
-    setError(null)
+  const send = useCallback(
+    async (text: string) => {
+      const clean = text.trim()
+      if (!clean || isLoading) return
 
-    try {
-      const res = await api.post<ChatResponse>('/api/ai/chat', {
-        message: text.trim(),
-        conversation_id: convIdRef.current,
-      })
-      convIdRef.current = res.conversation_id
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', text: res.answer, ts: new Date() },
-      ])
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่'
-      setError(msg)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [isLoading])
+      const sid = ensureCurrent()
+      // Snapshot the session's convId + pinned patient at send time so a session
+      // switch doesn't leak context into the wrong Dify conversation.
+      const session = sessions.find((s) => s.id === sid)
+      const convId = session?.convId ?? ''
+      const pinnedPatientId = session?.pinnedPatient?.id ?? null
 
-  const reset = useCallback(() => {
-    setMessages([])
-    setError(null)
-    convIdRef.current = ''
-  }, [])
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        text: clean,
+        ts: new Date(),
+      }
 
-  return { messages, isLoading, error, send, reset }
+      patchById(sid, (s) => ({
+        messages: [...s.messages, userMsg],
+        title:
+          s.messages.length === 0 || s.title === 'สนทนาใหม่'
+            ? deriveTitle(clean)
+            : s.title,
+      }))
+
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const res = await api.post<ChatResponse>('/api/ai/chat', {
+          message: clean,
+          conversation_id: convId,
+          patient_id: pinnedPatientId,
+        })
+        const assistantMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          text: res.answer,
+          ts: new Date(),
+        }
+        patchById(sid, (s) => ({
+          messages: [...s.messages, assistantMsg],
+          convId: res.conversation_id || s.convId,
+        }))
+      } catch (err) {
+        const msg = err instanceof ApiError ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่'
+        setError(msg)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [isLoading, sessions, ensureCurrent, patchById],
+  )
+
+  return {
+    // chat state for the active session
+    messages,
+    isLoading,
+    error,
+    send,
+    // session controls
+    sessions,
+    current,
+    currentId,
+    createNew,
+    switchTo,
+    remove,
+    patchById,
+  }
 }

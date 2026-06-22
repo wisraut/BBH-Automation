@@ -1,6 +1,7 @@
 """Booking management — create, approve, reject, and CRO user lookup."""
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pymysql
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from api.health import _require_internal_token
 from api.session import _db
 from core.config import log
+from repositories import booking_repo
 
 router = APIRouter(prefix="/internal/booking")
 
@@ -117,24 +119,19 @@ def approve_booking(
     x_internal_token: str | None = Header(None),
 ):
     _require_internal_token(x_internal_token)
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE booking_requests SET
-                    status            = 'approved',
-                    calendar_event_id = %s,
-                    calendar_event_url= %s,
-                    calendar_status   = 'created',
-                    approved_by       = %s,
-                    approved_at       = NOW()
-                WHERE request_uid = %s
-                """,
-                (body.calendar_event_id, body.calendar_event_url, body.approved_by, request_uid),
-            )
-        conn.commit()
+    hn_year = datetime.now(timezone(timedelta(hours=7))).strftime("%y")
+    approved = booking_repo.update_approved(
+        uid=request_uid,
+        event_id=body.calendar_event_id,
+        event_url=body.calendar_event_url,
+        approved_by=body.approved_by,
+        approved_by_user_id=None,
+        hn_year=hn_year,
+    )
+    if not approved:
+        raise HTTPException(status_code=409, detail="Booking is not pending approval")
     log.info("Booking approved: %s by %s", request_uid[:8], body.approved_by)
-    return {"ok": True}
+    return {"ok": True, "patient_id": approved["patient_id"], "hn": approved["hn"]}
 
 
 @router.post("/{request_uid}/reject")
@@ -153,3 +150,4 @@ def reject_booking(
         conn.commit()
     log.info("Booking rejected: %s", request_uid[:8])
     return {"ok": True}
+

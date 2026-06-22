@@ -272,7 +272,12 @@ def check_inbox(db_config: dict, on_new_report) -> None:
                 mail.store(num, "+FLAGS", "\\Seen")
 
             except Exception:
-                log.exception("Error processing email #%s", num)
+                # Mark Seen even on failure to avoid infinite retry on broken email.
+                log.exception("Error processing email #%s — marking Seen to skip", num)
+                try:
+                    mail.store(num, "+FLAGS", "\\Seen")
+                except Exception:
+                    log.exception("Failed to mark email #%s as Seen after error", num)
 
         mail.close()
         mail.logout()

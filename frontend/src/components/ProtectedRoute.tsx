@@ -1,16 +1,19 @@
 import type { ReactNode } from 'react'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { useAuth } from '../lib/auth'
 import type { Role } from '../lib/auth'
 
 interface ProtectedRouteProps {
-  allow: Role[]
-  children: ReactNode
-  fallback?: ReactNode
+  // Role allowlist — empty means "any authenticated user".
+  allow?: Role[]
+  // If provided, render this instead of <Outlet/>. Useful when wrapping a single child.
+  children?: ReactNode
 }
 
-export function ProtectedRoute({ allow, children, fallback }: ProtectedRouteProps) {
+export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
   const { user, isReady } = useAuth()
+  const location = useLocation()
 
   if (!isReady) {
     return (
@@ -21,10 +24,10 @@ export function ProtectedRoute({ allow, children, fallback }: ProtectedRouteProp
   }
 
   if (!user) {
-    return fallback ?? null
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 
-  if (!allow.includes(user.role)) {
+  if (allow && allow.length > 0 && !allow.includes(user.role)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-12 text-center">
         <h2 className="font-serif text-2xl text-bbh-ink">ไม่มีสิทธิ์เข้าถึงหน้านี้</h2>
@@ -35,5 +38,5 @@ export function ProtectedRoute({ allow, children, fallback }: ProtectedRouteProp
     )
   }
 
-  return <>{children}</>
+  return children ? <>{children}</> : <Outlet />
 }

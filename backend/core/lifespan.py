@@ -48,3 +48,6 @@ async def lifespan(app):
         yield
     finally:
         poller_task.cancel()
+        # Drain reused httpx client to close keep-alive connections cleanly.
+        from api.line_webhook import close_n8n_client
+        await close_n8n_client()

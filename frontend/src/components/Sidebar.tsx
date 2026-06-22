@@ -1,43 +1,31 @@
+import { NavLink } from 'react-router-dom'
+
 import type { Role } from '../lib/auth'
 import bbhDashboardLogo from '../assets/bbh-logo-dashboard.png'
 
-export type PageKey =
-  | 'bookings'
-  | 'new-booking'
-  | 'calendar'
-  | 'schedule'
-  | 'patients'
-  | 'reports'
-  | 'ai'
-  | 'users'
-  | 'system-health'
-  | 'account'
-
 interface NavItem {
-  key: PageKey
+  to: string
   label: string
   roles: Role[]
 }
 
 const NAV: NavItem[] = [
-  { key: 'bookings', label: 'การจอง', roles: ['cro', 'admin'] },
-  { key: 'calendar', label: 'ปฏิทิน', roles: ['cro', 'admin'] },
-  { key: 'schedule', label: 'ตารางงาน', roles: ['doctor', 'admin'] },
-  { key: 'patients', label: 'คนไข้', roles: ['cro', 'doctor', 'admin'] },
-  { key: 'reports', label: 'รายงาน', roles: ['doctor', 'admin'] },
-  { key: 'ai', label: 'AI Assistant', roles: ['cro', 'doctor', 'admin'] },
-  { key: 'users', label: 'ผู้ใช้', roles: ['admin'] },
-  { key: 'system-health', label: 'สถานะระบบ', roles: ['admin'] },
-  { key: 'account', label: 'บัญชี', roles: ['cro', 'doctor', 'admin'] },
+  { to: '/bookings', label: 'การจอง', roles: ['cro', 'admin'] },
+  { to: '/calendar', label: 'ปฏิทิน', roles: ['cro', 'admin'] },
+  { to: '/schedule', label: 'ตารางงาน', roles: ['doctor', 'admin'] },
+  { to: '/patients', label: 'คนไข้', roles: ['cro', 'doctor', 'admin'] },
+  { to: '/reports', label: 'รายงาน', roles: ['doctor', 'admin'] },
+  { to: '/ai', label: 'AI Assistant', roles: ['cro', 'doctor', 'admin'] },
+  { to: '/users', label: 'ผู้ใช้', roles: ['admin'] },
+  { to: '/system-health', label: 'สถานะระบบ', roles: ['admin'] },
+  { to: '/account', label: 'บัญชี', roles: ['cro', 'doctor', 'admin'] },
 ]
 
 interface SidebarProps {
   role: Role
-  current: PageKey
-  onNavigate: (page: PageKey) => void
 }
 
-export function Sidebar({ role, current, onNavigate }: SidebarProps) {
+export function Sidebar({ role }: SidebarProps) {
   const items = NAV.filter((item) => item.roles.includes(role))
 
   return (
@@ -60,23 +48,21 @@ export function Sidebar({ role, current, onNavigate }: SidebarProps) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-5">
-        {items.map((item) => {
-          const active = item.key === current
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => onNavigate(item.key)}
-              className={`mb-1.5 flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
-                active
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `mb-1.5 flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                isActive
                   ? 'bg-bbh-green text-white shadow-lg shadow-bbh-green/20'
                   : 'text-bbh-muted hover:bg-bbh-green-soft hover:text-bbh-green-dark'
-              }`}
-            >
-              {item.label}
-            </button>
-          )
-        })}
+              }`
+            }
+          >
+            {item.label}
+          </NavLink>
+        ))}
       </nav>
     </aside>
   )

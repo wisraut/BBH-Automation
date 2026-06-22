@@ -1,5 +1,7 @@
 """Primary LINE webhook: routes all messages to n8n, falls back to Dify CRO flow."""
+import asyncio
 import json
+import time
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -11,35 +13,85 @@ from core.config import N8N_INTERNAL_BASE_URL, log
 
 router = APIRouter()
 
+# Module-level singleton — reused across all events so we pay the
+# TCP/TLS/SSL-context cost once instead of per request.
+_n8n_client: httpx.AsyncClient | None = None
+
+
+def _get_n8n_client() -> httpx.AsyncClient:
+    global _n8n_client
+    if _n8n_client is None:
+        _n8n_client = httpx.AsyncClient(timeout=20)
+    return _n8n_client
+
+
+async def close_n8n_client() -> None:
+    """Called from lifespan shutdown to drain in-flight requests."""
+    global _n8n_client
+    if _n8n_client is not None:
+        await _n8n_client.aclose()
+        _n8n_client = None
+
 
 @router.post("/webhook")
 async def webhook(request: Request, background_tasks: BackgroundTasks):
+    # LINE webhook must return 200 within ~1-2s or LINE retries the event.
+    # All slow work (n8n + Dify) is scheduled as a background task.
+    t0 = time.perf_counter()
     body = await request.body()
     signature = request.headers.get("X-Line-Signature", "")
+    t1 = time.perf_counter()
 
+    # HMAC SHA256 on a tiny payload is microseconds — keep sync.
+    # asyncio.to_thread here would only add threadpool dispatch overhead.
     if not signature or not line_client.verify_signature(body, signature, line_client.PRIMARY):
         raise HTTPException(status_code=400, detail="Invalid X-Line-Signature")
+    t2 = time.perf_counter()
 
     payload = json.loads(body)
-
+    queued = 0
     for event in payload.get("events", []):
         if event.get("type") != "message":
             continue
         if event["message"].get("type") != "text":
             continue
-
-        user_id = event.get("source", {}).get("userId")
-        reply_token = event["replyToken"]
-        text = event["message"]["text"]
-
-        if not user_id:
+        if not event.get("source", {}).get("userId"):
             continue
+        background_tasks.add_task(_handle_event_async, event)
+        queued += 1
+    t3 = time.perf_counter()
 
-        if await _try_handle_public_with_n8n(event):
-            continue
-        background_tasks.add_task(cro.handle_public_inquiry, reply_token, user_id, text)
+    # Log per-stage timing so we can see if the bottleneck is body read,
+    # signature, or task dispatch. Sub-ms granularity, no async overhead.
+    log.info(
+        "webhook timing body=%.1fms sig=%.1fms dispatch=%.1fms total=%.1fms queued=%d",
+        (t1 - t0) * 1000,
+        (t2 - t1) * 1000,
+        (t3 - t2) * 1000,
+        (t3 - t0) * 1000,
+        queued,
+    )
 
     return JSONResponse({"status": "ok"})
+
+
+async def _handle_event_async(event: dict) -> None:
+    """Process one LINE event off the webhook hot path; never raises.
+
+    The Dify CRO fallback is sync (DB + HTTP + LINE reply) — running it
+    directly here would block the asyncio event loop and starve other
+    webhook requests. asyncio.to_thread moves it off the loop.
+    """
+    try:
+        if await _try_handle_public_with_n8n(event):
+            return
+        reply_token = event.get("replyToken", "")
+        user_id = event.get("source", {}).get("userId", "")
+        text = event.get("message", {}).get("text", "")
+        if user_id:
+            await asyncio.to_thread(cro.handle_public_inquiry, reply_token, user_id, text)
+    except Exception:
+        log.exception("LINE event handler crashed (id=%s)", event.get("webhookEventId"))
 
 
 async def _try_handle_public_with_n8n(event: dict) -> bool:
@@ -48,8 +100,8 @@ async def _try_handle_public_with_n8n(event: dict) -> bool:
 
     url = f"{N8N_INTERNAL_BASE_URL.rstrip('/')}/webhook/bbh-line-main"
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(url, json={"events": [event]})
+        client = _get_n8n_client()
+        resp = await client.post(url, json={"events": [event]})
         resp.raise_for_status()
         result = resp.json()
     except Exception:
@@ -65,5 +117,3 @@ async def _try_handle_public_with_n8n(event: dict) -> bool:
 
     log.warning("n8n public LINE flow returned no answer; falling back")
     return False
-
-

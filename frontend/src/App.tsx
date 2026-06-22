@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
@@ -88,15 +89,27 @@ function RoleHome() {
 function DashboardLayout() {
   const { user } = useAuth()
   const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
   if (!user) return null
   const meta = PAGE_META[location.pathname] ?? { title: 'BBH Portal' }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
-      <Sidebar role={user.role} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar title={meta.title} subtitle={meta.subtitle} />
-        <main className="flex-1 overflow-hidden p-5">
+      <Sidebar
+        role={user.role}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
+      />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1 overflow-hidden p-3 md:p-5">
           <Outlet />
         </main>
       </div>

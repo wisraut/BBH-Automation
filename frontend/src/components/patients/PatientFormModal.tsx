@@ -81,7 +81,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             required
             value={form.display_name}
             onChange={(e) => update('display_name', e.target.value)}
-            className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+            className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
           />
         </label>
 
@@ -91,7 +91,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             <input
               value={form.phone}
               onChange={(e) => update('phone', e.target.value)}
-              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+              className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
             />
           </label>
           <label className="block text-sm font-medium text-bbh-ink">
@@ -100,7 +100,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
               type="email"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
-              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+              className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
             />
           </label>
         </div>
@@ -112,7 +112,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
               type="date"
               value={form.dob}
               onChange={(e) => update('dob', e.target.value)}
-              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+              className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
             />
           </label>
           <label className="block text-sm font-medium text-bbh-ink">
@@ -120,7 +120,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             <select
               value={form.gender}
               onChange={(e) => update('gender', e.target.value as Gender)}
-              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+              className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
             >
               <option value="unknown">ไม่ระบุ</option>
               <option value="female">หญิง</option>
@@ -136,18 +136,18 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             rows={4}
             value={form.notes}
             onChange={(e) => update('notes', e.target.value)}
-            className="mt-1 w-full resize-none rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+            className="mt-1 w-full resize-none rounded-xl border border-bbh-line px-3 py-3 text-sm focus:border-bbh-green focus:outline-none"
           />
         </label>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line px-4 py-2 text-sm text-bbh-muted hover:text-bbh-ink">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className="h-11 rounded-xl border border-bbh-line px-4 text-sm text-bbh-muted hover:text-bbh-ink sm:h-auto sm:py-2">
             ยกเลิก
           </button>
           <button
             type="submit"
             disabled={saving || !form.display_name.trim()}
-            className="inline-flex items-center gap-2 rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-bbh-green px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:py-2"
           >
             {mode === 'create' ? <UserRound size={16} /> : <Save size={16} />}
             บันทึก

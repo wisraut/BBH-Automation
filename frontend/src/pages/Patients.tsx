@@ -1,5 +1,5 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { Edit3, ExternalLink, FileText, Plus, Search, Upload } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, Edit3, ExternalLink, FileText, Plus, Search, Upload } from 'lucide-react'
 
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
@@ -71,6 +71,7 @@ export function Patients() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [showPatientDetail, setShowPatientDetail] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -130,6 +131,7 @@ export function Patients() {
       createPatient.mutate(body as PatientCreateRequest, {
         onSuccess: (patient) => {
           setSelectedId(patient.id)
+          setShowPatientDetail(true)
           toast.show('success', 'สร้างคนไข้สำเร็จ')
           setPatientModal(null)
         },
@@ -162,8 +164,10 @@ export function Patients() {
   const totalPages = pagination?.total_pages ?? 1
 
   return (
-    <div className="flex h-full min-h-0 bg-white">
-      <section className="flex w-[380px] shrink-0 flex-col border-r border-bbh-line bg-white">
+    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-white">
+      <section
+        className={`${showPatientDetail ? 'hidden lg:flex' : 'flex'} relative w-full shrink-0 flex-col border-bbh-line bg-white lg:w-80 lg:border-r`}
+      >
         <div className="space-y-3 border-b border-bbh-line p-4">
           <div className="flex items-center gap-2">
             <div className="relative min-w-0 flex-1">
@@ -173,7 +177,7 @@ export function Patients() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="ค้นหาชื่อ HN หรือเบอร์โทร"
-                className="w-full rounded-xl border border-bbh-line bg-bbh-surface py-2 pl-9 pr-3 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none"
+                className="h-11 w-full rounded-xl border border-bbh-line bg-bbh-surface py-2 pl-9 pr-3 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none"
               />
             </div>
             {canWritePatient ? (
@@ -211,6 +215,7 @@ export function Patients() {
                     type="button"
                     onClick={() => {
                       setSelectedId(patient.id)
+                      setShowPatientDetail(true)
                       setSelectedReportId(null)
                     }}
                     className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
@@ -246,31 +251,39 @@ export function Patients() {
         </div>
       </section>
 
-      <main className="min-w-0 flex-1 overflow-y-auto p-6">
+      <main className={`${showPatientDetail ? 'block' : 'hidden lg:block'} min-w-0 flex-1 overflow-y-auto p-4 md:p-6`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
             เลือกคนไข้จากรายการด้านซ้าย
           </div>
         ) : (
           <div className="mx-auto max-w-6xl space-y-5">
+            <button
+              type="button"
+              onClick={() => setShowPatientDetail(false)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            >
+              <ChevronLeft size={16} />
+              กลับไปรายการ
+            </button>
             <section className="flex flex-wrap items-start justify-between gap-4 border-b border-bbh-line pb-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-serif text-3xl font-semibold text-bbh-ink">{selectedPatient.display_name}</h1>
+                  <h1 className="font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">{selectedPatient.display_name}</h1>
                   <span className="rounded-full bg-bbh-surface px-2.5 py-1 text-xs text-bbh-muted">{selectedPatient.hn ?? 'ไม่มี HN'}</span>
                 </div>
                 <p className="mt-1 text-sm text-bbh-muted">
                   {selectedPatient.phone ?? 'ไม่มีเบอร์'} · {selectedPatient.email ?? 'ไม่มีอีเมล'} · เกิด {formatDate(selectedPatient.dob)}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                 {canWritePatient ? (
-                  <button type="button" onClick={() => setPatientModal('edit')} className="inline-flex items-center gap-2 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-ink hover:border-bbh-green hover:text-bbh-green">
+                  <button type="button" onClick={() => setPatientModal('edit')} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-ink hover:border-bbh-green hover:text-bbh-green sm:flex-none">
                     <Edit3 size={16} />
                     แก้ไข
                   </button>
                 ) : null}
-                <button type="button" onClick={() => setUploadOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-bbh-green px-3 py-2 text-sm font-semibold text-white">
+                <button type="button" onClick={() => setUploadOpen(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-bbh-green px-3 py-2 text-sm font-semibold text-white sm:flex-none">
                   <Upload size={16} />
                   อัพโหลด Report
                 </button>

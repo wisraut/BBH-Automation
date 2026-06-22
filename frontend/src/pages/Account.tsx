@@ -67,7 +67,7 @@ export function Account() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-8 py-6">
+    <div className="h-full overflow-y-auto px-4 py-5 md:px-8 md:py-6">
       <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_1.2fr]">
 
         {/* ── Profile ── */}
@@ -127,7 +127,7 @@ export function Account() {
                   value={oldPw}
                   onChange={(e) => setOldPw(e.target.value)}
                   required
-                  className="mt-1 h-11 w-full rounded-xl border border-bbh-line bg-white px-3 text-sm outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+                  className="mt-1 h-12 w-full rounded-xl border border-bbh-line bg-white px-3 text-sm outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
                 />
               </label>
               <label className="block">

@@ -87,7 +87,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             <input
               value={patientName}
               onChange={(event) => setPatientName(event.target.value)}
-              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
               required
             />
           </label>
@@ -97,7 +97,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             <input
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
               required
             />
           </label>
@@ -108,7 +108,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
               type="datetime-local"
               value={dateTime}
               onChange={(event) => setDateTime(event.target.value)}
-              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
               required
             />
           </label>
@@ -118,7 +118,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             <select
               value={source}
               onChange={(event) => setSource(event.target.value as BookingSource)}
-              className="mt-1.5 h-11 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
             >
               {SOURCE_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -140,19 +140,19 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
           />
         </label>
 
-        <div className="flex items-center justify-end gap-2 pt-1">
+        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={onClose}
             disabled={createBooking.isPending}
-            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
+            className="h-11 rounded-xl border border-bbh-line px-4 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-60 sm:h-auto sm:py-2"
           >
             ยกเลิก
           </button>
           <button
             type="submit"
             disabled={createBooking.isPending}
-            className="rounded-xl bg-bbh-green px-5 py-2 text-sm font-semibold text-white transition hover:bg-bbh-green-dark disabled:opacity-60"
+            className="h-11 rounded-xl bg-bbh-green px-5 text-sm font-semibold text-white transition hover:bg-bbh-green-dark disabled:opacity-60 sm:h-auto sm:py-2"
           >
             {createBooking.isPending ? 'กำลังสร้าง...' : 'สร้างคำขอจอง'}
           </button>

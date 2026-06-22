@@ -57,8 +57,8 @@ export function Bookings() {
   const total = list.data?.pagination.total ?? 0
 
   return (
-    <div className="flex h-full overflow-hidden rounded-[28px] border border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur">
-      <section className="flex-1 overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-7">
+    <div className="flex h-full min-w-0 overflow-hidden rounded-[20px] border border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur md:rounded-[28px]">
+      <section className={`${selectedUid ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-4 md:p-7`}>
         <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
           {FILTERS.map((item) => {
             const active = item.key === filter
@@ -77,11 +77,11 @@ export function Bookings() {
               </button>
             )
           })}
-          <span className="ml-auto text-xs text-bbh-muted">{total} รายการ</span>
+          <span className="ml-0 text-xs text-bbh-muted sm:ml-auto">{total} รายการ</span>
           <button
             type="button"
             onClick={() => setNewBookingOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-bbh-green px-4 py-1.5 text-sm font-semibold text-white shadow-md shadow-bbh-green/15 transition hover:bg-bbh-green-dark"
+            className="flex items-center gap-1.5 rounded-full bg-bbh-green px-4 py-2 text-sm font-semibold text-white shadow-md shadow-bbh-green/15 transition hover:bg-bbh-green-dark"
           >
             <Plus size={16} /> จองใหม่
           </button>
@@ -158,7 +158,7 @@ export function Bookings() {
         </div>
 
         {totalPages > 1 ? (
-          <div className="mt-5 flex items-center justify-between text-sm">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
             <button
               type="button"
               disabled={page <= 1}
@@ -182,7 +182,17 @@ export function Bookings() {
         ) : null}
       </section>
 
-      <aside className="w-[420px] overflow-y-auto border-l border-bbh-line bg-white/95 p-6">
+      <aside className={`${selectedUid ? 'block' : 'hidden lg:block'} w-full overflow-y-auto bg-white/95 p-4 md:p-6 lg:w-[420px] lg:border-l lg:border-bbh-line`}>
+        {selectedUid ? (
+          <button
+            type="button"
+            onClick={() => setSelectedUid(null)}
+            className="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+          >
+            <ChevronLeft size={16} />
+            กลับไปรายการ
+          </button>
+        ) : null}
         {!selectedUid ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
             <div className="rounded-3xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
@@ -248,7 +258,7 @@ export function Bookings() {
             ) : null}
 
             {detail.data.status === 'pending_approval' ? (
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
                   onClick={() => setApproveOpen(true)}

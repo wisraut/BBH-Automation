@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { User, X } from 'lucide-react'
+import { MessageSquare, Send, User, X } from 'lucide-react'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
 import { PatientPickerModal } from '../components/ai/PatientPickerModal'
@@ -50,7 +50,7 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
           <span className="font-serif text-sm font-semibold text-bbh-green-dark">B</span>
         </div>
       )}
-      <div className={`max-w-[72%] ${isUser ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+      <div className={`max-w-[85%] md:max-w-[72%] ${isUser ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
         <div
           className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
             isUser
@@ -81,6 +81,7 @@ export function AiAssistant() {
   } = useAiChat()
   const [input, setInput] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [sessionsOpen, setSessionsOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -106,32 +107,70 @@ export function AiAssistant() {
     }
   }
 
+  function handleSwitchSession(id: string) {
+    switchTo(id)
+    setSessionsOpen(false)
+  }
+
+  function handleNewSession() {
+    createNew()
+    setSessionsOpen(false)
+    inputRef.current?.focus()
+  }
+
   return (
-    <div className="flex h-full">
-      <AiSessionsList
-        sessions={sessions}
-        currentId={currentId}
-        onSelect={switchTo}
-        onNew={() => { createNew(); inputRef.current?.focus() }}
-        onDelete={remove}
+    <div className="relative flex h-full min-w-0 overflow-hidden">
+      {/* Desktop sessions panel — collapsible + resizable */}
+      <div className="hidden w-72 shrink-0 lg:block">
+        <AiSessionsList
+          sessions={sessions}
+          currentId={currentId}
+          onSelect={switchTo}
+          onNew={() => { createNew(); inputRef.current?.focus() }}
+          onDelete={remove}
+        />
+      </div>
+
+      <button
+        type="button"
+        aria-label="ปิดประวัติสนทนา"
+        onClick={() => setSessionsOpen(false)}
+        className={`fixed inset-0 z-30 bg-bbh-ink/40 backdrop-blur-[2px] transition-opacity lg:hidden ${sessionsOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       />
+      <div className={`fixed inset-y-0 left-0 z-40 transition-transform duration-200 lg:hidden ${sessionsOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <AiSessionsList
+          sessions={sessions}
+          currentId={currentId}
+          onSelect={handleSwitchSession}
+          onNew={handleNewSession}
+          onDelete={remove}
+        />
+      </div>
 
-      <div className="flex h-full flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
 
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between border-b border-bbh-line bg-white px-6 py-3">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-bbh-green-soft">
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bbh-line bg-white px-4 py-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSessionsOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-xs font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+          >
+            <MessageSquare size={15} />
+            ประวัติสนทนา
+          </button>
+          <div className="hidden h-9 w-9 place-items-center rounded-xl bg-bbh-green-soft sm:grid">
             <span className="font-serif text-base font-semibold text-bbh-green-dark">AI</span>
           </div>
           <div>
             <p className="text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
-            <p className="text-xs text-bbh-muted">{ctx.label} · Dify + Gemini Flash</p>
+            <p className="truncate text-xs text-bbh-muted">{ctx.label} · Dify + Gemini Flash</p>
           </div>
         </div>
 
         {pinned ? (
-          <div className="flex items-center gap-2 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-3 py-1.5 text-xs font-semibold text-bbh-green-dark">
+          <div className="flex max-w-full items-center gap-2 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-3 py-1.5 text-xs font-semibold text-bbh-green-dark">
             <User size={14} />
             <span>
               {pinned.hn ? `HN ${pinned.hn} · ` : ''}{pinned.display_name}
@@ -140,8 +179,7 @@ export function AiAssistant() {
               type="button"
               onClick={() => currentId && patchById(currentId, () => ({ pinnedPatient: null }))}
               className="ml-1 rounded-full p-0.5 transition hover:bg-white/60"
-              aria-label="ยกเลิก"
-            >
+              aria-label="ยกเลิก">
               <X size={12} />
             </button>
           </div>
@@ -157,8 +195,8 @@ export function AiAssistant() {
         )}
       </div>
 
-      {/* ── Messages area ── */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-5">
         {messages.length === 0 ? (
           /* Welcome state */
           <div className="flex h-full flex-col items-center justify-center gap-6">
@@ -203,15 +241,15 @@ export function AiAssistant() {
         )}
       </div>
 
-      {/* ── Input bar ── */}
-      <div className="border-t border-bbh-line bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-2xl items-end gap-3">
+      {/* Input bar */}
+      <div className="border-t border-bbh-line bg-white px-3 py-3 md:px-6 md:py-4">
+        <div className="mx-auto flex max-w-2xl items-end gap-2 md:gap-3">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="พิมพ์คำถาม… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)"
+            placeholder="พิมพ์คำถาม... (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)"
             rows={1}
             disabled={isLoading}
             className="flex-1 resize-none rounded-2xl border border-bbh-line bg-bbh-surface px-4 py-3 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none disabled:opacity-50"
@@ -227,10 +265,9 @@ export function AiAssistant() {
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bbh-green text-white transition hover:bg-bbh-green-dark disabled:opacity-40"
+            aria-label="ส่งข้อความ"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-              <path d="M3.105 3.105a1 1 0 011.3-.126l12 8a1 1 0 010 1.642l-12 8a1 1 0 01-1.426-1.3L4.584 11H8a1 1 0 100-2H4.584L2.98 4.43a1 1 0 01.125-1.325z" />
-            </svg>
+            <Send size={18} />
           </button>
         </div>
       </div>

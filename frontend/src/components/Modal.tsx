@@ -23,7 +23,7 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-40 flex items-end justify-center p-0 md:items-center md:p-4 lg:p-6">
       <button
         type="button"
         aria-label="ปิด"
@@ -31,13 +31,13 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
         className="absolute inset-0 bg-bbh-ink/45 backdrop-blur-[2px]"
       />
       <div
-        className={`relative z-10 flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden rounded-[28px] border border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 sm:max-h-[calc(100vh-5rem)] ${
+        className={`relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[28px] rounded-b-none border border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 md:max-h-[calc(100vh-5rem)] md:rounded-[28px] ${
           size === 'lg' ? 'max-w-2xl' : 'max-w-md'
         }`}
       >
         <div className="h-1 bg-bbh-green" />
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-bbh-line bg-bbh-surface px-7 py-4">
-          <h2 className="font-serif text-xl font-semibold text-bbh-ink">{title}</h2>
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-bbh-line bg-bbh-surface px-4 py-4 md:px-7">
+          <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -47,7 +47,7 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
             <X size={18} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-7 py-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5 md:px-7">{children}</div>
       </div>
     </div>
   )

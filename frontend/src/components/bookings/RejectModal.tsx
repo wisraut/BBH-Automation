@@ -59,7 +59,7 @@ export function RejectModal({ booking, open, onClose, onRejected }: RejectModalP
           />
         </label>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={onClose}

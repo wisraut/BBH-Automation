@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
@@ -214,26 +215,28 @@ export function Calendar() {
   }
 
   return (
-    <div className="flex h-full">
-      <section className="flex-1 overflow-y-auto p-8">
-        <div className="mb-5 flex items-center gap-2">
-          <button type="button" onClick={prevMonth} className="rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
-            ←
+    <div className="relative flex h-full min-w-0 overflow-hidden lg:static">
+      <section className="min-w-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={prevMonth} className="grid h-10 w-10 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green" aria-label="เดือนก่อนหน้า">
+            <ChevronLeft size={18} />
           </button>
-          <h2 className="min-w-[180px] text-center font-serif text-xl font-semibold text-bbh-ink">
+          <h2 className="min-w-[160px] flex-1 text-center font-serif text-lg font-semibold text-bbh-ink sm:flex-none md:text-xl">
             {THAI_MONTHS[month]} {year}
           </h2>
-          <button type="button" onClick={nextMonth} className="rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
-            →
+          <button type="button" onClick={nextMonth} className="grid h-10 w-10 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green" aria-label="เดือนถัดไป">
+            <ChevronRight size={18} />
           </button>
-          <button type="button" onClick={goToday} className="ml-1 rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
+          <button type="button" onClick={goToday} className="rounded-xl border border-bbh-line px-3 py-2 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green">
             วันนี้
           </button>
-          <span className="ml-auto text-xs text-bbh-muted">
+          <span className="ml-0 w-full text-xs text-bbh-muted sm:ml-auto sm:w-auto">
             {isLoading ? <span className="animate-pulse">กำลังโหลด...</span> : `${totalCount} นัดทั้งหมด`}
           </span>
         </div>
 
+        <div className="overflow-x-auto pb-2">
+          <div className="min-w-[640px] md:min-w-0">
         <div className="mb-1 grid grid-cols-7 gap-1">
           {WEEKDAY_SHORT.map((d) => (
             <div key={d} className="py-1 text-center text-xs font-semibold tracking-wide text-bbh-muted">
@@ -282,6 +285,9 @@ export function Calendar() {
           })}
         </div>
 
+          </div>
+        </div>
+
         <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-bbh-muted">
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />ยืนยันแล้ว</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />รอยืนยัน</span>
@@ -291,7 +297,26 @@ export function Calendar() {
         </div>
       </section>
 
-      <aside className="w-[400px] overflow-y-auto border-l border-bbh-line bg-white p-6">
+      {selectedDate ? (
+        <button
+          type="button"
+          aria-label="ปิดรายละเอียดนัดหมาย"
+          onClick={() => setSelectedDate(null)}
+          className="fixed inset-0 z-30 bg-bbh-ink/35 backdrop-blur-[2px] lg:hidden"
+        />
+      ) : null}
+
+      <aside className={`${selectedDate ? 'fixed inset-x-0 bottom-0 z-40 block max-h-[82vh] rounded-t-[28px] shadow-2xl shadow-bbh-ink/20' : 'hidden'} overflow-y-auto border-bbh-line bg-white p-4 md:p-6 lg:static lg:block lg:h-full lg:w-[400px] lg:rounded-none lg:border-l lg:shadow-none`}>
+        <div className="mb-4 flex items-center justify-end lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSelectedDate(null)}
+            className="grid h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted"
+            aria-label="ปิดรายละเอียดนัดหมาย"
+          >
+            <X size={18} />
+          </button>
+        </div>
         {!selectedDate ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
             เลือกวันเพื่อดูนัดหมาย
@@ -359,7 +384,7 @@ export function Calendar() {
                       </div>
                       {b.symptom && <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>}
                       {b.status === 'approved' ? (
-                        <div className="grid max-h-0 overflow-hidden opacity-0 transition-all duration-200 group-hover:mt-3 group-hover:max-h-16 group-hover:opacity-100 group-focus-within:mt-3 group-focus-within:max-h-16 group-focus-within:opacity-100">
+                        <div className="grid overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
                           <button
                             type="button"
                             disabled={cancelBooking.isPending}
@@ -393,7 +418,7 @@ export function Calendar() {
                         {info.symptom ? <p><span className="font-semibold text-bbh-ink">อาการ:</span> {info.symptom}</p> : null}
                         {info.requestUid ? <p className="truncate text-[11px] text-bbh-muted/80">รหัสคำขอ: {info.requestUid}</p> : null}
                       </div>
-                      <div className="grid max-h-0 grid-cols-2 gap-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:mt-3 group-hover:max-h-16 group-hover:opacity-100 group-focus-within:mt-3 group-focus-within:max-h-16 group-focus-within:opacity-100">
+                      <div className="grid grid-cols-2 gap-2 overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
                         <a
                           href={event.html_link ?? undefined}
                           target="_blank"

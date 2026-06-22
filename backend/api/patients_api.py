@@ -1,0 +1,49 @@
+"""JWT-protected patient endpoints for Web Dashboard."""
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
+
+from core.security import require_user
+from schemas.patients import (
+    PatientCreateRequest,
+    PatientListResponse,
+    PatientOut,
+    PatientUpdateRequest,
+)
+from services import patient_service
+
+router = APIRouter(prefix="/api/patients", tags=["patients"])
+
+_StaffUser = Annotated[dict, Depends(require_user(["cro", "doctor", "admin"]))]
+_CroOrAdmin = Annotated[dict, Depends(require_user(["cro", "admin"]))]
+
+
+@router.get("", response_model=PatientListResponse)
+def list_patients(
+    user: _StaffUser,
+    search: str | None = Query(default=None, max_length=120),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict:
+    """List patients with optional search (name/HN/phone) + pagination."""
+    return patient_service.list_patients(search=search, page=page, limit=limit)
+
+
+@router.get("/{patient_id}", response_model=PatientOut)
+def get_patient(patient_id: int, user: _StaffUser) -> dict:
+    """Get a single patient by id."""
+    return patient_service.get_patient(patient_id)
+
+
+@router.post("", response_model=PatientOut)
+def create_patient(body: PatientCreateRequest, user: _CroOrAdmin) -> dict:
+    """Create a new patient and auto-assign an HN."""
+    return patient_service.create_patient(body=body, user=user)
+
+
+@router.patch("/{patient_id}", response_model=PatientOut)
+def update_patient(
+    patient_id: int, body: PatientUpdateRequest, user: _CroOrAdmin
+) -> dict:
+    """Update patient profile fields. Only fields present in payload are changed."""
+    return patient_service.update_patient(patient_id=patient_id, body=body, user=user)

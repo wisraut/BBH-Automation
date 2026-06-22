@@ -1,9 +1,9 @@
-"""LINE-Dify Hospital Bridge entry point."""
+﻿"""LINE-Dify Hospital Bridge entry point."""
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import ai, auth, booking, bookings_api, calendar_api, cro_webhook, health, line_webhook, session
+from api import ai, auth, booking, bookings_api, calendar_api, cro_webhook, health, line_webhook, patients_api, reports_api, session
 from core.config import SERVER_PORT
 from core.lifespan import lifespan
 
@@ -29,8 +29,12 @@ app.include_router(cro_webhook.router)
 app.include_router(session.router)
 app.include_router(booking.router)
 app.include_router(bookings_api.router)
+app.include_router(patients_api.router)
 app.include_router(calendar_api.router)
+app.include_router(reports_api.router)
 
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=SERVER_PORT, reload=False)
+
+

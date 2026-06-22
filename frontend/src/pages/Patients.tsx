@@ -1,485 +1,374 @@
-import { useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { Edit3, ExternalLink, FileText, Plus, Search, Upload } from 'lucide-react'
 
-import { SourceBadge } from '../components/SourceBadge'
-import { StatusBadge } from '../components/StatusBadge'
+import { PatientFormModal } from '../components/patients/PatientFormModal'
+import { PatientTimeline } from '../components/patients/PatientTimeline'
+import { AnalysisPanel } from '../components/reports/AnalysisPanel'
+import { ReportUploadModal } from '../components/reports/ReportUploadModal'
+import { useAllBookings } from '../hooks/useAllBookings'
+import { useAnalyzeReport } from '../hooks/useAnalyzeReport'
+import { useCreatePatient } from '../hooks/useCreatePatient'
+import { useDecideTriage } from '../hooks/useDecideTriage'
+import { usePatient } from '../hooks/usePatient'
+import { usePatientReports } from '../hooks/usePatientReports'
 import { usePatients } from '../hooks/usePatients'
-import type { PatientRecord } from '../hooks/usePatients'
+import { useReport } from '../hooks/useReport'
+import { useReportAnalyses } from '../hooks/useReportAnalyses'
+import { useUpdatePatient } from '../hooks/useUpdatePatient'
+import { useUploadReport } from '../hooks/useUploadReport'
+import { getToken } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import type { components } from '../lib/api-types'
 
 type BookingItem = components['schemas']['BookingListItem']
-type SortKey = 'recent' | 'name' | 'most'
-type FilterKey = 'all' | 'pending' | 'frequent'
+type PatientCreateRequest = components['schemas']['PatientCreateRequest']
+type PatientUpdateRequest = components['schemas']['PatientUpdateRequest']
 
-const APPT_TYPE_LABELS: Record<string, string> = {
-  new: 'ใหม่',
-  followup: 'ติดตาม',
-  procedure: 'หัตถการ',
-  consult: 'ปรึกษา',
-}
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 
-const SOURCE_LABELS: Record<string, string> = {
-  line: 'LINE',
-  phone: 'โทร',
-  whatsapp: 'WhatsApp',
-  email: 'Email',
-  walkin: 'Walk-in',
-}
-
-const STATUS_ORDER: Record<string, number> = {
-  pending_approval: 0,
-  approved: 1,
-  cancelled: 2,
-  rejected: 3,
-  draft: 4,
-  expired: 5,
-}
-
-const FREQUENT_THRESHOLD = 3
-
-function formatDate(iso: string): string {
+function formatDate(iso?: string | null): string {
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('th-TH', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
-function formatRelative(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(ms / 60000)
-  if (min < 1) return 'เมื่อกี้'
-  if (min < 60) return `${min} นาทีที่แล้ว`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} ชั่วโมงที่แล้ว`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day} วันที่แล้ว`
-  return formatDate(iso)
+function normalize(value?: string | null): string {
+  return (value ?? '').trim().toLowerCase()
 }
 
-// ─── Avatar ────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  'bg-bbh-green-soft text-bbh-green-dark',
-  'bg-blue-50 text-blue-700',
-  'bg-purple-50 text-purple-700',
-  'bg-orange-50 text-orange-700',
-  'bg-pink-50 text-pink-700',
-]
-
-function avatarColor(key: string): string {
-  let hash = 0
-  for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash)
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+function matchingBookings(bookings: BookingItem[], patient?: { display_name?: string; phone?: string | null } | null) {
+  if (!patient) return []
+  const phone = normalize(patient.phone)
+  const name = normalize(patient.display_name)
+  return bookings.filter((booking) => {
+    const bookingPhone = normalize(booking.phone)
+    const bookingName = normalize(booking.patient_name)
+    return Boolean((phone && bookingPhone === phone) || (name && bookingName === name))
+  })
 }
 
-function InitialAvatar({ name, pkey }: { name: string; pkey: string }) {
-  return (
-    <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full font-serif text-base font-semibold ${avatarColor(pkey)}`}>
-      {name.trim().slice(0, 1) || '?'}
-    </div>
-  )
+async function openReportFile(reportId: number) {
+  const token = getToken()
+  const res = await fetch(`${API_BASE}/api/reports/${reportId}/file`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+  if (!res.ok) throw new Error('Cannot open report file')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank', 'noopener,noreferrer')
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
-
-// ─── Source breakdown ──────────────────────────────────────────────────────
-
-function sourceBreakdown(bookings: BookingItem[]): Record<string, number> {
-  const map: Record<string, number> = {}
-  for (const b of bookings) {
-    map[b.booking_source] = (map[b.booking_source] ?? 0) + 1
-  }
-  return map
-}
-
-// ─── Booking timeline card ─────────────────────────────────────────────────
-
-function BookingTimelineItem({ b, index }: { b: BookingItem; index: number }) {
-  const [open, setOpen] = useState(false)
-  const hasSymptom = Boolean(b.symptom)
-
-  return (
-    <div className="flex gap-3">
-      {/* Dot + line */}
-      <div className="flex flex-col items-center">
-        <div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 ${
-          b.status === 'approved'
-            ? 'border-bbh-green bg-bbh-green'
-            : b.status === 'pending_approval'
-            ? 'border-amber-400 bg-amber-50'
-            : 'border-bbh-line bg-white'
-        }`} />
-        {index > 0 && (
-          <div className="mt-1 w-px flex-1 bg-bbh-line" />
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="mb-4 min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={b.status} />
-          <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">
-            {APPT_TYPE_LABELS[b.appointment_type] ?? b.appointment_type}
-          </span>
-          <SourceBadge source={b.booking_source} />
-        </div>
-
-        {b.requested_datetime_text ? (
-          <p className="mt-1 text-sm font-medium text-bbh-ink">
-            {b.requested_datetime_text}
-          </p>
-        ) : null}
-
-        <p className="mt-0.5 text-xs text-bbh-muted">
-          จองเมื่อ {formatDate(b.created_at)}
-        </p>
-
-        {hasSymptom && (
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="mt-1.5 text-xs font-medium text-bbh-green hover:text-bbh-green-dark"
-          >
-            {open ? '▲ ซ่อนอาการ' : '▼ ดูอาการ'}
-          </button>
-        )}
-        {open && b.symptom && (
-          <p className="mt-1.5 rounded-xl bg-bbh-surface px-3 py-2 text-xs text-bbh-muted">
-            {b.symptom}
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Patient detail ────────────────────────────────────────────────────────
-
-function PatientDetail({ patient }: { patient: PatientRecord }) {
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'approved' | 'pending_approval'>('all')
-
-  const sorted = [...patient.bookings].sort(
-    (a, b) =>
-      (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
-      b.created_at.localeCompare(a.created_at)
-  )
-
-  const filtered = historyFilter === 'all'
-    ? sorted
-    : sorted.filter((b) => b.status === historyFilter)
-
-  const sources = sourceBreakdown(patient.bookings)
-  const topSources = Object.entries(sources).sort((a, b) => b[1] - a[1])
-
-  const isFrequent = patient.bookings.length >= FREQUENT_THRESHOLD
-  const cancelledCount = patient.bookings.filter(
-    (b) => b.status === 'cancelled' || b.status === 'rejected'
-  ).length
-
-  return (
-    <div className="space-y-6">
-
-      {/* ── Header ── */}
-      <div className="flex items-start gap-4">
-        <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl font-serif text-2xl font-semibold ${avatarColor(patient.key)}`}>
-          {patient.name.trim().slice(0, 1) || '?'}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-serif text-2xl font-semibold text-bbh-ink">
-              {patient.name}
-            </h2>
-            {isFrequent && (
-              <span className="rounded-full bg-bbh-green-soft px-2.5 py-0.5 text-xs font-semibold text-bbh-green-dark">
-                มาบ่อย
-              </span>
-            )}
-          </div>
-          <p className="mt-0.5 text-sm text-bbh-muted">
-            {patient.phone ?? 'ไม่มีเบอร์'}
-          </p>
-          <p className="mt-0.5 text-xs text-bbh-muted">
-            ล่าสุด {formatRelative(patient.latestAt)}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Stats row ── */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="rounded-2xl border border-bbh-line bg-white p-3 text-center">
-          <p className="font-serif text-xl font-semibold text-bbh-ink">
-            {patient.bookings.length}
-          </p>
-          <p className="text-[11px] text-bbh-muted">ทั้งหมด</p>
-        </div>
-        <div className="rounded-2xl border border-bbh-green/30 bg-bbh-green-soft p-3 text-center">
-          <p className="font-serif text-xl font-semibold text-bbh-green-dark">
-            {patient.approvedCount}
-          </p>
-          <p className="text-[11px] text-bbh-muted">ยืนยัน</p>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-center">
-          <p className="font-serif text-xl font-semibold text-amber-700">
-            {patient.pendingCount}
-          </p>
-          <p className="text-[11px] text-bbh-muted">รอ</p>
-        </div>
-        <div className="rounded-2xl border border-bbh-line bg-white p-3 text-center">
-          <p className="font-serif text-xl font-semibold text-bbh-muted">
-            {cancelledCount}
-          </p>
-          <p className="text-[11px] text-bbh-muted">ยกเลิก</p>
-        </div>
-      </div>
-
-      {/* ── Channel breakdown ── */}
-      {topSources.length > 0 && (
-        <div className="rounded-2xl border border-bbh-line p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">
-            ช่องทางที่ใช้
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {topSources.map(([src, cnt]) => (
-              <div
-                key={src}
-                className="flex items-center gap-1.5 rounded-xl bg-bbh-surface px-3 py-1.5"
-              >
-                <span className="text-xs font-semibold text-bbh-ink">
-                  {SOURCE_LABELS[src] ?? src}
-                </span>
-                <span className="text-xs text-bbh-muted">{cnt} ครั้ง</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Booking history ── */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">
-            ประวัติการจอง
-          </p>
-          <div className="flex gap-1">
-            {(
-              [
-                { key: 'all', label: 'ทั้งหมด' },
-                { key: 'approved', label: 'ยืนยัน' },
-                { key: 'pending_approval', label: 'รอ' },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setHistoryFilter(key)}
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
-                  historyFilter === key
-                    ? 'bg-bbh-green text-white'
-                    : 'border border-bbh-line text-bbh-muted hover:border-bbh-green hover:text-bbh-green'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-bbh-line p-8 text-center">
-            <p className="text-sm text-bbh-muted">ไม่มีการจองในหมวดนี้</p>
-          </div>
-        ) : (
-          <div className="pl-1">
-            {filtered.map((b, i) => (
-              <BookingTimelineItem key={b.request_uid} b={b} index={filtered.length - 1 - i} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Main page ─────────────────────────────────────────────────────────────
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'recent', label: 'ล่าสุด' },
-  { key: 'name', label: 'ชื่อ A-Z' },
-  { key: 'most', label: 'มาบ่อย' },
-]
-
-const FILTER_OPTIONS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'pending', label: 'มี pending' },
-  { key: 'frequent', label: `มาบ่อย (${FREQUENT_THRESHOLD}+)` },
-]
 
 export function Patients() {
-  const { patients, isLoading, total } = usePatients()
+  const { user } = useAuth()
+  const canWritePatient = user?.role === 'cro' || user?.role === 'admin'
+  const canAnalyze = user?.role === 'doctor' || user?.role === 'admin'
+
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('recent')
-  const [filterKey, setFilterKey] = useState<FilterKey>('all')
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
+  const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
-  const processed = useMemo(() => {
-    const q = search.trim().toLowerCase()
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
-    let list = q
-      ? patients.filter(
-          (p) =>
-            p.name.toLowerCase().includes(q) ||
-            (p.phone ?? '').includes(q)
-        )
-      : patients
+  const patientsQ = usePatients({ search: debouncedSearch, page, limit: 20 })
+  const patientQ = usePatient(selectedId)
+  const reportsQ = usePatientReports(selectedId)
+  const reportQ = useReport(selectedReportId)
+  const analysesQ = useReportAnalyses(selectedReportId)
 
-    if (filterKey === 'pending') list = list.filter((p) => p.pendingCount > 0)
-    if (filterKey === 'frequent') list = list.filter((p) => p.bookings.length >= FREQUENT_THRESHOLD)
+  const createPatient = useCreatePatient()
+  const updatePatient = useUpdatePatient()
+  const uploadReport = useUploadReport()
+  const analyzeReport = useAnalyzeReport()
+  const decideTriage = useDecideTriage()
 
-    return [...list].sort((a, b) => {
-      if (sortKey === 'name') return a.name.localeCompare(b.name, 'th')
-      if (sortKey === 'most') return b.bookings.length - a.bookings.length
-      return b.latestAt.localeCompare(a.latestAt)
+  const approvedQ = useAllBookings('approved')
+  const pendingQ = useAllBookings('pending_approval')
+  const rejectedQ = useAllBookings('rejected')
+  const cancelledQ = useAllBookings('cancelled')
+
+  const patients = useMemo(() => patientsQ.data?.data ?? [], [patientsQ.data])
+  const pagination = patientsQ.data?.pagination
+  const selectedPatient = patientQ.data ?? null
+  const reports = useMemo(() => reportsQ.data?.data ?? [], [reportsQ.data])
+  const analyses = analysesQ.data?.data ?? []
+  const allBookings = useMemo(
+    () => [...approvedQ.data, ...pendingQ.data, ...rejectedQ.data, ...cancelledQ.data],
+    [approvedQ.data, pendingQ.data, rejectedQ.data, cancelledQ.data]
+  )
+  const patientBookings = useMemo(
+    () => matchingBookings(allBookings, selectedPatient),
+    [allBookings, selectedPatient]
+  )
+
+  useEffect(() => {
+    if (selectedId != null && patients.some((patient) => patient.id === selectedId)) return
+    setSelectedId(patients[0]?.id ?? null)
+    setSelectedReportId(null)
+  }, [patients, selectedId])
+
+  useEffect(() => {
+    if (selectedReportId != null && reports.some((report) => report.id === selectedReportId)) return
+    setSelectedReportId(reports[0]?.id ?? null)
+  }, [reports, selectedReportId])
+
+  function submitPatient(body: PatientCreateRequest | PatientUpdateRequest) {
+    if (patientModal === 'create') {
+      createPatient.mutate(body as PatientCreateRequest, {
+        onSuccess: (patient) => {
+          setSelectedId(patient.id)
+          setPatientModal(null)
+        },
+      })
+      return
+    }
+    if (selectedId == null) return
+    updatePatient.mutate({ id: selectedId, body: body as PatientUpdateRequest }, {
+      onSuccess: () => setPatientModal(null),
     })
-  }, [patients, search, sortKey, filterKey])
+  }
 
-  const selected = selectedKey
-    ? (patients.find((p) => p.key === selectedKey) ?? null)
-    : null
+  function submitReport(formData: FormData) {
+    if (selectedId == null) return
+    uploadReport.mutate({ patientId: selectedId, formData }, {
+      onSuccess: (result) => {
+        setSelectedReportId(result.id)
+        setUploadOpen(false)
+      },
+    })
+  }
+
+  const totalPages = pagination?.total_pages ?? 1
 
   return (
-    <div className="flex h-full">
-
-      {/* ─── Patient list ─── */}
-      <section className="flex w-[400px] shrink-0 flex-col border-r border-bbh-line">
-
-        {/* Search + controls */}
-        <div className="space-y-2 border-b border-bbh-line px-4 pb-3 pt-4">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelectedKey(null) }}
-            placeholder="ค้นหาชื่อ หรือเบอร์โทร…"
-            className="w-full rounded-xl border border-bbh-line bg-bbh-surface px-4 py-2 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none"
-          />
-
-          {/* Sort */}
-          <div className="flex items-center gap-1">
-            <span className="shrink-0 text-xs text-bbh-muted">เรียง:</span>
-            {SORT_OPTIONS.map(({ key, label }) => (
+    <div className="flex h-full min-h-0 bg-white">
+      <section className="flex w-[380px] shrink-0 flex-col border-r border-bbh-line bg-white">
+        <div className="space-y-3 border-b border-bbh-line p-4">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-bbh-muted" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ค้นหาชื่อ HN หรือเบอร์โทร"
+                className="w-full rounded-xl border border-bbh-line bg-bbh-surface py-2 pl-9 pr-3 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none"
+              />
+            </div>
+            {canWritePatient ? (
               <button
-                key={key}
                 type="button"
-                onClick={() => setSortKey(key)}
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
-                  sortKey === key
-                    ? 'bg-bbh-green text-white'
-                    : 'border border-bbh-line text-bbh-muted hover:border-bbh-green hover:text-bbh-green'
-                }`}
+                onClick={() => setPatientModal('create')}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bbh-green text-white"
+                title="เพิ่มคนไข้"
               >
-                {label}
+                <Plus size={18} />
               </button>
-            ))}
+            ) : null}
           </div>
-
-          {/* Filter */}
-          <div className="flex items-center gap-1">
-            <span className="shrink-0 text-xs text-bbh-muted">กรอง:</span>
-            {FILTER_OPTIONS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilterKey(key)}
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
-                  filterKey === key
-                    ? 'bg-bbh-ink text-white'
-                    : 'border border-bbh-line text-bbh-muted hover:border-bbh-ink hover:text-bbh-ink'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
           <p className="text-xs text-bbh-muted">
-            {isLoading ? (
-              <span className="animate-pulse">กำลังโหลด...</span>
-            ) : (
-              `${total} คนไข้ · แสดง ${processed.length}`
-            )}
+            {patientsQ.isLoading ? 'กำลังโหลด' : `${pagination?.total ?? 0} คนไข้`}
           </p>
         </div>
 
-        {/* Patient rows */}
-        <div className="flex-1 overflow-y-auto p-3">
-          {isLoading ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {patientsQ.isLoading ? (
             <div className="space-y-2">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-2xl bg-bbh-surface" />
-              ))}
+              {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-bbh-surface" />)}
             </div>
-          ) : processed.length === 0 ? (
-            <div className="mt-8 rounded-2xl border border-dashed border-bbh-line p-8 text-center">
-              <p className="text-sm text-bbh-muted">
-                {search ? 'ไม่พบคนไข้ที่ค้นหา' : 'ยังไม่มีข้อมูลคนไข้'}
-              </p>
+          ) : patients.length === 0 ? (
+            <div className="mt-8 rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
+              ไม่พบคนไข้
             </div>
           ) : (
-            <div className="space-y-1">
-              {processed.map((p) => {
-                const active = p.key === selectedKey
-                const frequent = p.bookings.length >= FREQUENT_THRESHOLD
+            <div className="space-y-1.5">
+              {patients.map((patient) => {
+                const active = patient.id === selectedId
                 return (
                   <button
-                    key={p.key}
+                    key={patient.id}
                     type="button"
-                    onClick={() => setSelectedKey(active ? null : p.key)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${
-                      active
-                        ? 'border-bbh-green bg-bbh-green-soft ring-4 ring-bbh-green/10'
-                        : 'border-bbh-line bg-white hover:border-bbh-green/40'
+                    onClick={() => {
+                      setSelectedId(patient.id)
+                      setSelectedReportId(null)
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
+                      active ? 'border-bbh-green bg-bbh-green-soft' : 'border-bbh-line bg-white hover:border-bbh-green/40'
                     }`}
                   >
-                    <InitialAvatar name={p.name} pkey={p.key} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-bbh-ink">
-                          {p.name}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-bbh-ink">{patient.display_name}</p>
+                        <p className="mt-0.5 truncate text-xs text-bbh-muted">
+                          {patient.hn ?? 'ยังไม่มี HN'} · {patient.phone ?? 'ไม่มีเบอร์'}
                         </p>
-                        {frequent && (
-                          <span className="shrink-0 rounded-full bg-bbh-green-soft px-1.5 py-0.5 text-[10px] font-semibold text-bbh-green-dark">
-                            บ่อย
-                          </span>
-                        )}
-                        {p.pendingCount > 0 && (
-                          <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                            รอ {p.pendingCount}
-                          </span>
-                        )}
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-bbh-muted">
-                        {p.phone ?? 'ไม่มีเบอร์'} · {p.bookings.length} การจอง
-                      </p>
+                      <span className="shrink-0 rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">
+                        {patient.total_reports} reports
+                      </span>
                     </div>
-                    <p className="shrink-0 text-[11px] text-bbh-muted">
-                      {formatRelative(p.latestAt)}
-                    </p>
                   </button>
                 )
               })}
             </div>
           )}
         </div>
+
+        <div className="flex items-center justify-between border-t border-bbh-line p-3 text-xs text-bbh-muted">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className="rounded-lg border border-bbh-line px-2 py-1 disabled:opacity-40">
+            ก่อนหน้า
+          </button>
+          <span>{page} / {totalPages}</span>
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage((v) => v + 1)} className="rounded-lg border border-bbh-line px-2 py-1 disabled:opacity-40">
+            ถัดไป
+          </button>
+        </div>
       </section>
 
-      {/* ─── Patient detail ─── */}
-      <aside className="flex-1 overflow-y-auto p-8">
-        {!selected ? (
-          <div className="flex h-full items-center justify-center text-center">
-            <div>
-              <p className="font-serif text-lg text-bbh-ink">เลือกคนไข้</p>
-              <p className="mt-1 text-sm text-bbh-muted">คลิกชื่อคนไข้ทางซ้ายเพื่อดูรายละเอียด</p>
-            </div>
+      <main className="min-w-0 flex-1 overflow-y-auto p-6">
+        {!selectedPatient ? (
+          <div className="flex h-full items-center justify-center text-center text-bbh-muted">
+            เลือกคนไข้จากรายการด้านซ้าย
           </div>
         ) : (
-          <PatientDetail patient={selected} />
+          <div className="mx-auto max-w-6xl space-y-5">
+            <section className="flex flex-wrap items-start justify-between gap-4 border-b border-bbh-line pb-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-serif text-3xl font-semibold text-bbh-ink">{selectedPatient.display_name}</h1>
+                  <span className="rounded-full bg-bbh-surface px-2.5 py-1 text-xs text-bbh-muted">{selectedPatient.hn ?? 'ไม่มี HN'}</span>
+                </div>
+                <p className="mt-1 text-sm text-bbh-muted">
+                  {selectedPatient.phone ?? 'ไม่มีเบอร์'} · {selectedPatient.email ?? 'ไม่มีอีเมล'} · เกิด {formatDate(selectedPatient.dob)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canWritePatient ? (
+                  <button type="button" onClick={() => setPatientModal('edit')} className="inline-flex items-center gap-2 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-ink hover:border-bbh-green hover:text-bbh-green">
+                    <Edit3 size={16} />
+                    แก้ไข
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => setUploadOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-bbh-green px-3 py-2 text-sm font-semibold text-white">
+                  <Upload size={16} />
+                  Upload report
+                </button>
+              </div>
+            </section>
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+              <section className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-bbh-line p-4">
+                    <p className="text-xs text-bbh-muted">Reports</p>
+                    <p className="mt-1 font-serif text-2xl font-semibold text-bbh-ink">{reports.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-bbh-line p-4">
+                    <p className="text-xs text-bbh-muted">Bookings</p>
+                    <p className="mt-1 font-serif text-2xl font-semibold text-bbh-ink">{patientBookings.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-bbh-line p-4">
+                    <p className="text-xs text-bbh-muted">Latest visit</p>
+                    <p className="mt-1 text-sm font-semibold text-bbh-ink">{formatDate(patients.find((p) => p.id === selectedId)?.latest_visit_at)}</p>
+                  </div>
+                </div>
+
+                <section>
+                  <h2 className="mb-3 text-sm font-semibold text-bbh-ink">Timeline</h2>
+                  <PatientTimeline reports={reports} bookings={patientBookings} onSelectReport={setSelectedReportId} />
+                </section>
+              </section>
+
+              <aside className="space-y-4">
+                <section className="rounded-xl border border-bbh-line bg-white p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-bbh-ink">Selected report</h2>
+                    {selectedReportId ? (
+                      <button type="button" onClick={() => openReportFile(selectedReportId)} className="inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-2.5 py-1.5 text-xs font-semibold text-bbh-muted hover:text-bbh-green">
+                        <ExternalLink size={14} />
+                        Open file
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {reports.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-bbh-line p-5 text-center text-sm text-bbh-muted">
+                      ยังไม่มี report
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {reports.map((report) => (
+                        <button
+                          key={report.id}
+                          type="button"
+                          onClick={() => setSelectedReportId(report.id)}
+                          className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${
+                            report.id === selectedReportId ? 'border-bbh-green bg-bbh-green-soft' : 'border-bbh-line hover:border-bbh-green/40'
+                          }`}
+                        >
+                          <FileText size={17} className="shrink-0 text-bbh-green" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-bbh-ink">{report.title}</p>
+                            <p className="text-xs text-bbh-muted">{report.report_type} · {formatDate(report.uploaded_at)}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {reportQ.data?.extracted_text ? (
+                    <div className="mt-4 rounded-xl bg-bbh-surface p-3">
+                      <p className="mb-2 text-xs font-semibold text-bbh-muted">Extracted text</p>
+                      <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-5 text-bbh-ink">
+                        {reportQ.data.extracted_text}
+                      </p>
+                    </div>
+                  ) : null}
+                </section>
+
+                <section className="rounded-xl border border-bbh-line bg-white p-4">
+                  <AnalysisPanel
+                    analyses={analyses}
+                    loading={analysesQ.isLoading}
+                    canDecide={canAnalyze}
+                    analyzing={analyzeReport.isPending}
+                    decidingId={decideTriage.isPending ? decideTriage.variables?.analysisId ?? null : null}
+                    onAnalyze={selectedReportId && canAnalyze ? () => analyzeReport.mutate({ reportId: selectedReportId }) : undefined}
+                    onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }) : undefined}
+                  />
+                </section>
+              </aside>
+            </div>
+          </div>
         )}
-      </aside>
+      </main>
+
+      <PatientFormModal
+        open={patientModal != null}
+        mode={patientModal ?? 'create'}
+        patient={selectedPatient}
+        saving={createPatient.isPending || updatePatient.isPending}
+        onClose={() => setPatientModal(null)}
+        onSubmit={submitPatient}
+      />
+      <ReportUploadModal
+        open={uploadOpen}
+        saving={uploadReport.isPending}
+        onClose={() => setUploadOpen(false)}
+        onSubmit={submitReport}
+      />
     </div>
   )
 }
+

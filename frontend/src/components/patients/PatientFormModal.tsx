@@ -1,0 +1,160 @@
+﻿import { useEffect, useState } from 'react'
+import { Save, UserRound } from 'lucide-react'
+
+import { Modal } from '../Modal'
+import type { PatientCreateRequest } from '../../hooks/useCreatePatient'
+import type { PatientOut } from '../../hooks/usePatient'
+import type { PatientUpdateRequest } from '../../hooks/useUpdatePatient'
+
+type Gender = NonNullable<PatientCreateRequest['gender']>
+
+type FormState = {
+  display_name: string
+  phone: string
+  email: string
+  dob: string
+  gender: Gender
+  notes: string
+}
+
+interface PatientFormModalProps {
+  open: boolean
+  mode: 'create' | 'edit'
+  patient?: PatientOut | null
+  saving?: boolean
+  onClose: () => void
+  onSubmit: (body: PatientCreateRequest | PatientUpdateRequest) => void
+}
+
+const EMPTY: FormState = {
+  display_name: '',
+  phone: '',
+  email: '',
+  dob: '',
+  gender: 'unknown',
+  notes: '',
+}
+
+function clean(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmit }: PatientFormModalProps) {
+  const [form, setForm] = useState<FormState>(EMPTY)
+
+  useEffect(() => {
+    if (!open) return
+    setForm({
+      display_name: patient?.display_name ?? '',
+      phone: patient?.phone ?? '',
+      email: patient?.email ?? '',
+      dob: patient?.dob ?? '',
+      gender: patient?.gender ?? 'unknown',
+      notes: patient?.notes ?? '',
+    })
+  }, [open, patient])
+
+  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    const body = {
+      display_name: form.display_name.trim(),
+      phone: clean(form.phone),
+      email: clean(form.email),
+      dob: clean(form.dob),
+      gender: form.gender,
+      notes: clean(form.notes),
+    }
+    onSubmit(body)
+  }
+
+  return (
+    <Modal open={open} title={mode === 'create' ? 'เพิ่มคนไข้' : 'แก้ไขคนไข้'} onClose={onClose} size="md">
+      <form onSubmit={submit} className="space-y-4">
+        <label className="block text-sm font-medium text-bbh-ink">
+          ชื่อคนไข้
+          <input
+            required
+            value={form.display_name}
+            onChange={(e) => update('display_name', e.target.value)}
+            className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+          />
+        </label>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-bbh-ink">
+            เบอร์โทร
+            <input
+              value={form.phone}
+              onChange={(e) => update('phone', e.target.value)}
+              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+            />
+          </label>
+          <label className="block text-sm font-medium text-bbh-ink">
+            อีเมล
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => update('email', e.target.value)}
+              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-bbh-ink">
+            วันเกิด
+            <input
+              type="date"
+              value={form.dob}
+              onChange={(e) => update('dob', e.target.value)}
+              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+            />
+          </label>
+          <label className="block text-sm font-medium text-bbh-ink">
+            เพศ
+            <select
+              value={form.gender}
+              onChange={(e) => update('gender', e.target.value as Gender)}
+              className="mt-1 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+            >
+              <option value="unknown">ไม่ระบุ</option>
+              <option value="female">หญิง</option>
+              <option value="male">ชาย</option>
+              <option value="other">อื่น ๆ</option>
+            </select>
+          </label>
+        </div>
+
+        <label className="block text-sm font-medium text-bbh-ink">
+          หมายเหตุ
+          <textarea
+            rows={4}
+            value={form.notes}
+            onChange={(e) => update('notes', e.target.value)}
+            className="mt-1 w-full resize-none rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
+          />
+        </label>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line px-4 py-2 text-sm text-bbh-muted hover:text-bbh-ink">
+            ยกเลิก
+          </button>
+          <button
+            type="submit"
+            disabled={saving || !form.display_name.trim()}
+            className="inline-flex items-center gap-2 rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {mode === 'create' ? <UserRound size={16} /> : <Save size={16} />}
+            บันทึก
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+

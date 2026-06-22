@@ -77,6 +77,9 @@ n8n/credentials/
 *.json.key
 service_account*.json
 
+# Patient report file storage (PHI — never commit)
+data/
+
 # Markdown working docs (all except README.md + shared team docs in docs/)
 *.md
 !README.md

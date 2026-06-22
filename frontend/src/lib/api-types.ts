@@ -98,6 +98,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat
+         * @description Proxy dashboard AI chat to the service layer.
+         */
+        post: operations["chat_api_ai_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhook": {
         parameters: {
             query?: never;
@@ -265,7 +285,11 @@ export interface paths {
          */
         get: operations["list_bookings_api_bookings_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Booking
+         * @description Create a manual booking from Web Dashboard using JWT auth.
+         */
+        post: operations["create_booking_api_bookings_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -332,10 +356,260 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bookings/{request_uid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Booking
+         * @description Cancel an approved booking and remove its Google Calendar event.
+         */
+        post: operations["cancel_booking_api_bookings__request_uid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Patients
+         * @description List patients with optional search (name/HN/phone) + pagination.
+         */
+        get: operations["list_patients_api_patients_get"];
+        put?: never;
+        /**
+         * Create Patient
+         * @description Create a new patient and auto-assign an HN.
+         */
+        post: operations["create_patient_api_patients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Patient
+         * @description Get a single patient by id.
+         */
+        get: operations["get_patient_api_patients__patient_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Patient
+         * @description Update patient profile fields. Only fields present in payload are changed.
+         */
+        patch: operations["update_patient_api_patients__patient_id__patch"];
+        trace?: never;
+    };
+    "/api/calendar/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Calendar Events
+         * @description List Google Calendar events for the dashboard calendar.
+         */
+        get: operations["list_calendar_events_api_calendar_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Patient Reports
+         * @description List reports for one patient.
+         */
+        get: operations["list_patient_reports_api_patients__patient_id__reports_get"];
+        put?: never;
+        /**
+         * Upload Patient Report
+         * @description Upload one patient report file and store extracted text when available.
+         */
+        post: operations["upload_patient_report_api_patients__patient_id__reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report
+         * @description Get report metadata and extracted text.
+         */
+        get: operations["get_report_api_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report File
+         * @description Download or preview the stored report file.
+         */
+        get: operations["get_report_file_api_reports__report_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Report Analyses
+         * @description List AI analyses for a report.
+         */
+        get: operations["list_report_analyses_api_reports__report_id__analyses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Report
+         * @description Run Dify analysis for a report.
+         */
+        post: operations["analyze_report_api_reports__report_id__analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/analyses/{analysis_id}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide Report Triage
+         * @description Confirm the final triage decision for one analysis.
+         */
+        post: operations["decide_report_triage_api_reports_analyses__analysis_id__decide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnalysisListResponse */
+        AnalysisListResponse: {
+            /** Data */
+            data: components["schemas"]["AnalysisOut"][];
+        };
+        /** AnalysisOut */
+        AnalysisOut: {
+            /** Id */
+            id: number;
+            /** Report Id */
+            report_id: number;
+            /** Requested By */
+            requested_by?: number | null;
+            /** Dify Conversation Id */
+            dify_conversation_id?: string | null;
+            /** Summary Text */
+            summary_text: string;
+            /**
+             * Triage Decision
+             * @enum {string}
+             */
+            triage_decision: "accept" | "reject" | "review" | "pending";
+            /** Decided By */
+            decided_by?: number | null;
+            /** Decided At */
+            decided_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AnalyzeResponse */
+        AnalyzeResponse: {
+            /** Ok */
+            ok: boolean;
+            analysis: components["schemas"]["AnalysisOut"];
+        };
         /** ApproveBooking */
         ApproveBooking: {
             /**
@@ -376,6 +650,33 @@ export interface components {
             calendar_event_id: string;
             /** Calendar Event Url */
             calendar_event_url: string;
+            /** Patient Id */
+            patient_id: number;
+            /** Hn */
+            hn?: string | null;
+        };
+        /** Body_upload_patient_report_api_patients__patient_id__reports_post */
+        Body_upload_patient_report_api_patients__patient_id__reports_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+            /** Title */
+            title: string;
+            /**
+             * Report Type
+             * @enum {string}
+             */
+            report_type: "lab" | "imaging" | "history" | "prescription" | "referral" | "other";
+            /**
+             * Source
+             * @default web
+             * @enum {string}
+             */
+            source: "web" | "line" | "email" | "whatsapp" | "walkin";
+            /** Notes */
+            notes?: string | null;
         };
         /** BookingCreate */
         BookingCreate: {
@@ -395,6 +696,35 @@ export interface components {
             raw_summary?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** BookingCreateRequest */
+        BookingCreateRequest: {
+            /** Patient Name */
+            patient_name: string;
+            /** Phone */
+            phone: string;
+            /** Requested Date */
+            requested_date: string;
+            /** Requested Time */
+            requested_time: string;
+            /**
+             * Symptom
+             * @default
+             */
+            symptom: string;
+            /**
+             * Booking Source
+             * @default phone
+             * @enum {string}
+             */
+            booking_source: "line" | "phone" | "whatsapp" | "email" | "walkin";
+        };
+        /** BookingCreateResponse */
+        BookingCreateResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Request Uid */
+            request_uid: string;
         };
         /** BookingListItem */
         BookingListItem: {
@@ -503,6 +833,55 @@ export interface components {
              */
             updated_at: string;
         };
+        /** CalendarEventOut */
+        CalendarEventOut: {
+            /** Id */
+            id: string;
+            /** Summary */
+            summary: string;
+            /** Description */
+            description?: string | null;
+            /** Html Link */
+            html_link?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /** All Day */
+            all_day: boolean;
+        };
+        /** CalendarEventsResponse */
+        CalendarEventsResponse: {
+            /** Data */
+            data: components["schemas"]["CalendarEventOut"][];
+        };
+        /** CancelRequest */
+        CancelRequest: {
+            /**
+             * Reason
+             * @default Cancelled by CRO
+             */
+            reason: string;
+        };
+        /** ChatRequest */
+        ChatRequest: {
+            /** Message */
+            message: string;
+            /**
+             * Conversation Id
+             * @default
+             */
+            conversation_id: string;
+        };
+        /** ChatResponse */
+        ChatResponse: {
+            /** Answer */
+            answer: string;
+            /** Conversation Id */
+            conversation_id: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -541,6 +920,103 @@ export interface components {
             /** Total Pages */
             total_pages: number;
         };
+        /** PatientCreateRequest */
+        PatientCreateRequest: {
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /** Gender */
+            gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** PatientListItem */
+        PatientListItem: {
+            /** Id */
+            id: number;
+            /** Hn */
+            hn?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Gender */
+            gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Latest Visit At */
+            latest_visit_at?: string | null;
+            /**
+             * Total Bookings
+             * @default 0
+             */
+            total_bookings: number;
+            /**
+             * Total Reports
+             * @default 0
+             */
+            total_reports: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PatientListResponse */
+        PatientListResponse: {
+            /** Data */
+            data: components["schemas"]["PatientListItem"][];
+            pagination: components["schemas"]["PaginationMeta"];
+        };
+        /** PatientOut */
+        PatientOut: {
+            /** Id */
+            id: number;
+            /** Hn */
+            hn?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /** Gender */
+            gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PatientUpdateRequest */
+        PatientUpdateRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /** Gender */
+            gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Notes */
+            notes?: string | null;
+        };
         /** RejectBooking */
         RejectBooking: {
             /**
@@ -562,6 +1038,108 @@ export interface components {
              */
             reason: string;
         };
+        /** ReportListItem */
+        ReportListItem: {
+            /** Id */
+            id: number;
+            /** Patient Id */
+            patient_id: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "web" | "line" | "email" | "whatsapp" | "walkin";
+            /**
+             * Report Type
+             * @enum {string}
+             */
+            report_type: "lab" | "imaging" | "history" | "prescription" | "referral" | "other";
+            /** Title */
+            title: string;
+            /** File Mime */
+            file_mime?: string | null;
+            /** File Size */
+            file_size?: number | null;
+            /** Has File */
+            has_file: boolean;
+            /** Has Extracted Text */
+            has_extracted_text: boolean;
+            /** Latest Analysis At */
+            latest_analysis_at?: string | null;
+            /** Uploaded By */
+            uploaded_by?: number | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+        };
+        /** ReportListResponse */
+        ReportListResponse: {
+            /** Data */
+            data: components["schemas"]["ReportListItem"][];
+        };
+        /** ReportOut */
+        ReportOut: {
+            /** Id */
+            id: number;
+            /** Patient Id */
+            patient_id: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "web" | "line" | "email" | "whatsapp" | "walkin";
+            /**
+             * Report Type
+             * @enum {string}
+             */
+            report_type: "lab" | "imaging" | "history" | "prescription" | "referral" | "other";
+            /** Title */
+            title: string;
+            /** File Mime */
+            file_mime?: string | null;
+            /** File Size */
+            file_size?: number | null;
+            /** Has File */
+            has_file: boolean;
+            /** Has Extracted Text */
+            has_extracted_text: boolean;
+            /** Latest Analysis At */
+            latest_analysis_at?: string | null;
+            /** Uploaded By */
+            uploaded_by?: number | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Extracted Text */
+            extracted_text?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ReportUploadResponse */
+        ReportUploadResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Has Extracted Text */
+            has_extracted_text: boolean;
+        };
         /** SessionUpdate */
         SessionUpdate: {
             /**
@@ -579,6 +1157,16 @@ export interface components {
         SimpleOkResponse: {
             /** Ok */
             ok: boolean;
+        };
+        /** TriageDecideRequest */
+        TriageDecideRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accept" | "reject" | "review";
+            /** Note */
+            note?: string | null;
         };
         /** UserOut */
         UserOut: {
@@ -735,6 +1323,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    chat_api_ai_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -1087,6 +1708,39 @@ export interface operations {
             };
         };
     };
+    create_booking_api_bookings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_booking_api_bookings__request_uid__get: {
         parameters: {
             query?: never;
@@ -1165,6 +1819,432 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_booking_api_bookings__request_uid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_patients_api_patients_get: {
+        parameters: {
+            query?: {
+                search?: string | null;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_patient_api_patients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_patient_api_patients__patient_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_patient_api_patients__patient_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_calendar_events_api_calendar_events_get: {
+        parameters: {
+            query: {
+                /** @description ISO 8601 range start */
+                time_min: string;
+                /** @description ISO 8601 range end */
+                time_max: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEventsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_patient_reports_api_patients__patient_id__reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_patient_report_api_patients__patient_id__reports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_patient_report_api_patients__patient_id__reports_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_api_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_file_api_reports__report_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_report_analyses_api_reports__report_id__analyses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_report_api_reports__report_id__analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyzeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_report_triage_api_reports_analyses__analysis_id__decide_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageDecideRequest"];
             };
         };
         responses: {

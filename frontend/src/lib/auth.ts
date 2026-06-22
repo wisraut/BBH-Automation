@@ -9,6 +9,7 @@ export type DashboardUser = {
   role: Role
   specialty?: string | null
   avatar_url?: string | null
+  last_login_at?: string | null
 }
 
 export type AuthContextValue = {

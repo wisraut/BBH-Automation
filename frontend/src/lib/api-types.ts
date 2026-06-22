@@ -98,6 +98,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Change Password
+         * @description Verify old password and persist a new bcrypt hash + audit log.
+         */
+        post: operations["post_change_password_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Audit Logs
+         * @description Recent auth events for the current user (login/logout/password_change/fail).
+         */
+        get: operations["get_my_audit_logs_auth_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/chat": {
         parameters: {
             query?: never;
@@ -655,6 +695,31 @@ export interface components {
             /** Hn */
             hn?: string | null;
         };
+        /** AuditLogItem */
+        AuditLogItem: {
+            /** Id */
+            id: number;
+            /** Event Type */
+            event_type: string;
+            /** Email */
+            email: string;
+            /** Ip Address */
+            ip_address?: string | null;
+            /** User Agent */
+            user_agent?: string | null;
+            /** Fail Reason */
+            fail_reason?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AuditLogListResponse */
+        AuditLogListResponse: {
+            /** Data */
+            data: components["schemas"]["AuditLogItem"][];
+        };
         /** Body_upload_patient_report_api_patients__patient_id__reports_post */
         Body_upload_patient_report_api_patients__patient_id__reports_post: {
             /**
@@ -865,6 +930,13 @@ export interface components {
              */
             reason: string;
         };
+        /** ChangePasswordRequest */
+        ChangePasswordRequest: {
+            /** Old Password */
+            old_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
@@ -874,6 +946,8 @@ export interface components {
              * @default
              */
             conversation_id: string;
+            /** Patient Id */
+            patient_id?: number | null;
         };
         /** ChatResponse */
         ChatResponse: {
@@ -1185,6 +1259,8 @@ export interface components {
             specialty?: string | null;
             /** Avatar Url */
             avatar_url?: string | null;
+            /** Last Login At */
+            last_login_at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1323,6 +1399,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    post_change_password_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_audit_logs_auth_audit_logs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

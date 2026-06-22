@@ -19,6 +19,7 @@ class UserOut(BaseModel):
     role: Role
     specialty: str | None = None
     avatar_url: str | None = None
+    last_login_at: datetime | None = None
 
 
 class LoginResponse(BaseModel):
@@ -29,3 +30,22 @@ class LoginResponse(BaseModel):
 
 class MeResponse(BaseModel):
     user: UserOut
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=10, max_length=200)
+
+
+class AuditLogItem(BaseModel):
+    id: int
+    event_type: str
+    email: str
+    ip_address: str | None = None
+    user_agent: str | None = None
+    fail_reason: str | None = None
+    created_at: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    data: list[AuditLogItem]

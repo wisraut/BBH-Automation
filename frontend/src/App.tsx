@@ -10,6 +10,7 @@ import { ToastProvider } from './contexts/ToastProvider'
 import { useAuth } from './lib/auth'
 import type { Role } from './lib/auth'
 import { queryClient } from './lib/queryClient'
+import { Account } from './pages/Account'
 import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
@@ -124,7 +125,7 @@ function AppRoutes() {
             <Route path="users" element={<Placeholder title="ผู้ใช้" />} />
             <Route path="system-health" element={<Placeholder title="สถานะระบบ" />} />
           </Route>
-          <Route path="account" element={<Placeholder title="บัญชี" />} />
+          <Route path="account" element={<Account />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />

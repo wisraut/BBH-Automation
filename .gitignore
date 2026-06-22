@@ -77,6 +77,7 @@ n8n/credentials/
 *.json.key
 service_account*.json
 
-# Markdown working docs (all except README.md)
+# Markdown working docs (all except README.md + shared team docs in docs/)
 *.md
 !README.md
+!docs/dev-setup-lan.md

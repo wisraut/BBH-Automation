@@ -1,6 +1,10 @@
 """Dify chat-messages API client."""
+import json
 import re
+from collections.abc import Iterator
+
 import httpx
+
 from core.config import DIFY_API_URL, DIFY_API_KEY
 
 
@@ -46,6 +50,62 @@ def ask_with_meta(user_id: str, message: str, role: str = "public_inquiry",
     r.raise_for_status()
     j = r.json()
     return (j.get("answer", ""), j.get("conversation_id", ""), j.get("metadata", {}))
+
+
+def stream(
+    user_id: str,
+    message: str,
+    role: str = "doctor",
+    conv_id: str = "",
+) -> Iterator[tuple[str, str]]:
+    """
+    Stream Dify /chat-messages — yields (event_type, payload) tuples.
+
+    event_type:
+      - "delta"      → payload is incremental text chunk
+      - "conv_id"    → payload is final conversation_id
+      - "done"       → payload is "" (stream finished cleanly)
+    """
+    with httpx.stream(
+        "POST",
+        f"{DIFY_API_URL}/chat-messages",
+        headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
+        json={
+            "inputs":          {"role": role},
+            "query":           message,
+            "response_mode":   "streaming",
+            "conversation_id": conv_id,
+            "user":            f"{role}:{user_id}",
+        },
+        timeout=300,
+    ) as r:
+        r.raise_for_status()
+        seen_conv = ""
+        for line in r.iter_lines():
+            if not line or not line.startswith("data:"):
+                continue
+            raw = line[5:].strip()
+            if not raw:
+                continue
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            etype = event.get("event")
+            if etype in ("message", "agent_message"):
+                answer_part = event.get("answer", "")
+                if answer_part:
+                    yield ("delta", answer_part)
+                # conversation_id ปรากฏใน event แรกๆ
+                conv = event.get("conversation_id", "")
+                if conv and conv != seen_conv:
+                    seen_conv = conv
+                    yield ("conv_id", conv)
+            elif etype == "message_end":
+                conv = event.get("conversation_id", "")
+                if conv and conv != seen_conv:
+                    yield ("conv_id", conv)
+        yield ("done", "")
 
 
 _PREFIX_RE = re.compile(r"^\s*(AUTO|ESCALATE|BOOKING_ASK|BOOKING_DONE)\s*:\s*(?:(\w+)\s*:\s*)?(.*)$", re.DOTALL)

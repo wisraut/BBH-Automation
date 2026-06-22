@@ -1,19 +1,16 @@
-// AI chat — sends to /api/ai/chat, persists every message into the active session.
+// AI chat — streams tokens from /api/ai/chat/stream, persists into active session.
 import { useCallback, useState } from 'react'
 
-import { api, ApiError } from '../lib/api'
+import { getToken } from '../lib/api'
 import { useAiSessions } from './useAiSessions'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   text: string
   ts: Date
-}
-
-interface ChatResponse {
-  answer: string
-  conversation_id: string
 }
 
 function deriveTitle(text: string): string {
@@ -38,8 +35,6 @@ export function useAiChat() {
       if (!clean || isLoading) return
 
       const sid = ensureCurrent()
-      // Snapshot the session's convId + pinned patient at send time so a session
-      // switch doesn't leak context into the wrong Dify conversation.
       const session = sessions.find((s) => s.id === sid)
       const convId = session?.convId ?? ''
       const pinnedPatientId = session?.pinnedPatient?.id ?? null
@@ -50,7 +45,10 @@ export function useAiChat() {
         text: clean,
         ts: new Date(),
       }
+      const assistantId = crypto.randomUUID()
 
+      // Only append the user message now. The assistant bubble appears when the
+      // first token arrives so we never show an empty grey bubble.
       patchById(sid, (s) => ({
         messages: [...s.messages, userMsg],
         title:
@@ -62,24 +60,86 @@ export function useAiChat() {
       setIsLoading(true)
       setError(null)
 
+      const token = getToken()
+      let buffer = ''
+      let convFromStream = ''
+      let assistantCreated = false
+
       try {
-        const res = await api.post<ChatResponse>('/api/ai/chat', {
-          message: clean,
-          conversation_id: convId,
-          patient_id: pinnedPatientId,
+        const res = await fetch(`${API_BASE}/api/ai/chat/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            message: clean,
+            conversation_id: convId,
+            patient_id: pinnedPatientId,
+          }),
         })
-        const assistantMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          text: res.answer,
-          ts: new Date(),
+        if (!res.ok || !res.body) {
+          throw new Error(`HTTP ${res.status}`)
         }
-        patchById(sid, (s) => ({
-          messages: [...s.messages, assistantMsg],
-          convId: res.conversation_id || s.convId,
-        }))
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let chunkBuffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunkBuffer += decoder.decode(value, { stream: true })
+          // SSE messages separated by double newline
+          const blocks = chunkBuffer.split('\n\n')
+          chunkBuffer = blocks.pop() ?? ''
+          for (const block of blocks) {
+            const line = block.split('\n').find((l) => l.startsWith('data:'))
+            if (!line) continue
+            const raw = line.slice(5).trim()
+            if (!raw) continue
+            try {
+              const payload = JSON.parse(raw) as
+                | { type: 'delta'; text: string }
+                | { type: 'conv_id'; value: string }
+                | { type: 'done' }
+                | { type: 'error'; message: string }
+              if (payload.type === 'delta') {
+                if (!payload.text) continue
+                buffer += payload.text
+                if (!assistantCreated) {
+                  assistantCreated = true
+                  patchById(sid, (s) => ({
+                    messages: [
+                      ...s.messages,
+                      { id: assistantId, role: 'assistant', text: buffer, ts: new Date() },
+                    ],
+                  }))
+                } else {
+                  patchById(sid, (s) => ({
+                    messages: s.messages.map((m) =>
+                      m.id === assistantId ? { ...m, text: buffer } : m,
+                    ),
+                  }))
+                }
+              } else if (payload.type === 'conv_id') {
+                convFromStream = payload.value
+              } else if (payload.type === 'error') {
+                throw new Error(payload.message)
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message.startsWith('HTTP')) throw parseErr
+              // ignore non-JSON keep-alives
+            }
+          }
+        }
+        if (convFromStream) {
+          patchById(sid, () => ({ convId: convFromStream }))
+        }
+        if (!assistantCreated) {
+          setError('AI ไม่ตอบ — ลองใหม่')
+        }
       } catch (err) {
-        const msg = err instanceof ApiError ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่'
+        const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่'
         setError(msg)
       } finally {
         setIsLoading(false)
@@ -89,12 +149,10 @@ export function useAiChat() {
   )
 
   return {
-    // chat state for the active session
     messages,
     isLoading,
     error,
     send,
-    // session controls
     sessions,
     current,
     currentId,

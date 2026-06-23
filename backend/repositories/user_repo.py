@@ -36,6 +36,20 @@ def find_user_by_id(user_id: int) -> dict[str, Any] | None:
             return cur.fetchone()
 
 
+def list_doctors() -> list[dict[str, Any]]:
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, display_name, specialty, email
+                FROM users
+                WHERE role = 'doctor' AND is_active = 1
+                ORDER BY display_name
+                """
+            )
+            return cur.fetchall()
+
+
 def update_password_hash(user_id: int, password_hash: str) -> int:
     with mysql_db() as conn:
         with conn.cursor() as cur:

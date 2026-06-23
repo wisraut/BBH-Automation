@@ -11,6 +11,7 @@ from schemas.bookings import SimpleOkResponse
 from schemas.reports import (
     AnalysisListResponse,
     AnalyzeResponse,
+    NotebookLmUpdateRequest,
     ReportListItem,
     ReportOut,
     ReportSource,
@@ -46,6 +47,7 @@ async def upload_patient_report(
     report_type: ReportType = Form(...),
     source: ReportSource = Form(default="web"),
     notes: str | None = Form(default=None),
+    assigned_doctor_id: int | None = Form(default=None),
 ) -> dict:
     """Upload one patient report file and store extracted text when available."""
     return await report_service.upload_report(
@@ -55,6 +57,7 @@ async def upload_patient_report(
         report_type=report_type,
         source=source,
         notes=notes,
+        assigned_doctor_id=assigned_doctor_id,
         user=user,
     )
 
@@ -89,6 +92,21 @@ def get_report_file(report_id: int, user: _StaffUser) -> FileResponse:
         media_type=report.get("file_mime") or "application/octet-stream",
         filename=os.path.basename(abs_path),
     )
+
+
+@router.delete("/api/reports/{report_id}", response_model=SimpleOkResponse)
+def delete_report(report_id: int, user: _StaffUser) -> dict:
+    """Delete a report (and its analyses, file on disk)."""
+    return report_service.delete_report(report_id)
+
+
+@router.put("/api/reports/{report_id}/notebooklm", response_model=ReportOut)
+def set_report_notebooklm_url(
+    report_id: int, body: NotebookLmUpdateRequest, user: _DoctorOrAdmin
+) -> dict:
+    """Save the NotebookLM notebook link the doctor pasted after manually
+    uploading the report there (no public NotebookLM API exists for this)."""
+    return report_service.set_notebooklm_url(report_id, body.url)
 
 
 @router.get("/api/reports/{report_id}/analyses", response_model=AnalysisListResponse)

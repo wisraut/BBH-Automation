@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, Edit3, ExternalLink, FileText, Plus, Search, Upload } from 'lucide-react'
+import { ChevronLeft, Edit3, ExternalLink, FileText, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
@@ -9,6 +9,8 @@ import { useAllBookings } from '../hooks/useAllBookings'
 import { useAnalyzeReport } from '../hooks/useAnalyzeReport'
 import { useCreatePatient } from '../hooks/useCreatePatient'
 import { useDecideTriage } from '../hooks/useDecideTriage'
+import { useDeleteReport } from '../hooks/useDeleteReport'
+import { useSetNotebookLmUrl } from '../hooks/useSetNotebookLmUrl'
 import { usePatient } from '../hooks/usePatient'
 import { usePatientReports } from '../hooks/usePatientReports'
 import { usePatients } from '../hooks/usePatients'
@@ -75,6 +77,7 @@ export function Patients() {
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [notebookUrlDraft, setNotebookUrlDraft] = useState('')
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -83,6 +86,10 @@ export function Patients() {
     }, 300)
     return () => window.clearTimeout(timer)
   }, [search])
+
+  useEffect(() => {
+    setNotebookUrlDraft('')
+  }, [selectedReportId])
 
   const patientsQ = usePatients({ search: debouncedSearch, page, limit: 20 })
   const patientQ = usePatient(selectedId)
@@ -93,6 +100,8 @@ export function Patients() {
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
   const uploadReport = useUploadReport()
+  const deleteReport = useDeleteReport()
+  const setNotebookLmUrl = useSetNotebookLmUrl()
   const analyzeReport = useAnalyzeReport()
   const decideTriage = useDecideTriage()
 
@@ -154,11 +163,38 @@ export function Patients() {
     uploadReport.mutate({ patientId: selectedId, formData }, {
       onSuccess: (result) => {
         setSelectedReportId(result.id)
-        toast.show('success', 'อัพโหลด Report สำเร็จ')
+        toast.show('success', result.notified_doctor ? 'อัพโหลด Report สำเร็จ และแจ้งเตือนหมอทางอีเมลแล้ว' : 'อัพโหลด Report สำเร็จ')
         setUploadOpen(false)
       },
       onError: () => toast.show('error', 'อัพโหลด Report ไม่สำเร็จ'),
     })
+  }
+
+  function deleteReportById(reportId: number) {
+    if (selectedId == null) return
+    if (!window.confirm('ลบ Report นี้ใช่ไหม? การลบจะลบไฟล์และผลวิเคราะห์ที่เกี่ยวข้องทั้งหมด')) return
+    deleteReport.mutate({ reportId, patientId: selectedId }, {
+      onSuccess: () => {
+        if (selectedReportId === reportId) setSelectedReportId(null)
+        toast.show('success', 'ลบ Report สำเร็จ')
+      },
+      onError: () => toast.show('error', 'ลบ Report ไม่สำเร็จ'),
+    })
+  }
+
+  function submitNotebookUrl(event: React.FormEvent) {
+    event.preventDefault()
+    if (selectedId == null || selectedReportId == null || !notebookUrlDraft.trim()) return
+    setNotebookLmUrl.mutate(
+      { reportId: selectedReportId, patientId: selectedId, url: notebookUrlDraft.trim() },
+      {
+        onSuccess: () => {
+          setNotebookUrlDraft('')
+          toast.show('success', 'บันทึก link NotebookLM สำเร็จ')
+        },
+        onError: () => toast.show('error', 'บันทึก link NotebookLM ไม่สำเร็จ'),
+      }
+    )
   }
 
   const totalPages = pagination?.total_pages ?? 1
@@ -332,20 +368,29 @@ export function Patients() {
                   ) : (
                     <div className="space-y-2">
                       {reports.map((report) => (
-                        <button
+                        <div
                           key={report.id}
-                          type="button"
-                          onClick={() => setSelectedReportId(report.id)}
                           className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${
                             report.id === selectedReportId ? 'border-bbh-green bg-bbh-green-soft' : 'border-bbh-line hover:border-bbh-green/40'
                           }`}
                         >
-                          <FileText size={17} className="shrink-0 text-bbh-green" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-bbh-ink">{report.title}</p>
-                            <p className="text-xs text-bbh-muted">{report.report_type} · {formatDate(report.uploaded_at)}</p>
-                          </div>
-                        </button>
+                          <button type="button" onClick={() => setSelectedReportId(report.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                            <FileText size={17} className="shrink-0 text-bbh-green" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-bbh-ink">{report.title}</p>
+                              <p className="text-xs text-bbh-muted">{report.report_type} · {formatDate(report.uploaded_at)}</p>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteReportById(report.id)}
+                            disabled={deleteReport.isPending}
+                            title="ลบ report"
+                            className="shrink-0 rounded-lg p-1.5 text-bbh-muted hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -356,6 +401,37 @@ export function Patients() {
                       <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-5 text-bbh-ink">
                         {reportQ.data.extracted_text}
                       </p>
+                    </div>
+                  ) : null}
+
+                  {selectedReportId ? (
+                    <div className="mt-4 rounded-xl border border-bbh-line p-3">
+                      <p className="mb-2 text-xs font-semibold text-bbh-muted">NotebookLM</p>
+                      {reportQ.data?.notebooklm_url ? (
+                        <a href={reportQ.data.notebooklm_url} target="_blank" rel="noreferrer" className="mb-2 block truncate text-sm text-bbh-green underline">
+                          {reportQ.data.notebooklm_url}
+                        </a>
+                      ) : (
+                        <p className="mb-2 text-xs text-bbh-muted">ยังไม่มี link NotebookLM — อัพโหลด report นี้เข้า NotebookLM เองผ่านเว็บ แล้ววาง link ไว้ที่นี่</p>
+                      )}
+                      {canAnalyze ? (
+                        <form onSubmit={submitNotebookUrl} className="flex gap-2">
+                          <input
+                            type="url"
+                            value={notebookUrlDraft}
+                            onChange={(e) => setNotebookUrlDraft(e.target.value)}
+                            placeholder="วาง link NotebookLM ที่นี่"
+                            className="h-9 flex-1 rounded-lg border border-bbh-line px-3 text-xs focus:border-bbh-green focus:outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={setNotebookLmUrl.isPending || !notebookUrlDraft.trim()}
+                            className="h-9 shrink-0 rounded-lg bg-bbh-green px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            บันทึก
+                          </button>
+                        </form>
+                      ) : null}
                     </div>
                   ) : null}
                 </section>

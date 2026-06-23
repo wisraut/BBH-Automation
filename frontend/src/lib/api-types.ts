@@ -1142,6 +1142,10 @@ export interface components {
             latest_analysis_at?: string | null;
             /** Uploaded By */
             uploaded_by?: number | null;
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
+            /** Notebooklm Url */
+            notebooklm_url?: string | null;
             /**
              * Uploaded At
              * Format: date-time
@@ -1183,6 +1187,10 @@ export interface components {
             latest_analysis_at?: string | null;
             /** Uploaded By */
             uploaded_by?: number | null;
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
+            /** Notebooklm Url */
+            notebooklm_url?: string | null;
             /**
              * Uploaded At
              * Format: date-time
@@ -1213,6 +1221,30 @@ export interface components {
             title: string;
             /** Has Extracted Text */
             has_extracted_text: boolean;
+            /**
+             * Notified Doctor
+             * @default false
+             */
+            notified_doctor: boolean;
+        };
+        /** NotebookLmUpdateRequest */
+        NotebookLmUpdateRequest: {
+            /** Url */
+            url?: string | null;
+        };
+        /** DoctorOut */
+        DoctorOut: {
+            /** Id */
+            id: number;
+            /** Display Name */
+            display_name: string;
+            /** Specialty */
+            specialty?: string | null;
+        };
+        /** DoctorListResponse */
+        DoctorListResponse: {
+            /** Data */
+            data: components["schemas"]["DoctorOut"][];
         };
         /** SessionUpdate */
         SessionUpdate: {

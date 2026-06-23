@@ -11,7 +11,8 @@ from fastapi import HTTPException, UploadFile
 
 import integrations.dify_client as dify
 from core.config import log
-from repositories import patient_repo, report_repo
+from core.email_service import REPORT_NOTIFY_EMAIL, send_email
+from repositories import patient_repo, report_repo, user_repo
 
 REPORTS_ROOT = os.getenv("REPORTS_STORAGE_ROOT", "/app/data/reports")
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10MB cap for MVP
@@ -46,6 +47,34 @@ def get_report(report_id: int) -> dict[str, Any]:
     return row
 
 
+def delete_report(report_id: int) -> dict[str, bool]:
+    report = report_repo.get_by_id(report_id)
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "REPORT_NOT_FOUND", "message": "ไม่พบ Report นี้"},
+        )
+    report_repo.delete(report_id)
+    file_path = report.get("file_path")
+    if file_path:
+        abs_path = os.path.join(REPORTS_ROOT, str(file_path))
+        try:
+            os.remove(abs_path)
+        except FileNotFoundError:
+            pass
+    return {"ok": True}
+
+
+def set_notebooklm_url(report_id: int, url: str | None) -> dict[str, Any]:
+    if not report_repo.get_by_id(report_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "REPORT_NOT_FOUND", "message": "ไม่พบ Report นี้"},
+        )
+    report_repo.update_notebooklm_url(report_id, url.strip() if url else None)
+    return report_repo.get_by_id(report_id)
+
+
 async def upload_report(
     *,
     patient_id: int,
@@ -54,9 +83,11 @@ async def upload_report(
     report_type: str,
     source: str,
     notes: str | None,
+    assigned_doctor_id: int | None = None,
     user: dict[str, Any],
 ) -> dict[str, Any]:
-    if not patient_repo.get_by_id(patient_id):
+    patient = patient_repo.get_by_id(patient_id)
+    if not patient:
         raise HTTPException(
             status_code=404,
             detail={"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้นี้"},
@@ -97,12 +128,24 @@ async def upload_report(
         extracted_text=extracted_text,
         notes=notes.strip() if notes else None,
         uploaded_by=user.get("id"),
+        assigned_doctor_id=assigned_doctor_id,
     )
+
+    notified = _notify_report_uploaded(
+        patient=patient,
+        title=title.strip(),
+        report_type=report_type,
+        source=source,
+        assigned_doctor_id=assigned_doctor_id,
+        uploaded_by=user,
+    )
+
     return {
         "ok": True,
         "id": new_id,
         "title": title.strip(),
         "has_extracted_text": bool(extracted_text and extracted_text.strip()),
+        "notified_doctor": notified,
     }
 
 
@@ -187,6 +230,39 @@ def decide_triage(
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _notify_report_uploaded(
+    *,
+    patient: dict[str, Any],
+    title: str,
+    report_type: str,
+    source: str,
+    assigned_doctor_id: int | None,
+    uploaded_by: dict[str, Any],
+) -> bool:
+    """Email the assigned doctor (falls back to REPORT_NOTIFY_EMAIL when no
+    doctor is picked or the doctor has no email on file). Best-effort: never
+    raises, so a mail outage can't block the upload itself."""
+    doctor = user_repo.find_user_by_id(assigned_doctor_id) if assigned_doctor_id else None
+    doctor_line = f"หมอที่เลือก: {doctor['display_name']}" if doctor else "หมอที่เลือก: (ไม่ระบุ)"
+    recipient = (doctor.get("email") if doctor else None) or REPORT_NOTIFY_EMAIL
+
+    body = "\n".join([
+        f"มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
+        "",
+        f"คนไข้: {patient.get('display_name') or '-'} (HN: {patient.get('hn') or '-'})",
+        f"ชื่อ Report: {title}",
+        f"ประเภท: {report_type}",
+        f"แหล่งที่มา: {source}",
+        doctor_line,
+        f"อัพโหลดโดย: {uploaded_by.get('display_name') or uploaded_by.get('email') or '-'}",
+    ])
+    return send_email(
+        to=recipient,
+        subject=f"[BBH] Report ใหม่: {title}",
+        body=body,
+    )
 
 
 def _save_to_disk(raw: bytes, filename: str, mime: str) -> str:

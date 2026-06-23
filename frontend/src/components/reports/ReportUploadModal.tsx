@@ -2,6 +2,7 @@
 import { Upload } from 'lucide-react'
 
 import { Modal } from '../Modal'
+import { useDoctors } from '../../hooks/useDoctors'
 
 type ReportType = 'lab' | 'imaging' | 'history' | 'prescription' | 'referral' | 'other'
 type ReportSource = 'web' | 'line' | 'email' | 'whatsapp' | 'walkin'
@@ -19,6 +20,10 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit }: ReportUpl
   const [reportType, setReportType] = useState<ReportType>('lab')
   const [source, setSource] = useState<ReportSource>('web')
   const [notes, setNotes] = useState('')
+  const [doctorId, setDoctorId] = useState('')
+
+  const doctorsQ = useDoctors()
+  const doctors = doctorsQ.data?.data ?? []
 
   useEffect(() => {
     if (!open) return
@@ -27,6 +32,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit }: ReportUpl
     setReportType('lab')
     setSource('web')
     setNotes('')
+    setDoctorId('')
   }, [open])
 
   function submit(event: React.FormEvent) {
@@ -38,6 +44,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit }: ReportUpl
     formData.append('report_type', reportType)
     formData.append('source', source)
     if (notes.trim()) formData.append('notes', notes.trim())
+    if (doctorId) formData.append('assigned_doctor_id', doctorId)
     onSubmit(formData)
   }
 
@@ -85,6 +92,18 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit }: ReportUpl
             </select>
           </label>
         </div>
+        <label className="block text-sm font-medium text-bbh-ink">
+          หมอที่รับผิดชอบ
+          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm">
+            <option value="">— ไม่ระบุ —</option>
+            {doctors.map((doctor) => (
+              <option key={doctor.id} value={doctor.id}>
+                {doctor.display_name}
+                {doctor.specialty ? ` (${doctor.specialty})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="block text-sm font-medium text-bbh-ink">
           Notes
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 w-full resize-none rounded-xl border border-bbh-line px-3 py-3 text-sm" />

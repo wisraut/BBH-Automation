@@ -21,6 +21,8 @@ class ReportListItem(BaseModel):
     has_extracted_text: bool
     latest_analysis_at: datetime | None = None
     uploaded_by: int | None = None
+    assigned_doctor_id: int | None = None
+    notebooklm_url: str | None = None
     uploaded_at: datetime
 
 
@@ -31,11 +33,16 @@ class ReportOut(ReportListItem):
     updated_at: datetime
 
 
+class NotebookLmUpdateRequest(BaseModel):
+    url: str | None = Field(default=None, max_length=500)
+
+
 class ReportUploadResponse(BaseModel):
     ok: bool
     id: int
     title: str
     has_extracted_text: bool
+    notified_doctor: bool = False
 
 
 class AnalysisOut(BaseModel):

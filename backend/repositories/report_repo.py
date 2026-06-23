@@ -8,11 +8,12 @@ _REPORT_LIST_COLUMNS = (
     "id, patient_id, source, report_type, title, file_mime, file_size, "
     "file_path IS NOT NULL AS has_file, "
     "extracted_text IS NOT NULL AND CHAR_LENGTH(extracted_text) > 0 AS has_extracted_text, "
-    "uploaded_by, uploaded_at"
+    "uploaded_by, assigned_doctor_id, notebooklm_url, uploaded_at"
 )
 _REPORT_DETAIL_COLUMNS = (
     "id, patient_id, source, report_type, title, file_path, file_mime, file_size, "
-    "extracted_text, notes, uploaded_by, uploaded_at, created_at, updated_at"
+    "extracted_text, notes, uploaded_by, assigned_doctor_id, notebooklm_url, "
+    "uploaded_at, created_at, updated_at"
 )
 
 
@@ -66,6 +67,7 @@ def create(
     extracted_text: str | None,
     notes: str | None,
     uploaded_by: int | None,
+    assigned_doctor_id: int | None = None,
 ) -> int:
     with mysql_db() as conn:
         with conn.cursor() as cur:
@@ -73,18 +75,40 @@ def create(
                 """
                 INSERT INTO patient_reports
                     (patient_id, source, report_type, title, file_path,
-                     file_mime, file_size, extracted_text, notes, uploaded_by)
+                     file_mime, file_size, extracted_text, notes, uploaded_by,
+                     assigned_doctor_id)
                 VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     patient_id, source, report_type, title, file_path,
                     file_mime, file_size, extracted_text, notes, uploaded_by,
+                    assigned_doctor_id,
                 ),
             )
             new_id = cur.lastrowid
         conn.commit()
     return new_id
+
+
+def update_notebooklm_url(report_id: int, url: str | None) -> int:
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE patient_reports SET notebooklm_url = %s WHERE id = %s",
+                (url, report_id),
+            )
+        conn.commit()
+    return rows
+
+
+def delete(report_id: int) -> int:
+    """Delete a report row. patient_report_analyses cascade via FK."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute("DELETE FROM patient_reports WHERE id = %s", (report_id,))
+        conn.commit()
+    return rows
 
 
 # ─── Analyses ─────────────────────────────────────────────────────────────────

@@ -1,17 +1,18 @@
-"""AI assistant service logic — Dify proxy + optional patient context injection."""
+"""AI assistant service logic — BBH Staff Assistant Dify proxy with context injection."""
 import json
 from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException
 
 import integrations.dify_client as dify
+import integrations.calendar_client as cal
+from core.config import DIFY_STAFF_API_KEY
 from core.mysql import mysql_db
-from repositories import patient_repo, report_repo
+from repositories import booking_repo, patient_repo, report_repo
 
-
-def _dify_role(dashboard_role: str) -> str:
-    return "doctor" if dashboard_role == "doctor" else "public_inquiry"
+_TZ_BKK = timezone(timedelta(hours=7))
 
 
 def chat(
@@ -21,33 +22,21 @@ def chat(
     patient_id: int | None,
     user: dict[str, Any],
 ) -> dict[str, str]:
-    role = _dify_role(user["role"])
-
-    # If staff pinned a patient to the session, prepend their profile +
-    # recent bookings/reports so Dify can answer questions about them.
-    final_message = message
-    if patient_id is not None:
-        context = _build_patient_context(patient_id)
-        if context:
-            final_message = f"{context}\n\n=== คำถาม ===\n{message}"
-
+    final_message = _compose_message(message=message, patient_id=patient_id)
     try:
         answer, conv_id = dify.ask(
             user_id=str(user["id"]),
             message=final_message,
-            role=role,
+            role="staff",
             conv_id=conversation_id,
+            api_key=DIFY_STAFF_API_KEY or None,
+            inputs={},
         )
     except Exception as exc:
         raise HTTPException(
             status_code=502,
             detail={"code": "DIFY_ERROR", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"},
         ) from exc
-
-    if role != "doctor":
-        _, _, clean = dify.parse_decision(answer)
-        answer = clean
-
     return {"answer": answer, "conversation_id": conv_id}
 
 
@@ -59,64 +48,98 @@ def chat_stream(
     user: dict[str, Any],
 ) -> Iterator[str]:
     """
-    Yield Server-Sent Event lines (SSE) — each line is `data: <json>\\n\\n`.
-    Frontend parses with fetch + ReadableStream.
+    Yield SSE lines — each line is `data: <json>\\n\\n`.
     Events:
-      { "type": "delta", "text": "..." }       — incremental token chunk
-      { "type": "conv_id", "value": "..." }    — Dify conversation_id
-      { "type": "done" }                       — stream complete
-      { "type": "error", "message": "..." }    — fatal error mid-stream
+      { "type": "delta", "text": "..." }
+      { "type": "conv_id", "value": "..." }
+      { "type": "done" }
+      { "type": "error", "message": "..." }
     """
-    role = _dify_role(user["role"])
-    strip_prefix = role != "doctor"
-    final_message = message
-    if patient_id is not None:
-        context = _build_patient_context(patient_id)
-        if context:
-            final_message = f"{context}\n\n=== คำถาม ===\n{message}"
+    final_message = _compose_message(message=message, patient_id=patient_id)
 
     def _sse(payload: dict[str, Any]) -> str:
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-    # Buffer first ~80 chars so we can detect + strip prefix like "AUTO: ", "ESCALATE:medical: " etc.
-    # before forwarding any token to the client. After prefix is decided, stream pass-through.
-    prefix_resolved = not strip_prefix
-    buffered = ""
-    BUFFER_LIMIT = 80
 
     try:
         for etype, value in dify.stream(
             user_id=str(user["id"]),
             message=final_message,
-            role=role,
+            role="staff",
             conv_id=conversation_id,
+            api_key=DIFY_STAFF_API_KEY or None,
+            inputs={},
         ):
             if etype == "delta":
-                if prefix_resolved:
-                    if value:
-                        yield _sse({"type": "delta", "text": value})
-                    continue
-                buffered += value
-                if len(buffered) < BUFFER_LIMIT and "\n" not in buffered:
-                    continue
-                # Decide prefix once
-                _, _, cleaned = dify.parse_decision(buffered)
-                prefix_resolved = True
-                if cleaned:
-                    yield _sse({"type": "delta", "text": cleaned})
+                if value:
+                    yield _sse({"type": "delta", "text": value})
             elif etype == "conv_id":
                 yield _sse({"type": "conv_id", "value": value})
             elif etype == "done":
-                # Stream ended before BUFFER_LIMIT — flush remaining buffer.
-                if not prefix_resolved and buffered:
-                    _, _, cleaned = dify.parse_decision(buffered)
-                    prefix_resolved = True
-                    if cleaned:
-                        yield _sse({"type": "delta", "text": cleaned})
                 yield _sse({"type": "done"})
     except Exception:  # noqa: BLE001
         yield _sse({"type": "error", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"})
         raise
+
+
+def _compose_message(*, message: str, patient_id: int | None) -> str:
+    """Assemble context blocks + user question into a single prompt string."""
+    parts: list[str] = []
+
+    patient_ctx = _build_patient_context(patient_id) if patient_id is not None else ""
+    if patient_ctx:
+        parts.append(patient_ctx)
+
+    schedule_ctx = _build_schedule_context()
+    if schedule_ctx:
+        parts.append(schedule_ctx)
+
+    parts.append(f"=== คำถาม ===\n{message}")
+    return "\n\n".join(parts)
+
+
+def _build_schedule_context() -> str:
+    """Compose today + tomorrow schedule: approved bookings + Google Calendar events."""
+    now = datetime.now(_TZ_BKK)
+    today = now.date()
+    tomorrow = today + timedelta(days=1)
+
+    parts: list[str] = []
+
+    for label, day in (("วันนี้", today), ("พรุ่งนี้", tomorrow)):
+        day_parts = [f"=== สถานการณ์{label} ({day.strftime('%d/%m/%Y')}) ==="]
+
+        try:
+            bookings = booking_repo.list_by_date_range(day, day)
+            if bookings:
+                day_parts.append(f"Bookings ที่ approved ({len(bookings)} นัด):")
+                for b in bookings:
+                    day_parts.append(
+                        f"  - {b.get('requested_time') or '-'} | {b.get('patient_name') or '-'} "
+                        f"| {b.get('symptom') or '-'}"
+                    )
+            else:
+                day_parts.append("Bookings approved: ไม่มี")
+        except Exception:
+            day_parts.append("Bookings: ดึงข้อมูลไม่ได้")
+
+        if cal.is_configured():
+            try:
+                day_start = datetime(day.year, day.month, day.day, 0, 0, tzinfo=_TZ_BKK)
+                day_end = day_start + timedelta(days=1)
+                events = cal.list_events(day_start, day_end)
+                if events:
+                    day_parts.append(f"Google Calendar ({len(events)} events):")
+                    for e in events:
+                        start_str = (e.get("start") or "")[:16].replace("T", " ")
+                        day_parts.append(f"  - {start_str} | {e.get('summary')}")
+                else:
+                    day_parts.append("Google Calendar: ไม่มี event")
+            except Exception:
+                day_parts.append("Google Calendar: ดึงข้อมูลไม่ได้")
+
+        parts.append("\n".join(day_parts))
+
+    return "\n\n".join(parts)
 
 
 def _build_patient_context(patient_id: int) -> str:

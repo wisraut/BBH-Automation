@@ -18,8 +18,9 @@ LINE_CRO_CHANNEL_ID     = os.getenv("LINE_CRO_CHANNEL_ID", "")
 LINE_CRO_CHANNEL_SECRET = os.getenv("LINE_CRO_CHANNEL_SECRET", "")
 
 # Dify
-DIFY_API_URL = os.getenv("DIFY_API_URL", "http://localhost/v1")
-DIFY_API_KEY = os.getenv("DIFY_API_KEY")
+DIFY_API_URL       = os.getenv("DIFY_API_URL", "http://localhost/v1")
+DIFY_API_KEY       = os.getenv("DIFY_API_KEY")
+DIFY_STAFF_API_KEY = os.getenv("DIFY_STAFF_API_KEY", "")
 
 # Server
 SERVER_PORT      = int(os.getenv("SERVER_PORT", 8000))

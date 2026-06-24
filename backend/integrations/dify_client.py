@@ -8,15 +8,25 @@ import httpx
 from core.config import DIFY_API_URL, DIFY_API_KEY
 
 
-def ask(user_id: str, message: str, role: str = "doctor", conv_id: str = "") -> tuple:
+def ask(
+    user_id: str,
+    message: str,
+    role: str = "doctor",
+    conv_id: str = "",
+    api_key: str | None = None,
+    inputs: dict | None = None,
+) -> tuple:
     """
     เรียก Dify /chat-messages — returns (answer, conversation_id)
+    api_key: override ถ้าใช้ app อื่น (เช่น DIFY_STAFF_API_KEY)
+    inputs: override inputs dict ทั้งหมด (ถ้า None ใช้ {"role": role})
     """
+    key = api_key or DIFY_API_KEY
     r = httpx.post(
         f"{DIFY_API_URL}/chat-messages",
-        headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
+        headers={"Authorization": f"Bearer {key}"},
         json={
-            "inputs":          {"role": role},
+            "inputs":          inputs if inputs is not None else {"role": role},
             "query":           message,
             "response_mode":   "blocking",
             "conversation_id": conv_id,
@@ -57,6 +67,8 @@ def stream(
     message: str,
     role: str = "doctor",
     conv_id: str = "",
+    api_key: str | None = None,
+    inputs: dict | None = None,
 ) -> Iterator[tuple[str, str]]:
     """
     Stream Dify /chat-messages — yields (event_type, payload) tuples.
@@ -66,12 +78,13 @@ def stream(
       - "conv_id"    → payload is final conversation_id
       - "done"       → payload is "" (stream finished cleanly)
     """
+    key = api_key or DIFY_API_KEY
     with httpx.stream(
         "POST",
         f"{DIFY_API_URL}/chat-messages",
-        headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
+        headers={"Authorization": f"Bearer {key}"},
         json={
-            "inputs":          {"role": role},
+            "inputs":          inputs if inputs is not None else {"role": role},
             "query":           message,
             "response_mode":   "streaming",
             "conversation_id": conv_id,

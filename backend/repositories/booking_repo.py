@@ -51,6 +51,26 @@ def list_bookings(
     return rows, total
 
 
+def list_by_date_range(start: date, end: date) -> list[dict[str, Any]]:
+    """Return approved bookings where requested_date is in [start, end] inclusive."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT request_uid, status, patient_name, phone,
+                       requested_date, requested_time, requested_datetime_text,
+                       symptom, appointment_type
+                FROM booking_requests
+                WHERE status = 'approved'
+                  AND requested_date BETWEEN %s AND %s
+                ORDER BY requested_date, requested_time
+                """,
+                (start.isoformat(), end.isoformat()),
+            )
+            rows = cur.fetchall()
+    return [_serialize_booking_row(r) for r in rows]
+
+
 def get_by_uid(uid: str) -> dict[str, Any] | None:
     with mysql_db() as conn:
         with conn.cursor() as cur:

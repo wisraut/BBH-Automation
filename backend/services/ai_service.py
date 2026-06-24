@@ -1,5 +1,6 @@
 """AI assistant service logic — BBH Staff Assistant Dify proxy with context injection."""
 import json
+import time
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -13,6 +14,12 @@ from core.mysql import mysql_db
 from repositories import booking_repo, patient_repo, report_repo
 
 _TZ_BKK = timezone(timedelta(hours=7))
+
+# Schedule context is identical for every chat message within a short window,
+# but building it costs 2 DB queries + 2 Google Calendar API calls (~1-4s).
+# Cache per-day for 60s so rapid turns in the same conversation don't pay it.
+_SCHEDULE_CACHE: dict[str, tuple[float, str]] = {}
+_SCHEDULE_TTL_SEC = 60
 
 
 def chat(
@@ -103,6 +110,11 @@ def _build_schedule_context() -> str:
     today = now.date()
     tomorrow = today + timedelta(days=1)
 
+    cache_key = today.isoformat()
+    cached = _SCHEDULE_CACHE.get(cache_key)
+    if cached and cached[0] > time.time():
+        return cached[1]
+
     parts: list[str] = []
 
     for label, day in (("วันนี้", today), ("พรุ่งนี้", tomorrow)):
@@ -139,7 +151,9 @@ def _build_schedule_context() -> str:
 
         parts.append("\n".join(day_parts))
 
-    return "\n\n".join(parts)
+    result = "\n\n".join(parts)
+    _SCHEDULE_CACHE[cache_key] = (time.time() + _SCHEDULE_TTL_SEC, result)
+    return result
 
 
 def _build_patient_context(patient_id: int) -> str:

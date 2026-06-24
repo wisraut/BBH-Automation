@@ -4,12 +4,11 @@
 import { useCallback, useSyncExternalStore } from 'react'
 
 import { getToken } from '../lib/api'
+import { API_BASE } from '../lib/apiBase'
 import { aiActions, getSnapshot, subscribe } from '../lib/aiStore'
 import { useAiSessions } from './useAiSessions'
 
 export type { ChatMessage } from '../lib/aiStore'
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 
 function deriveTitle(text: string): string {
   const trimmed = text.trim().replace(/\s+/g, ' ')

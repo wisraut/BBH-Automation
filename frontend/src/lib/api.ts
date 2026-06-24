@@ -5,8 +5,8 @@
  * when backend schema changes. See ../CLAUDE.md for workflow.
  */
 import type { paths } from './api-types';
+import { API_BASE } from './apiBase';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
 const TOKEN_KEY = 'bbh_token';
 
 export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY);

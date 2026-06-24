@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, Plus, Search, Trash2, Upload } from 'lucide-react'
 
+import { API_BASE } from '../lib/apiBase'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
@@ -27,8 +28,6 @@ import type { components } from '../lib/api-types'
 type BookingItem = components['schemas']['BookingListItem']
 type PatientCreateRequest = components['schemas']['PatientCreateRequest']
 type PatientUpdateRequest = components['schemas']['PatientUpdateRequest']
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '-'

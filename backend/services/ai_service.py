@@ -104,54 +104,81 @@ def _compose_message(*, message: str, patient_id: int | None) -> str:
     return "\n\n".join(parts)
 
 
+_SCHEDULE_WINDOW_DAYS = 7  # past N days + next N days = 2N+1 days centered on today
+
+
 def _build_schedule_context() -> str:
-    """Compose today + tomorrow schedule: approved bookings + Google Calendar events."""
+    """Schedule for [today-7, today+7]: approved bookings + Google Calendar events
+    grouped per day so the assistant can answer 'what's on 19/6?' style questions."""
     now = datetime.now(_TZ_BKK)
     today = now.date()
-    tomorrow = today + timedelta(days=1)
+    range_start = today - timedelta(days=_SCHEDULE_WINDOW_DAYS)
+    range_end   = today + timedelta(days=_SCHEDULE_WINDOW_DAYS)
 
     cache_key = today.isoformat()
     cached = _SCHEDULE_CACHE.get(cache_key)
     if cached and cached[0] > time.time():
         return cached[1]
 
-    parts: list[str] = []
+    # Fetch the entire window in one query each, then bucket by day.
+    bookings_by_day: dict[str, list[dict[str, Any]]] = {}
+    try:
+        for b in booking_repo.list_by_date_range(range_start, range_end):
+            day_key = str(b.get("requested_date") or "")
+            bookings_by_day.setdefault(day_key, []).append(b)
+    except Exception:
+        bookings_by_day = {}
 
-    for label, day in (("วันนี้", today), ("พรุ่งนี้", tomorrow)):
-        day_parts = [f"=== สถานการณ์{label} ({day.strftime('%d/%m/%Y')}) ==="]
-
+    events_by_day: dict[str, list[dict[str, Any]]] = {}
+    if cal.is_configured():
         try:
-            bookings = booking_repo.list_by_date_range(day, day)
-            if bookings:
-                day_parts.append(f"Bookings ที่ approved ({len(bookings)} นัด):")
-                for b in bookings:
-                    day_parts.append(
-                        f"  - {b.get('requested_time') or '-'} | {b.get('patient_name') or '-'} "
-                        f"| {b.get('symptom') or '-'}"
-                    )
-            else:
-                day_parts.append("Bookings approved: ไม่มี")
+            tmin = datetime(range_start.year, range_start.month, range_start.day, 0, 0, tzinfo=_TZ_BKK)
+            tmax = datetime(range_end.year,   range_end.month,   range_end.day,   0, 0, tzinfo=_TZ_BKK) + timedelta(days=1)
+            for e in cal.list_events(tmin, tmax):
+                start_str = (e.get("start") or "")[:10]  # YYYY-MM-DD
+                events_by_day.setdefault(start_str, []).append(e)
         except Exception:
-            day_parts.append("Bookings: ดึงข้อมูลไม่ได้")
+            events_by_day = {}
 
-        if cal.is_configured():
-            try:
-                day_start = datetime(day.year, day.month, day.day, 0, 0, tzinfo=_TZ_BKK)
-                day_end = day_start + timedelta(days=1)
-                events = cal.list_events(day_start, day_end)
-                if events:
-                    day_parts.append(f"Google Calendar ({len(events)} events):")
-                    for e in events:
-                        start_str = (e.get("start") or "")[:16].replace("T", " ")
-                        day_parts.append(f"  - {start_str} | {e.get('summary')}")
-                else:
-                    day_parts.append("Google Calendar: ไม่มี event")
-            except Exception:
-                day_parts.append("Google Calendar: ดึงข้อมูลไม่ได้")
+    def _day_lines(day) -> list[str]:
+        lines: list[str] = []
+        for b in bookings_by_day.get(day.isoformat(), []):
+            lines.append(
+                f"  - {b.get('requested_time') or '-'} | {b.get('patient_name') or '-'} "
+                f"| {b.get('symptom') or '-'}  [booking]"
+            )
+        for e in events_by_day.get(day.isoformat(), []):
+            start_str = (e.get("start") or "")[11:16]
+            lines.append(f"  - {start_str or '-'} | {e.get('summary') or '-'}  [calendar]")
+        return lines or ["  ไม่มีนัด"]
 
-        parts.append("\n".join(day_parts))
+    tomorrow = today + timedelta(days=1)
+    parts: list[str] = [
+        f"# Today is {today.strftime('%A %d/%m/%Y')} (Asia/Bangkok)",
+        "",
+        f"=== วันนี้ ({today.strftime('%d/%m/%Y')}) ===",
+        *_day_lines(today),
+        "",
+        f"=== พรุ่งนี้ ({tomorrow.strftime('%d/%m/%Y')}) ===",
+        *_day_lines(tomorrow),
+        "",
+        f"=== ตารางนัดอื่นในช่วง {range_start.strftime('%d/%m/%Y')} ถึง {range_end.strftime('%d/%m/%Y')} ===",
+        "(ทุกวันที่อยู่นอกช่วงนี้ ระบบยังไม่ได้ให้ข้อมูลมา)",
+    ]
 
-    result = "\n\n".join(parts)
+    for offset in range(-_SCHEDULE_WINDOW_DAYS, _SCHEDULE_WINDOW_DAYS + 1):
+        if offset in (0, 1):
+            continue  # already rendered above
+        day = today + timedelta(days=offset)
+        day_lines = _day_lines(day)
+        # Single empty days collapse to one row to keep the prompt compact.
+        if day_lines == ["  ไม่มีนัด"]:
+            parts.append(f"{day.strftime('%d/%m/%Y')}: ไม่มีนัด")
+        else:
+            parts.append(f"{day.strftime('%d/%m/%Y')}:")
+            parts.extend(day_lines)
+
+    result = "\n".join(parts)
     _SCHEDULE_CACHE[cache_key] = (time.time() + _SCHEDULE_TTL_SEC, result)
     return result
 

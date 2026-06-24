@@ -59,6 +59,13 @@ All services join Docker network `docker_default`.
 - CRO LINE Bot tracks staff users and handles booking approval/rejection.
 - Confirmed bookings can create Google Calendar events and notify patients.
 - Emergency and personal-data requests are escalated instead of answered directly.
+- Web dashboard (`frontend/`) for CRO/Doctor/Admin: Bookings inbox, Patients,
+  Reports, Calendar, AI chat (`/ai`), Account.
+- Two separate Dify apps power the AI:
+  - **Patient Summary** (`DIFY_API_KEY`) — LINE customer routing classifier
+  - **BBH Staff Assistant** (`DIFY_STAFF_API_KEY`) — free-form CRO assistant
+    on the web `/ai` page, source of truth in
+    `dify_patches/bbh_staff_assistant/`
 - Integration test suite covers the LINE/n8n/Dify/Bridge paths end to end.
 
 ---
@@ -98,9 +105,11 @@ line-dify-bridge/
 │
 ├── credentials/                   # local credentials mounted into backend container
 ├── dify_patches/                  # Dify prompt/workflow patch utilities
+│   └── bbh_staff_assistant/       # versioned source of the Staff Assistant Dify app
 ├── docs/                          # project notes and docs
 ├── outputs/                       # generated outputs
-├── tools/                         # local utility scripts
+├── tools/                         # backup.py, restore.py, ask_patient.py
+├── backups/                       # backup tar.gz files (gitignored)
 ├── work/                          # temporary/manual debugging scripts and artifacts
 ├── _legacy/                       # archived pre-pivot code (do not import)
 ├── docker-compose.bridge.yaml     # bridge compose, build context = ./backend
@@ -121,7 +130,8 @@ Important variables:
 | Variable | Purpose |
 |---|---|
 | `DIFY_API_URL` | Dify API URL used by bridge/n8n |
-| `DIFY_API_KEY` | Dify app API key |
+| `DIFY_API_KEY` | Dify **Patient Summary** app API key (LINE bot) |
+| `DIFY_STAFF_API_KEY` | Dify **BBH Staff Assistant** app API key (web `/ai`) |
 | `BRIDGE_INTERNAL_TOKEN` | Required for Bridge internal APIs via `X-Internal-Token` |
 | `N8N_INTERNAL_BASE_URL` | Internal n8n URL used by bridge fallback |
 | `BOT_OPS_DB_HOST/PORT/NAME/USER/PASSWORD` | MySQL Bot Ops DB |
@@ -139,37 +149,138 @@ So the service account file is expected under `credentials/`.
 
 ---
 
-## Build And Start
+## Daily Operation
 
-Build and start the FastAPI bridge:
+`start.bat` is the unified 7-step launcher (Docker → Dify → nginx
+restart → Bot Ops MySQL → Bridge → n8n → Frontend). `stop.bat` tears
+everything down in reverse order. Cloudflared runs as a Windows
+service and is not touched.
 
-```powershell
-docker compose -f docker-compose.bridge.yaml build bridge
-docker compose -f docker-compose.bridge.yaml up -d bridge
-curl http://localhost:8000/
-```
-
-Start n8n and Bot Ops MySQL:
+Manual start of individual stacks:
 
 ```powershell
+# bridge only
+docker compose -f docker-compose.bridge.yaml up -d --build
+
+# n8n + Bot Ops MySQL only
 cd n8n
 docker compose -f docker-compose.n8n.yaml up -d
+
+# frontend dev server
+cd frontend
+npm.cmd install
+npm.cmd run dev
 ```
 
-If n8n crashes with SQLite readonly errors, fix the n8n data volume ownership:
+If n8n crashes with SQLite readonly errors, fix the n8n data volume
+ownership:
 
 ```powershell
 docker exec --user root hospital-n8n chown -R node:node /home/node/.n8n
 docker restart hospital-n8n
 ```
 
-Start the frontend dev server:
+---
+
+## Backup And Restore
+
+The entire system state lives outside git: Postgres `dify` (apps, KB
+metadata, workflows), MySQL `bbh_bot_ops` (bookings, patients,
+sessions, users), Docker volumes (`docker_dify_app_storage`,
+`n8n_hospital_n8n_data`), the Weaviate bind-mount, `.env` files, and
+the cloudflared tunnel token. Lose any of these and the system is not
+recoverable from git alone.
+
+Run a full backup before risky changes or before leaving the machine
+unattended:
 
 ```powershell
-cd frontend
-npm.cmd install
-npm.cmd run dev
+python tools\backup.py
 ```
+
+This produces a single timestamped archive in `backups/`:
+
+```text
+backups\bbh-backup-YYYYMMDD-HHMMSS.tar.gz   (~130 MB)
+```
+
+Upload the archive to off-machine storage (e.g. Google Drive). The
+archive itself is gitignored on purpose — only the scripts are
+tracked.
+
+Restore on a fresh machine:
+
+```powershell
+python tools\restore.py backups\bbh-backup-YYYYMMDD-HHMMSS.tar.gz
+```
+
+The script will prompt for confirmation before overwriting databases,
+volumes, and env files. After restore it prints follow-up commands
+(cloudflared service install + container restart).
+
+If only the Dify `BBH Staff Assistant` app is missing (DB backup lost
+or corrupt for that app only), re-create it from the versioned
+sources:
+
+```powershell
+python dify_patches\bbh_staff_assistant\apply.py
+```
+
+This is idempotent and reads `system_prompt.md` +
+`workflow_graph.json` from the same directory.
+
+---
+
+## Setup On A Fresh Machine
+
+Assuming you have the latest `bbh-backup-*.tar.gz` from off-machine
+storage.
+
+1. Install prerequisites: Docker Desktop + WSL2, Git, Python 3.12+,
+   Node.js 20+, cloudflared.
+2. Clone repositories:
+
+   ```powershell
+   git clone https://github.com/wisraut/BBH-Automation.git line-dify-bridge
+   git clone https://github.com/langgenius/dify.git
+   ```
+
+3. Start Dify so its Postgres and storage volume exist:
+
+   ```powershell
+   cd dify\docker
+   docker compose up -d
+   ```
+
+   Wait for `docker-db_postgres-1` and `docker-api-1` to be healthy.
+
+4. Start the Bot Ops MySQL container (so the restore has a target):
+
+   ```powershell
+   cd ..\..\line-dify-bridge\n8n
+   docker compose -f docker-compose.n8n.yaml up -d hospital-bot-ops-db
+   ```
+
+5. Run the restore against the backup archive:
+
+   ```powershell
+   cd ..
+   python tools\restore.py <path to bbh-backup-*.tar.gz>
+   ```
+
+6. Re-install the cloudflared Windows service with the saved tunnel
+   token (printed by `restore.py`).
+7. Start the rest of the stack via `start.bat`.
+8. Smoke test:
+
+   ```powershell
+   curl http://localhost:8000/
+   curl http://localhost/v1/info -H "Authorization: Bearer %DIFY_API_KEY%"
+   ```
+
+If you have no backup, fall back to seeding from migrations + creating
+Dify apps manually (LINE Patient Summary in the Dify UI, then
+`dify_patches\bbh_staff_assistant\apply.py` for the staff app).
 
 ---
 
@@ -299,4 +410,4 @@ Internal use only. Do not publish or use outside the BBH hospital project withou
 
 ## Maintainer
 
-maintainer — student@example.com
+Wisarut — wisrutyaemprayur@gmail.com

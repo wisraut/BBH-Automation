@@ -2,7 +2,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from core.config import CRO_CHANNEL_ENABLED, DB_CONFIG, NGROK_PUBLIC_URL, SERVER_PORT, log
+from core.config import CRO_CHANNEL_ENABLED, DB_CONFIG, PUBLIC_URL, SERVER_PORT, log
 from core.db import get_db
 from flows import doctor
 from jobs import email_poller
@@ -33,12 +33,12 @@ async def lifespan(app):
     except Exception:
         log.exception("Startup reset failed")
 
-    app.state.ngrok_url = NGROK_PUBLIC_URL or f"http://localhost:{SERVER_PORT}"
+    app.state.public_url = PUBLIC_URL or f"http://localhost:{SERVER_PORT}"
     log.info("=" * 60)
-    log.info("Bridge public URL: %s", app.state.ngrok_url)
-    log.info("LINE Webhook URL:  %s/webhook", app.state.ngrok_url)
+    log.info("Bridge public URL: %s", app.state.public_url)
+    log.info("LINE Webhook URL:  %s/webhook", app.state.public_url)
     if CRO_CHANNEL_ENABLED:
-        log.info("CRO Webhook URL:   %s/webhook/cro", app.state.ngrok_url)
+        log.info("CRO Webhook URL:   %s/webhook/cro", app.state.public_url)
     log.info("=" * 60)
 
     poller_task = asyncio.create_task(

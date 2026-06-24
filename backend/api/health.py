@@ -17,10 +17,10 @@ router = APIRouter()
 
 @router.get("/")
 def health(request: Request):
-    base = getattr(request.app.state, "ngrok_url", "")
+    base = getattr(request.app.state, "public_url", "")
     return {
         "status": "ok",
-        "ngrok_url": base or "starting...",
+        "public_url": base or "starting...",
         "webhook": f"{base}/webhook",
         "webhook_cro": f"{base}/webhook/cro" if CRO_CHANNEL_ENABLED else None,
     }
@@ -50,7 +50,7 @@ def internal_health_full(
         "bridge": {"status": "ok"},
         "db": {"status": "unknown"},
         "dify": {"status": "unknown"},
-        "ngrok": {"status": "unknown"},
+        "tunnel": {"status": "unknown"},
     }
 
     start = time.perf_counter()
@@ -105,10 +105,10 @@ def internal_health_full(
     except Exception as exc:
         checks["dify"] = {"status": "error", "error": str(exc)}
 
-    ngrok_url = getattr(request.app.state, "ngrok_url", "") or ""
-    checks["ngrok"] = {
-        "status": "ok" if ngrok_url.startswith("http") else "starting",
-        "url": ngrok_url,
+    public_url = getattr(request.app.state, "public_url", "") or ""
+    checks["tunnel"] = {
+        "status": "ok" if public_url.startswith("http") else "starting",
+        "url": public_url,
     }
 
     overall = "ok"

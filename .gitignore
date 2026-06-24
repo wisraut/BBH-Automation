@@ -80,7 +80,14 @@ service_account*.json
 # Patient report file storage (PHI — never commit)
 data/
 
+# Backup archives (large, ephemeral; keep tools/backup.py + tools/restore.py)
+backups/*.tar.gz
+backups/*.zip
+backups/*.tar
+
 # Markdown working docs (all except README.md + shared team docs in docs/)
 *.md
 !README.md
 !docs/dev-setup-lan.md
+!dify_patches/**/README.md
+!dify_patches/**/system_prompt.md

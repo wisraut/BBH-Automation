@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, Edit3, ExternalLink, FileText, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
@@ -51,15 +52,31 @@ function matchingBookings(bookings: BookingItem[], patient?: { display_name?: st
   })
 }
 
-async function openReportFile(reportId: number) {
+async function fetchReportBlob(reportId: number): Promise<Blob> {
   const token = getToken()
   const res = await fetch(`${API_BASE}/api/reports/${reportId}/file`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   })
-  if (!res.ok) throw new Error('Cannot open report file')
-  const blob = await res.blob()
+  if (!res.ok) throw new Error('Cannot fetch report file')
+  return res.blob()
+}
+
+async function openReportFile(reportId: number) {
+  const blob = await fetchReportBlob(reportId)
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank', 'noopener,noreferrer')
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+async function downloadReportFile(reportId: number, filename: string) {
+  const blob = await fetchReportBlob(reportId)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
@@ -69,15 +86,31 @@ export function Patients() {
   const canWritePatient = user?.role === 'cro' || user?.role === 'admin'
   const canAnalyze = user?.role === 'doctor' || user?.role === 'admin'
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const queryPatientId = Number(searchParams.get('patient')) || null
+  const queryReportId = Number(searchParams.get('report')) || null
+
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [showPatientDetail, setShowPatientDetail] = useState(false)
-  const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(queryPatientId)
+  const [showPatientDetail, setShowPatientDetail] = useState(Boolean(queryPatientId))
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(queryReportId)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [notebookUrlDraft, setNotebookUrlDraft] = useState('')
+
+  // Strip ?patient&?report from URL once we've consumed them so the user's
+  // back-button history doesn't keep re-opening the same record.
+  useEffect(() => {
+    if (queryPatientId || queryReportId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('patient')
+      next.delete('report')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -125,15 +158,20 @@ export function Patients() {
   )
 
   useEffect(() => {
-    if (selectedId != null && patients.some((patient) => patient.id === selectedId)) return
+    // Wait until the patient list query has resolved so we don't clobber
+    // an id passed in via ?patient= deep link before the list arrives.
+    if (patientsQ.isLoading) return
+    if (selectedId != null) return  // keep user/deep-link selection; detail query loads it
     setSelectedId(patients[0]?.id ?? null)
-    setSelectedReportId(null)
-  }, [patients, selectedId])
+  }, [patients, selectedId, patientsQ.isLoading])
 
   useEffect(() => {
+    // Don't auto-pick the first report while a specific one is being requested via deep link.
+    if (reportsQ.isLoading) return
     if (selectedReportId != null && reports.some((report) => report.id === selectedReportId)) return
+    if (selectedReportId != null && reports.length === 0) return  // deep link to report still pending
     setSelectedReportId(reports[0]?.id ?? null)
-  }, [reports, selectedReportId])
+  }, [reports, selectedReportId, reportsQ.isLoading])
 
   function submitPatient(body: PatientCreateRequest | PatientUpdateRequest) {
     if (patientModal === 'create') {
@@ -354,10 +392,51 @@ export function Patients() {
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h2 className="text-sm font-semibold text-bbh-ink">Selected report</h2>
                     {selectedReportId ? (
-                      <button type="button" onClick={() => openReportFile(selectedReportId)} className="inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-2.5 py-1.5 text-xs font-semibold text-bbh-muted hover:text-bbh-green">
-                        <ExternalLink size={14} />
-                        Open file
-                      </button>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openReportFile(selectedReportId)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-2.5 py-1.5 text-xs font-semibold text-bbh-muted hover:text-bbh-green"
+                          title="เปิด report ในแท็บใหม่"
+                        >
+                          <ExternalLink size={14} />
+                          เปิดไฟล์
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const r = reportQ.data
+                            const fallback = r?.title ?? `report-${selectedReportId}`
+                            const ext = (r?.file_mime ?? '').includes('pdf') ? '.pdf'
+                              : (r?.file_mime ?? '').includes('png') ? '.png'
+                              : (r?.file_mime ?? '').includes('jpeg') ? '.jpg'
+                              : (r?.file_mime ?? '').includes('text') ? '.txt'
+                              : ''
+                            void downloadReportFile(selectedReportId, `${fallback}${ext}`)
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-2.5 py-1.5 text-xs font-semibold text-bbh-muted hover:text-bbh-green"
+                          title="ดาวน์โหลดไฟล์ลงเครื่อง"
+                        >
+                          <Download size={14} />
+                          ดาวน์โหลด
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!selectedId) return
+                            const link = `${window.location.origin}/patients?patient=${selectedId}&report=${selectedReportId}`
+                            void navigator.clipboard.writeText(link).then(
+                              () => toast.show('success', 'คัดลอกลิงก์แล้ว'),
+                              () => toast.show('error', 'คัดลอกไม่สำเร็จ'),
+                            )
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-2.5 py-1.5 text-xs font-semibold text-bbh-muted hover:text-bbh-green"
+                          title="คัดลอกลิงก์เข้า report นี้"
+                        >
+                          <Link2 size={14} />
+                          คัดลอกลิงก์
+                        </button>
+                      </div>
                     ) : null}
                   </div>
 

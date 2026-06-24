@@ -133,11 +133,16 @@ async def upload_report(
 
     notified = _notify_report_uploaded(
         patient=patient,
+        patient_id=patient_id,
+        report_id=new_id,
         title=title.strip(),
         report_type=report_type,
         source=source,
         assigned_doctor_id=assigned_doctor_id,
         uploaded_by=user,
+        file_path=os.path.join(REPORTS_ROOT, file_path),
+        file_mime=mime,
+        original_filename=upload.filename,
     )
 
     return {
@@ -235,11 +240,16 @@ def decide_triage(
 def _notify_report_uploaded(
     *,
     patient: dict[str, Any],
+    patient_id: int,
+    report_id: int,
     title: str,
     report_type: str,
     source: str,
     assigned_doctor_id: int | None,
     uploaded_by: dict[str, Any],
+    file_path: str | None = None,
+    file_mime: str | None = None,
+    original_filename: str | None = None,
 ) -> bool:
     """Email the assigned doctor (falls back to REPORT_NOTIFY_EMAIL when no
     doctor is picked or the doctor has no email on file). Best-effort: never
@@ -248,8 +258,11 @@ def _notify_report_uploaded(
     doctor_line = f"หมอที่เลือก: {doctor['display_name']}" if doctor else "หมอที่เลือก: (ไม่ระบุ)"
     recipient = (doctor.get("email") if doctor else None) or REPORT_NOTIFY_EMAIL
 
+    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+    deep_link = f"{frontend_base}/patients?patient={patient_id}&report={report_id}"
+
     body = "\n".join([
-        f"มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
+        "มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
         "",
         f"คนไข้: {patient.get('display_name') or '-'} (HN: {patient.get('hn') or '-'})",
         f"ชื่อ Report: {title}",
@@ -257,11 +270,26 @@ def _notify_report_uploaded(
         f"แหล่งที่มา: {source}",
         doctor_line,
         f"อัพโหลดโดย: {uploaded_by.get('display_name') or uploaded_by.get('email') or '-'}",
+        "",
+        "เปิดดูใน BBH Portal:",
+        deep_link,
+        "",
+        "ขั้นตอนใส่ NotebookLM:",
+        "  1) เปิดลิงก์ด้านบน → กด ‘ดาวน์โหลดไฟล์’",
+        "  2) เปิด https://notebooklm.google.com → New notebook → Add source → Upload",
+        "  3) คัดลอกลิงก์ของ notebook กลับมาวางใน BBH Portal (ปุ่ม ‘บันทึก NotebookLM link’)",
     ])
+    # Attach the actual report file so the doctor can grab it straight from
+    # Gmail (drag-drop into NotebookLM). File path is the absolute disk path
+    # under REPORTS_ROOT; helper silently drops attachment if > 20MB or missing.
+    attach_name = original_filename or f"{title}{_ext_for(original_filename or title, file_mime or '')}"
     return send_email(
         to=recipient,
         subject=f"[BBH] Report ใหม่: {title}",
         body=body,
+        attachment_path=file_path,
+        attachment_filename=attach_name,
+        attachment_mime=file_mime,
     )
 
 

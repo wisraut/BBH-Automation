@@ -22,6 +22,11 @@ DIFY_API_URL       = os.getenv("DIFY_API_URL", "http://localhost/v1")
 DIFY_API_KEY       = os.getenv("DIFY_API_KEY")
 DIFY_STAFF_API_KEY = os.getenv("DIFY_STAFF_API_KEY", "")
 
+# Bot session TTL — drop the cached Dify conversation_id when a user has been
+# idle longer than this. Prevents one ESCALATE/BOOKING turn from polluting
+# the LLM memory window of every future conversation from the same user.
+BOT_SESSION_CONV_TTL_MIN = int(os.getenv("BOT_SESSION_CONV_TTL_MIN", 30))
+
 # Server
 SERVER_PORT      = int(os.getenv("SERVER_PORT", 8000))
 NGROK_PUBLIC_URL = os.getenv("NGROK_PUBLIC_URL", "")

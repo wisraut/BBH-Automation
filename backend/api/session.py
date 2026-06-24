@@ -6,7 +6,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from api.health import _require_internal_token
-from core.config import BOT_OPS_DB_CONFIG, log
+from core.config import BOT_OPS_DB_CONFIG, BOT_SESSION_CONV_TTL_MIN, log
 
 router = APIRouter(prefix="/internal/session")
 
@@ -22,18 +22,41 @@ def _db():
 
 @router.get("/{channel}/{user_id}")
 def get_session(channel: str, user_id: str, x_internal_token: str | None = Header(None)):
+    """Return the Dify conversation_id for this LINE user, but drop it if the
+    user has been idle longer than BOT_SESSION_CONV_TTL_MIN. Forcing a fresh
+    conversation prevents the LLM memory window from carrying a stale
+    classification (e.g. an old ESCALATE turn) into a brand new topic."""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT dify_conversation_id, current_state FROM bot_sessions "
-                "WHERE channel = %s AND external_user_id = %s LIMIT 1",
+                """
+                SELECT dify_conversation_id,
+                       current_state,
+                       last_message_at,
+                       TIMESTAMPDIFF(MINUTE, last_message_at, NOW()) AS idle_min
+                FROM bot_sessions
+                WHERE channel = %s AND external_user_id = %s LIMIT 1
+                """,
                 (channel, user_id),
             )
             row = cur.fetchone()
+
+    if not row:
+        return {"dify_conversation_id": None, "current_state": "idle"}
+
+    conv_id = row["dify_conversation_id"]
+    idle_min = row.get("idle_min")
+    if conv_id and idle_min is not None and idle_min >= BOT_SESSION_CONV_TTL_MIN:
+        log.info(
+            "Session conv_id expired (idle %s min >= %s): %s/%s — returning None",
+            idle_min, BOT_SESSION_CONV_TTL_MIN, channel, user_id,
+        )
+        conv_id = None
+
     return {
-        "dify_conversation_id": row["dify_conversation_id"] if row else None,
-        "current_state": row["current_state"] if row else "idle",
+        "dify_conversation_id": conv_id,
+        "current_state": row["current_state"],
     }
 
 

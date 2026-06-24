@@ -176,6 +176,10 @@ REM [6/7] n8n (LINE Main Bot workflow runner)
 REM ============================================================
 echo.
 echo [6/7] Starting n8n...
+REM Safety net: reset volume ownership so n8n (UID 1000) can write to its SQLite.
+REM Prevents SQLITE_READONLY crash if someone touched the volume as root
+REM (e.g. via "docker cp ... hospital-n8n:/home/node/.n8n/...").
+docker run --rm -v n8n_hospital_n8n_data:/data alpine chown -R 1000:1000 /data >nul 2>&1
 docker compose -f n8n\docker-compose.n8n.yaml --env-file n8n\.env.n8n up -d --force-recreate --remove-orphans n8n
 if errorlevel 1 (
     echo   [ERROR] n8n failed to start.

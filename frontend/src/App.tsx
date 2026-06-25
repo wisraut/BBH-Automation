@@ -17,6 +17,7 @@ import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
 import { Patients } from './pages/Patients'
+import { SystemHealth } from './pages/SystemHealth'
 import { Login } from './routes/Login'
 
 const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
@@ -132,7 +133,7 @@ function DashboardLayout() {
         onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
         <main className="flex-1 overflow-hidden p-3 md:p-5">
           <Outlet />
         </main>
@@ -163,7 +164,7 @@ function AppRoutes() {
           <Route path="ai" element={<AiAssistant />} />
           <Route element={<ProtectedRoute allow={['admin']} />}>
             <Route path="users" element={<Placeholder title="ผู้ใช้" />} />
-            <Route path="system-health" element={<Placeholder title="สถานะระบบ" />} />
+            <Route path="system-health" element={<SystemHealth />} />
           </Route>
           <Route path="account" element={<Account />} />
         </Route>

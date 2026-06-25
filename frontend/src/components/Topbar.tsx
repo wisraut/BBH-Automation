@@ -1,4 +1,5 @@
-import { Menu } from 'lucide-react'
+import { ArrowLeft, Menu } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import type { Role } from '../lib/auth'
 
@@ -10,14 +11,24 @@ const ROLE_LABELS: Record<Role, string> = {
   lab_staff: 'เจ้าหน้าที่แล็บ',
 }
 
+const VIEW_AS_SHORT: Record<Role, string> = {
+  admin: 'Admin',
+  cro: 'CRO',
+  doctor: 'Doctor',
+  nurse: 'Nurse',
+  lab_staff: 'Lab',
+}
+
 interface TopbarProps {
   title: string
   subtitle?: string
   onMenuClick?: () => void
+  viewAs?: Role | null
 }
 
-export function Topbar({ title, subtitle, onMenuClick }: TopbarProps) {
+export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
   const { user, logout } = useAuth()
+  const showBackToAdmin = Boolean(viewAs && user?.role === 'admin')
 
   return (
     <header className="border-b border-bbh-line bg-gradient-to-br from-white via-bbh-green-soft/80 to-bbh-green-soft px-3 py-2.5 shadow-sm md:px-5 lg:px-8">
@@ -41,6 +52,19 @@ export function Topbar({ title, subtitle, onMenuClick }: TopbarProps) {
         </div>
         {user ? (
           <div className="flex shrink-0 items-center gap-2 md:gap-4">
+            {showBackToAdmin && viewAs ? (
+              <Link
+                to="/admin"
+                className="inline-flex items-center gap-2 rounded-xl border border-bbh-green/40 bg-white px-3 py-1.5 text-sm font-semibold text-bbh-green-dark shadow-sm transition hover:border-bbh-green hover:bg-bbh-green-soft"
+                title="กลับหน้า Admin"
+              >
+                <ArrowLeft size={15} />
+                <span className="hidden sm:inline">กลับ Admin</span>
+                <span className="hidden rounded-full bg-bbh-green-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark md:inline">
+                  ดูในมุม {VIEW_AS_SHORT[viewAs]}
+                </span>
+              </Link>
+            ) : null}
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-bbh-ink">{user.display_name}</p>
               <p className="hidden text-xs text-bbh-muted md:block">{ROLE_LABELS[user.role]}</p>

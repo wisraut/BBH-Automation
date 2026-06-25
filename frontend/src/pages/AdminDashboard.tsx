@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -20,7 +21,7 @@ import { Modal } from '../components/Modal'
 import { useAcknowledgeAlert } from '../hooks/useAcknowledgeAlert'
 import { useAdminAlertRules } from '../hooks/useAdminAlertRules'
 import { useAdminAlertSummary } from '../hooks/useAdminAlertSummary'
-import { useAdminAlerts, type AlertOut } from '../hooks/useAdminAlerts'
+import { useAdminAlerts, type AlertOut, type AlertSeverity } from '../hooks/useAdminAlerts'
 import { useResolveAlert } from '../hooks/useResolveAlert'
 
 type RoleWorkspace = {
@@ -30,12 +31,16 @@ type RoleWorkspace = {
   icon: LucideIcon
 }
 
+// Nurse / Lab workspaces are temporarily hidden via HIDDEN_ROLES — keep
+// the definitions so we can re-enable them once those role pages ship.
+const HIDDEN_ROLES = new Set<string>(['Go as Nurse', 'Go as Lab'])
+
 const ROLE_WORKSPACES: RoleWorkspace[] = [
   { label: 'Go as CRO', description: 'ดูงาน booking, calendar และการประสานงานคนไข้', path: '/bookings?as=cro', icon: ClipboardList },
   { label: 'Go as Doctor', description: 'ดู schedule และรายงานที่เกี่ยวกับแพทย์', path: '/schedule?as=doctor', icon: Stethoscope },
   { label: 'Go as Nurse', description: 'ดูข้อมูลคนไข้และงานติดตามเชิงปฏิบัติการ', path: '/patients?as=nurse', icon: Users },
   { label: 'Go as Lab', description: 'ดูพื้นที่รายงานและงานแล็บที่ต้องจัดการ', path: '/reports?as=lab_staff', icon: FileText },
-]
+].filter((w) => !HIDDEN_ROLES.has(w.label))
 
 const CATEGORY_LABELS: Record<string, string> = {
   operations: 'Operations',
@@ -73,21 +78,40 @@ function formatRelative(iso: string): string {
   return `${diffDay} วันก่อน`
 }
 
-function MetricCard({ label, value, helper, icon: Icon, tone }: {
-  label: string; value: string | number; helper: string; icon: LucideIcon; tone?: 'critical' | 'warning' | 'default'
+function MetricCard({ label, value, helper, icon: Icon, tone, onClick, active }: {
+  label: string; value: string | number; helper: string; icon: LucideIcon
+  tone?: 'critical' | 'warning' | 'default'
+  onClick?: () => void
+  active?: boolean
 }) {
   const iconClass =
     tone === 'critical' ? 'text-red-500' : tone === 'warning' ? 'text-amber-500' : 'text-bbh-green'
-  return (
-    <div className="rounded-2xl border border-bbh-line bg-white px-4 py-4 shadow-sm">
+  const activeRing =
+    active
+      ? tone === 'critical'
+        ? 'ring-2 ring-red-400 border-red-300'
+        : tone === 'warning'
+          ? 'ring-2 ring-amber-400 border-amber-300'
+          : 'ring-2 ring-bbh-green border-bbh-green/40'
+      : 'border-bbh-line hover:border-bbh-green/40'
+  const className =
+    `rounded-2xl border bg-white px-4 py-4 shadow-sm transition ${activeRing} ` +
+    (onClick ? 'cursor-pointer text-left w-full' : '')
+
+  const content = (
+    <>
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted">{label}</p>
         <Icon size={18} className={iconClass} />
       </div>
       <p className="mt-2 font-serif text-3xl font-semibold text-bbh-ink">{value}</p>
       <p className="mt-1 text-xs text-bbh-muted">{helper}</p>
-    </div>
+    </>
   )
+  if (onClick) {
+    return <button type="button" onClick={onClick} className={className}>{content}</button>
+  }
+  return <div className={className}>{content}</div>
 }
 
 function StatusPill({ status }: { status: AlertOut['status'] }) {
@@ -99,9 +123,15 @@ function StatusPill({ status }: { status: AlertOut['status'] }) {
 }
 
 export function AdminDashboard() {
-  const alertsQ = useAdminAlerts({ limit: 100 })
+  const navigate = useNavigate()
+  const [severityFilter, setSeverityFilter] = useState<AlertSeverity | null>(null)
+  const alertsQ = useAdminAlerts({ limit: 100, severity: severityFilter ?? undefined })
   const summaryQ = useAdminAlertSummary()
   const rulesQ = useAdminAlertRules()
+
+  const toggleSeverity = (s: AlertSeverity) => {
+    setSeverityFilter((cur) => (cur === s ? null : s))
+  }
 
   const alerts = alertsQ.data?.data ?? []
   const summary = summaryQ.data
@@ -139,28 +169,35 @@ export function AdminDashboard() {
           <MetricCard
             label="Critical"
             value={summary?.by_severity?.critical ?? 0}
-            helper="ต้องจัดการทันที"
+            helper={severityFilter === 'critical' ? 'กำลังกรอง — คลิกอีกครั้งเพื่อยกเลิก' : 'ต้องจัดการทันที — คลิกเพื่อกรอง'}
             icon={AlertTriangle}
             tone="critical"
+            onClick={() => toggleSeverity('critical')}
+            active={severityFilter === 'critical'}
           />
           <MetricCard
             label="Warning"
             value={summary?.by_severity?.warning ?? 0}
-            helper="ติดตามใกล้ชิด"
+            helper={severityFilter === 'warning' ? 'กำลังกรอง — คลิกอีกครั้งเพื่อยกเลิก' : 'ติดตามใกล้ชิด — คลิกเพื่อกรอง'}
             icon={Activity}
             tone="warning"
+            onClick={() => toggleSeverity('warning')}
+            active={severityFilter === 'warning'}
           />
           <MetricCard
             label="Info"
             value={summary?.by_severity?.info ?? 0}
-            helper="ทราบไว้เพื่อตัดสินใจ"
+            helper={severityFilter === 'info' ? 'กำลังกรอง — คลิกอีกครั้งเพื่อยกเลิก' : 'ทราบไว้เพื่อตัดสินใจ — คลิกเพื่อกรอง'}
             icon={ShieldCheck}
+            onClick={() => toggleSeverity('info')}
+            active={severityFilter === 'info'}
           />
           <MetricCard
             label="Roles"
             value="5"
-            helper="admin, doctor, cro, nurse, lab_staff"
+            helper="admin, doctor, cro, nurse, lab_staff — คลิกเพื่อจัดการ"
             icon={UserCog}
+            onClick={() => navigate('/users')}
           />
         </div>
 
@@ -198,6 +235,17 @@ export function AdminDashboard() {
             <BellRing size={18} className="text-bbh-green" />
             Action required
           </div>
+          {severityFilter ? (
+            <button
+              type="button"
+              onClick={() => setSeverityFilter(null)}
+              className="inline-flex items-center gap-1 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-2.5 py-0.5 text-xs font-semibold text-bbh-green-dark hover:border-bbh-green"
+              title="ยกเลิกตัวกรอง"
+            >
+              กรอง: {severityFilter}
+              <span className="text-bbh-muted">×</span>
+            </button>
+          ) : null}
           <span className="ml-0 text-xs text-bbh-muted sm:ml-auto">
             {alertsQ.isLoading ? 'กำลังโหลด…' : `${alerts.length} รายการ`}
           </span>

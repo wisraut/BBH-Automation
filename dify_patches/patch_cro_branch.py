@@ -33,7 +33,7 @@ DIFY_DB = {
     "user": "postgres", "password": os.getenv("DB_PASSWORD"),
 }
 
-CRO_DECIDE_PROMPT = """คุณเป็น AI Assistant ของคลินิก Functional Medicine
+CRO_DECIDE_PROMPT = """คุณเป็น AI Assistant ของโรงพยาบาล Better Being Hospital (BBH) สาย Functional Medicine
 
 ตอบในรูปแบบ EXACTLY หนึ่งใน 4 format นี้เท่านั้น — ห้ามอธิบายเพิ่มหรือใส่ข้อความอื่น:
 

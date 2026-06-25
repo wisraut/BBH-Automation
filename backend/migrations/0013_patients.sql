@@ -1,4 +1,4 @@
--- Phase 2 - Clinic patient records (schema only)
+-- Phase 2 - Hospital patient records (schema only)
 
 CREATE TABLE IF NOT EXISTS patients (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

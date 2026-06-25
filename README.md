@@ -1,6 +1,6 @@
 # LINE-Dify Hospital Bridge
 
-ระบบ LINE chatbot สำหรับคลินิก Functional Medicine โดยใช้ n8n เป็นตัว orchestrate, Dify เป็น AI/RAG engine, และ FastAPI bridge เป็น internal API สำหรับ session, booking, LINE fallback, Google Calendar และงาน background ของคลินิก
+ระบบ LINE chatbot สำหรับ **โรงพยาบาล Better Being Hospital (BBH)** สาย Functional Medicine โดยใช้ n8n เป็นตัว orchestrate, Dify เป็น AI/RAG engine, และ FastAPI bridge เป็น internal API สำหรับ session, booking, LINE fallback, Google Calendar และงาน background ของโรงพยาบาล
 
 ตอนนี้ `main` เป็น source of truth ของ repo นี้ และ Python backend ทั้งหมดอยู่ใน `backend/`
 

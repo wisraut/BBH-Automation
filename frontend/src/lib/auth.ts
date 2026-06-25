@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 
-export type Role = 'admin' | 'doctor' | 'cro'
+export type Role = 'admin' | 'doctor' | 'cro' | 'nurse' | 'lab_staff'
 
 export type DashboardUser = {
   id: number

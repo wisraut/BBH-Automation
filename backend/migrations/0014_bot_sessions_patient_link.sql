@@ -1,4 +1,4 @@
--- Phase 2 - Link LINE bot sessions to clinic patients (schema only)
+-- Phase 2 - Link LINE bot sessions to hospital patients (schema only)
 
 SET @sql = (
     SELECT IF(

@@ -1,6 +1,7 @@
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
   Activity,
+  ArrowLeft,
   CalendarClock,
   CalendarDays,
   ClipboardList,
@@ -8,6 +9,7 @@ import {
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  ShieldCheck,
   Stethoscope,
   UserCircle,
   UserCog,
@@ -19,6 +21,14 @@ import type { LucideIcon } from 'lucide-react'
 import type { Role } from '../lib/auth'
 import bbhDashboardLogo from '../assets/bbh-logo-dashboard.png'
 
+const VIEW_AS_LABEL: Record<Role, string> = {
+  admin: 'Admin',
+  cro: 'CRO',
+  doctor: 'Doctor',
+  nurse: 'Nurse',
+  lab_staff: 'Lab',
+}
+
 interface NavItem {
   to: string
   label: string
@@ -26,28 +36,35 @@ interface NavItem {
   roles: Role[]
 }
 
+// Admin sidebar shows only admin-scoped items. To enter another role's workspace
+// (CRO bookings, doctor schedule, etc.) admin uses the "Go as X" cards on the
+// /admin dashboard — route gates still allow admin in those pages.
 const NAV: NavItem[] = [
-  { to: '/bookings', label: 'การจอง', icon: ClipboardList, roles: ['cro', 'admin'] },
-  { to: '/calendar', label: 'ปฏิทิน', icon: CalendarDays, roles: ['cro', 'admin'] },
-  { to: '/schedule', label: 'ตารางงาน', icon: CalendarClock, roles: ['doctor', 'admin'] },
-  { to: '/patients', label: 'คนไข้', icon: Users, roles: ['cro', 'doctor', 'admin'] },
-  { to: '/reports', label: 'รายงาน', icon: FileText, roles: ['doctor', 'admin'] },
-  { to: '/ai', label: 'AI Assistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin'] },
+  { to: '/admin', label: 'Admin', icon: ShieldCheck, roles: ['admin'] },
+  { to: '/bookings', label: 'การจอง', icon: ClipboardList, roles: ['cro'] },
+  { to: '/calendar', label: 'ปฏิทิน', icon: CalendarDays, roles: ['cro'] },
+  { to: '/schedule', label: 'ตารางงาน', icon: CalendarClock, roles: ['doctor', 'nurse'] },
+  { to: '/patients', label: 'คนไข้', icon: Users, roles: ['cro', 'doctor', 'nurse'] },
+  { to: '/reports', label: 'รายงาน', icon: FileText, roles: ['doctor', 'nurse', 'lab_staff'] },
+  { to: '/ai', label: 'AI Assistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
   { to: '/users', label: 'ผู้ใช้', icon: UserCog, roles: ['admin'] },
   { to: '/system-health', label: 'สถานะระบบ', icon: Activity, roles: ['admin'] },
-  { to: '/account', label: 'บัญชี', icon: UserCircle, roles: ['cro', 'doctor', 'admin'] },
+  { to: '/account', label: 'บัญชี', icon: UserCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
 ]
 
 interface SidebarProps {
   role: Role
+  actualRole?: Role
+  viewAs?: Role | null
   open?: boolean
   onClose?: () => void
   collapsed?: boolean
   onToggleCollapsed?: () => void
 }
 
-export function Sidebar({ role, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
+export function Sidebar({ role, actualRole, viewAs, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
   const items = NAV.filter((item) => item.roles.includes(role))
+  const showBackToAdmin = Boolean(viewAs && actualRole === 'admin')
 
   return (
     <>
@@ -108,6 +125,24 @@ export function Sidebar({ role, open = false, onClose, collapsed = false, onTogg
             </button>
           ) : null}
         </div>
+
+        {showBackToAdmin && viewAs ? (
+          <div className={`border-b border-bbh-line bg-bbh-green-soft/50 ${collapsed ? 'lg:px-2 lg:py-3' : 'px-4 py-3'}`}>
+            <Link
+              to="/admin"
+              onClick={onClose}
+              title={collapsed ? 'กลับ Admin' : undefined}
+              className={`flex items-center rounded-xl border border-bbh-green/30 bg-white text-xs font-semibold text-bbh-green-dark transition hover:border-bbh-green ${
+                collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-2'
+              }`}
+            >
+              <ArrowLeft size={14} className="shrink-0" />
+              <span className={collapsed ? 'sr-only lg:hidden' : ''}>
+                กลับ Admin · กำลังดูในมุม {VIEW_AS_LABEL[viewAs]}
+              </span>
+            </Link>
+          </div>
+        ) : null}
 
         <nav className={`flex-1 overflow-y-auto py-4 ${collapsed ? 'lg:px-2' : 'px-3'}`}>
           {items.map((item) => {

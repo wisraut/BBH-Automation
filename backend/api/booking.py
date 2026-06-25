@@ -23,6 +23,7 @@ class BookingCreate(BaseModel):
     date: str
     time: str
     symptom: str
+    email: Optional[str] = None
     raw_summary: Optional[dict] = None
 
 
@@ -47,11 +48,14 @@ def create_booking(body: BookingCreate, x_internal_token: str | None = Header(No
                 """
                 INSERT INTO booking_requests
                     (request_uid, channel, external_user_id, status,
-                     patient_name, phone, requested_datetime_text, symptom, raw_summary)
-                VALUES (%s, 'line_main', %s, 'pending_approval', %s, %s, %s, %s, %s)
+                     patient_name, phone, email, requested_datetime_text,
+                     symptom, raw_summary)
+                VALUES (%s, 'line_main', %s, 'pending_approval',
+                        %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     request_uid, body.user_id, body.name, body.phone,
+                    (body.email or None),
                     f"{body.date} {body.time}", body.symptom,
                     json.dumps(body.raw_summary or {}, ensure_ascii=False),
                 ),

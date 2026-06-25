@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Sidebar } from './components/Sidebar'
@@ -12,6 +12,7 @@ import { useAuth } from './lib/auth'
 import type { Role } from './lib/auth'
 import { queryClient } from './lib/queryClient'
 import { Account } from './pages/Account'
+import { AdminDashboard } from './pages/AdminDashboard'
 import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
@@ -20,11 +21,14 @@ import { Login } from './routes/Login'
 
 const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   cro: '/bookings',
-  admin: '/bookings',
+  admin: '/admin',
   doctor: '/schedule',
+  nurse: '/patients',
+  lab_staff: '/reports',
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+  '/admin': { title: 'Admin Dashboard', subtitle: 'Action Required และภาพรวมระบบโรงพยาบาล' },
   '/bookings': {
     title: 'การจองทั้งหมด',
     subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
@@ -86,9 +90,25 @@ function RoleHome() {
   return <Navigate to={user ? DEFAULT_PATH_BY_ROLE[user.role] : '/login'} replace />
 }
 
+const ADMIN_PATHS = ['/admin', '/users', '/system-health']
+const ROLE_OF_PATH: Record<string, Role> = {
+  '/bookings': 'cro',
+  '/calendar': 'cro',
+  '/schedule': 'doctor',
+}
+const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
+
+function computeViewAs(pathname: string, asParam: string | null, actualRole: Role): Role | null {
+  if (actualRole !== 'admin') return null
+  if (ADMIN_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) return null
+  if (asParam && (VALID_VIEW_AS as string[]).includes(asParam)) return asParam as Role
+  return ROLE_OF_PATH[pathname] ?? null
+}
+
 function DashboardLayout() {
   const { user } = useAuth()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   useEffect(() => {
@@ -97,11 +117,15 @@ function DashboardLayout() {
 
   if (!user) return null
   const meta = PAGE_META[location.pathname] ?? { title: 'BBH Portal' }
+  const viewAs = computeViewAs(location.pathname, searchParams.get('as'), user.role)
+  const effectiveRole: Role = viewAs ?? user.role
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
       <Sidebar
-        role={user.role}
+        role={effectiveRole}
+        actualRole={user.role}
+        viewAs={viewAs}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
@@ -124,15 +148,18 @@ function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route index element={<RoleHome />} />
+          <Route path="admin" element={<ProtectedRoute allow={['admin']}><AdminDashboard /></ProtectedRoute>} />
           <Route element={<ProtectedRoute allow={['cro', 'admin']} />}>
             <Route path="bookings" element={<Bookings />} />
             <Route path="calendar" element={<Calendar />} />
           </Route>
-          <Route element={<ProtectedRoute allow={['doctor', 'admin']} />}>
+          <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Placeholder title="ตารางงานแพทย์" />} />
+          </Route>
+          <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse', 'lab_staff']} />}>
             <Route path="reports" element={<Placeholder title="รายงาน" />} />
           </Route>
-          <Route path="patients" element={<ProtectedRoute allow={['cro', 'doctor', 'admin']}><Patients /></ProtectedRoute>} />
+          <Route path="patients" element={<ProtectedRoute allow={['cro', 'doctor', 'admin', 'nurse']}><Patients /></ProtectedRoute>} />
           <Route path="ai" element={<AiAssistant />} />
           <Route element={<ProtectedRoute allow={['admin']} />}>
             <Route path="users" element={<Placeholder title="ผู้ใช้" />} />

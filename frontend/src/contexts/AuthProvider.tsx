@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { AuthContext } from '../lib/auth'
 import type { AuthContextValue, DashboardUser } from '../lib/auth'
 import { api, clearToken, getToken, setToken } from '../lib/api'
+import { setOwner as setAiOwner } from '../lib/aiStore'
 
 type LoginResponse = {
   token: string
@@ -17,6 +18,12 @@ type MeResponse = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DashboardUser | null>(null)
   const [isReady, setIsReady] = useState(false)
+
+  // Scope AI chat history (localStorage) to the current user so switching
+  // accounts in the same browser does not leak the previous user's sessions.
+  useEffect(() => {
+    setAiOwner(user ? String(user.id) : null)
+  }, [user])
 
   useEffect(() => {
     let active = true

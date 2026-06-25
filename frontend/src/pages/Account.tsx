@@ -13,6 +13,8 @@ const ROLE_LABELS: Record<Role, string> = {
   admin: 'ผู้ดูแลระบบ',
   doctor: 'แพทย์',
   cro: 'เจ้าหน้าที่ CRO',
+  nurse: 'พยาบาล',
+  lab_staff: 'เจ้าหน้าที่แล็บ',
 }
 
 const EVENT_LABELS: Record<string, string> = {

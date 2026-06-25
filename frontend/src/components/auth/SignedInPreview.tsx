@@ -5,12 +5,16 @@ const roleLabels: Record<Role, string> = {
   admin: 'ผู้ดูแลระบบ',
   doctor: 'แพทย์',
   cro: 'เจ้าหน้าที่ CRO',
+  nurse: 'พยาบาล',
+  lab_staff: 'เจ้าหน้าที่แล็บ',
 }
 
 const roleDestinations: Record<Role, string[]> = {
   admin: ['Bookings', 'Patients', 'Reports', 'AI Assistant', 'Users', 'System Health'],
   doctor: ['Schedule', 'Patients', 'Reports', 'AI Assistant', 'Account'],
   cro: ['Bookings', 'New Booking', 'Calendar', 'Patients', 'AI Assistant', 'Account'],
+  nurse: ['Patients', 'Reports', 'AI Assistant', 'Account'],
+  lab_staff: ['Reports', 'AI Assistant', 'Account'],
 }
 
 type SignedInPreviewProps = {

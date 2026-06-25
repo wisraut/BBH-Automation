@@ -7,8 +7,21 @@
 // localStorage even while no React component is mounted, and the next mount
 // of /ai reads the up-to-date state via useSyncExternalStore.
 
-const SESSIONS_KEY = 'bbh_ai_sessions'
-const CURRENT_KEY  = 'bbh_ai_current'
+// Storage keys are namespaced per logged-in user so that switching accounts
+// in the same browser (e.g. CRO logs out, admin logs in) does not leak the
+// previous user's chat history. setOwner() is called by AuthProvider when
+// the authenticated user changes.
+const SESSIONS_KEY_BASE = 'bbh_ai_sessions'
+const CURRENT_KEY_BASE  = 'bbh_ai_current'
+
+let currentOwnerKey: string | null = null
+
+function sessionsKey(): string {
+  return currentOwnerKey ? `${SESSIONS_KEY_BASE}:${currentOwnerKey}` : SESSIONS_KEY_BASE + ':_anon'
+}
+function currentKey(): string {
+  return currentOwnerKey ? `${CURRENT_KEY_BASE}:${currentOwnerKey}` : CURRENT_KEY_BASE + ':_anon'
+}
 
 export interface ChatMessage {
   id: string
@@ -46,7 +59,7 @@ export interface AiStoreSnapshot {
 
 function loadSessions(): AiSession[] {
   try {
-    const raw = localStorage.getItem(SESSIONS_KEY)
+    const raw = localStorage.getItem(sessionsKey())
     if (!raw) return []
     const parsed = JSON.parse(raw) as RawSession[]
     return parsed.map((s) => ({
@@ -61,7 +74,7 @@ function loadSessions(): AiSession[] {
 
 function loadCurrentId(): string | null {
   try {
-    return localStorage.getItem(CURRENT_KEY)
+    return localStorage.getItem(currentKey())
   } catch {
     return null
   }
@@ -73,7 +86,7 @@ function persistSessions(sessions: AiSession[]) {
       ...s,
       messages: s.messages.map((m) => ({ ...m, ts: m.ts.toISOString() })),
     }))
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(ser))
+    localStorage.setItem(sessionsKey(), JSON.stringify(ser))
   } catch {
     // ignore — storage full / disabled
   }
@@ -81,8 +94,8 @@ function persistSessions(sessions: AiSession[]) {
 
 function persistCurrent(id: string | null) {
   try {
-    if (id) localStorage.setItem(CURRENT_KEY, id)
-    else localStorage.removeItem(CURRENT_KEY)
+    if (id) localStorage.setItem(currentKey(), id)
+    else localStorage.removeItem(currentKey())
   } catch {
     // ignore
   }
@@ -101,11 +114,26 @@ function newSession(): AiSession {
   }
 }
 
+// Start empty — sessions load only after AuthProvider sets the owner key
+// (so we never read another user's data before auth resolves).
 let snapshot: AiStoreSnapshot = {
-  sessions:   loadSessions(),
-  currentId:  loadCurrentId(),
+  sessions:   [],
+  currentId:  null,
   pendingById: {},
   errorById:   {},
+}
+
+export function setOwner(ownerKey: string | null) {
+  if (ownerKey === currentOwnerKey) return
+  currentOwnerKey = ownerKey
+  // Reload (or clear) the snapshot from the new owner's storage scope.
+  snapshot = {
+    sessions:   ownerKey ? loadSessions() : [],
+    currentId:  ownerKey ? loadCurrentId() : null,
+    pendingById: {},
+    errorById:   {},
+  }
+  emit()
 }
 
 const listeners = new Set<() => void>()

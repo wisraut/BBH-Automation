@@ -149,9 +149,29 @@ export interface paths {
         put?: never;
         /**
          * Chat
-         * @description Proxy dashboard AI chat to the service layer.
+         * @description Proxy dashboard AI chat to the service layer (blocking — returns full answer).
          */
         post: operations["chat_api_ai_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/chat/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat Stream
+         * @description SSE streaming variant — frontend renders tokens as they arrive.
+         */
+        post: operations["chat_stream_api_ai_chat_stream_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -199,7 +219,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Session */
+        /**
+         * Get Session
+         * @description Return the Dify conversation_id for this LINE user, but drop it if the
+         *     user has been idle longer than BOT_SESSION_CONV_TTL_MIN. Forcing a fresh
+         *     conversation prevents the LLM memory window from carrying a stale
+         *     classification (e.g. an old ESCALATE turn) into a brand new topic.
+         */
         get: operations["get_session_internal_session__channel___user_id__get"];
         put?: never;
         /** Save Session */
@@ -522,7 +548,11 @@ export interface paths {
         get: operations["get_report_api_reports__report_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Report
+         * @description Delete a report (and its analyses, file on disk).
+         */
+        delete: operations["delete_report_api_reports__report_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -541,6 +571,27 @@ export interface paths {
          */
         get: operations["get_report_file_api_reports__report_id__file_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/notebooklm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Report Notebooklm Url
+         * @description Save the NotebookLM notebook link the doctor pasted after manually
+         *     uploading the report there (no public NotebookLM API exists for this).
+         */
+        put: operations["set_report_notebooklm_url_api_reports__report_id__notebooklm_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -608,10 +659,282 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/doctors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Doctors
+         * @description List active doctors for assignment dropdowns.
+         */
+        get: operations["list_doctors_api_doctors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Alerts
+         * @description List alerts with filters; default = open + acknowledged (active).
+         */
+        get: operations["list_alerts_api_admin_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alerts/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alert Summary
+         * @description Dashboard summary widget — counts by rule + severity.
+         */
+        get: operations["alert_summary_api_admin_alerts_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alerts/events/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Events
+         * @description Recent audit feed for dashboard.
+         */
+        get: operations["recent_events_api_admin_alerts_events_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alerts/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Alert
+         * @description Single alert with full event history.
+         */
+        get: operations["get_alert_api_admin_alerts__alert_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alerts/{alert_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge Alert */
+        post: operations["acknowledge_alert_api_admin_alerts__alert_id__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alerts/{alert_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Alert */
+        post: operations["resolve_alert_api_admin_alerts__alert_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alert-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rules */
+        get: operations["list_rules_api_admin_alert_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/alert-rules/{rule_key}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Rule Enabled */
+        patch: operations["patch_rule_enabled_api_admin_alert_rules__rule_key__enabled_patch"];
+        trace?: never;
+    };
+    "/api/admin/alert-rules/{rule_key}/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Rule Threshold */
+        patch: operations["patch_rule_threshold_api_admin_alert_rules__rule_key__threshold_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AckRequest */
+        AckRequest: {
+            /** Note */
+            note?: string | null;
+            /** Snooze Hours */
+            snooze_hours?: number | null;
+        };
+        /** AlertOut */
+        AlertOut: {
+            /** Alert Id */
+            alert_id: number;
+            /** Rule Key */
+            rule_key: string;
+            /** Rule Display Name */
+            rule_display_name: string;
+            /**
+             * Rule Category
+             * @enum {string}
+             */
+            rule_category: "operations" | "security" | "integration" | "data_quality";
+            /**
+             * Rule Ack Policy
+             * @enum {string}
+             */
+            rule_ack_policy: "auto_close" | "manual" | "sticky";
+            /** Subject Type */
+            subject_type: string;
+            /** Subject Id */
+            subject_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "acknowledged" | "resolved";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "warning" | "critical";
+            /** Title */
+            title: string;
+            /** Detail Json */
+            detail_json?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Ack By */
+            ack_by?: number | null;
+            /** Ack At */
+            ack_at?: string | null;
+            /** Ack Note */
+            ack_note?: string | null;
+            /** Ack Expires At */
+            ack_expires_at?: string | null;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Resolved Reason */
+            resolved_reason?: string | null;
+        };
+        /**
+         * AlertSummary
+         * @description Dashboard widget payload — totals by rule + severity.
+         */
+        AlertSummary: {
+            /** By Rule */
+            by_rule?: {
+                [key: string]: number;
+            };
+            /** By Severity */
+            by_severity?: {
+                [key: string]: number;
+            };
+            /**
+             * Total Active
+             * @default 0
+             */
+            total_active: number;
+        };
         /** AnalysisListResponse */
         AnalysisListResponse: {
             /** Data */
@@ -742,6 +1065,8 @@ export interface components {
             source: "web" | "line" | "email" | "whatsapp" | "walkin";
             /** Notes */
             notes?: string | null;
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
         };
         /** BookingCreate */
         BookingCreate: {
@@ -757,6 +1082,8 @@ export interface components {
             time: string;
             /** Symptom */
             symptom: string;
+            /** Email */
+            email?: string | null;
             /** Raw Summary */
             raw_summary?: {
                 [key: string]: unknown;
@@ -956,6 +1283,20 @@ export interface components {
             /** Conversation Id */
             conversation_id: string;
         };
+        /** DoctorListResponse */
+        DoctorListResponse: {
+            /** Data */
+            data: components["schemas"]["DoctorOut"][];
+        };
+        /** DoctorOut */
+        DoctorOut: {
+            /** Id */
+            id: number;
+            /** Display Name */
+            display_name: string;
+            /** Specialty */
+            specialty?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -982,6 +1323,11 @@ export interface components {
         /** MeResponse */
         MeResponse: {
             user: components["schemas"]["UserOut"];
+        };
+        /** NotebookLmUpdateRequest */
+        NotebookLmUpdateRequest: {
+            /** Url */
+            url?: string | null;
         };
         /** PaginationMeta */
         PaginationMeta: {
@@ -1227,24 +1573,70 @@ export interface components {
              */
             notified_doctor: boolean;
         };
-        /** NotebookLmUpdateRequest */
-        NotebookLmUpdateRequest: {
-            /** Url */
-            url?: string | null;
+        /** ResolveRequest */
+        ResolveRequest: {
+            /** Reason */
+            reason: string;
+            /** Note */
+            note?: string | null;
         };
-        /** DoctorOut */
-        DoctorOut: {
-            /** Id */
-            id: number;
+        /** RuleEnableRequest */
+        RuleEnableRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** RuleOut */
+        RuleOut: {
+            /** Rule Key */
+            rule_key: string;
             /** Display Name */
             display_name: string;
-            /** Specialty */
-            specialty?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "operations" | "security" | "integration" | "data_quality";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "warning" | "critical";
+            /** Enabled */
+            enabled: boolean;
+            /** Threshold Json */
+            threshold_json?: {
+                [key: string]: unknown;
+            };
+            /** Evaluator */
+            evaluator: string;
+            /**
+             * Ack Policy
+             * @enum {string}
+             */
+            ack_policy: "auto_close" | "manual" | "sticky";
+            /** Recheck Seconds */
+            recheck_seconds: number;
+            /** Notify Channels */
+            notify_channels?: string[] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
-        /** DoctorListResponse */
-        DoctorListResponse: {
-            /** Data */
-            data: components["schemas"]["DoctorOut"][];
+        /** RuleThresholdRequest */
+        RuleThresholdRequest: {
+            /** Threshold */
+            threshold: {
+                [key: string]: unknown;
+            };
         };
         /** SessionUpdate */
         SessionUpdate: {
@@ -1286,7 +1678,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "admin" | "doctor" | "cro";
+            role: "admin" | "doctor" | "cro" | "nurse" | "lab_staff";
             /** Specialty */
             specialty?: string | null;
             /** Avatar Url */
@@ -1516,6 +1908,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_stream_api_ai_chat_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2310,6 +2735,37 @@ export interface operations {
             };
         };
     };
+    delete_report_api_reports__report_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_report_file_api_reports__report_id__file_get: {
         parameters: {
             query?: never;
@@ -2328,6 +2784,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_report_notebooklm_url_api_reports__report_id__notebooklm_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotebookLmUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
                 };
             };
             /** @description Validation Error */
@@ -2425,6 +2916,304 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_doctors_api_doctors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorListResponse"];
+                };
+            };
+        };
+    };
+    list_alerts_api_admin_alerts_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                severity?: string | null;
+                category?: string | null;
+                rule_key?: string | null;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    alert_summary_api_admin_alerts_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSummary"];
+                };
+            };
+        };
+    };
+    recent_events_api_admin_alerts_events_recent_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_alert_api_admin_alerts__alert_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_alert_api_admin_alerts__alert_id__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_alert_api_admin_alerts__alert_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rules_api_admin_alert_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"][];
+                };
+            };
+        };
+    };
+    patch_rule_enabled_api_admin_alert_rules__rule_key__enabled_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_rule_threshold_api_admin_alert_rules__rule_key__threshold_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleThresholdRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"];
                 };
             };
             /** @description Validation Error */

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from core.config import CRO_CHANNEL_ENABLED, DB_CONFIG, PUBLIC_URL, SERVER_PORT, log
 from core.db import get_db
 from flows import doctor
-from jobs import admin_alert_evaluator, email_poller
+from jobs import admin_alert_evaluator, email_poller, webhook_queue_worker
 
 
 def _startup_reset() -> None:
@@ -47,11 +47,15 @@ async def lifespan(app):
     evaluator_task = asyncio.create_task(
         admin_alert_evaluator.start_evaluator(interval_seconds=60)
     )
+    webhook_worker_task = asyncio.create_task(
+        webhook_queue_worker.start_worker(interval_seconds=30)
+    )
     try:
         yield
     finally:
         poller_task.cancel()
         evaluator_task.cancel()
+        webhook_worker_task.cancel()
         # Drain reused httpx client to close keep-alive connections cleanly.
         from api.line_webhook import close_n8n_client
         await close_n8n_client()

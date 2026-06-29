@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from flows import cro
 from integrations import line_client
+from repositories import webhook_queue_repo
 from core.config import N8N_INTERNAL_BASE_URL, log
 
 router = APIRouter()
@@ -57,7 +58,18 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
             continue
         if not event.get("source", {}).get("userId"):
             continue
-        background_tasks.add_task(_handle_event_async, event)
+        # Persist BEFORE acking LINE so a crash here doesn't drop the
+        # message. If DB insert fails (dup or DB down) fall back to in-process
+        # only — better one missed retry than complete silence.
+        queue_id = webhook_queue_repo.enqueue(
+            channel="main",
+            webhook_event_id=event.get("webhookEventId"),
+            event=event,
+        )
+        if queue_id is not None:
+            background_tasks.add_task(_process_queued_event, queue_id)
+        else:
+            background_tasks.add_task(_handle_event_async, event)
         queued += 1
     t3 = time.perf_counter()
 
@@ -92,6 +104,35 @@ async def _handle_event_async(event: dict) -> None:
             await asyncio.to_thread(cro.handle_public_inquiry, reply_token, user_id, text)
     except Exception:
         log.exception("LINE event handler crashed (id=%s)", event.get("webhookEventId"))
+
+
+async def _process_queued_event(queue_id: int) -> None:
+    """Claim row by id, run handler, mark done/failed. Idempotent — if a
+    competing worker has already claimed it, this returns without doing
+    anything. Marks row 'failed' (or back to 'pending' if retryable) on
+    handler exception so the retry loop can attempt again."""
+    row = webhook_queue_repo.claim(queue_id)
+    if row is None:
+        return
+    event = row.get("event_json") or {}
+    try:
+        await _handle_event_async_inner(event)
+        webhook_queue_repo.mark_done(queue_id)
+    except Exception as exc:
+        log.exception("queued LINE event handler crashed id=%s", queue_id)
+        webhook_queue_repo.mark_failed(queue_id, f"{type(exc).__name__}: {exc}")
+
+
+async def _handle_event_async_inner(event: dict) -> None:
+    """Same body as _handle_event_async but re-raises on error so the
+    queue wrapper can mark the row for retry."""
+    if await _try_handle_public_with_n8n(event):
+        return
+    reply_token = event.get("replyToken", "")
+    user_id = event.get("source", {}).get("userId", "")
+    text = event.get("message", {}).get("text", "")
+    if user_id:
+        await asyncio.to_thread(cro.handle_public_inquiry, reply_token, user_id, text)
 
 
 async def _try_handle_public_with_n8n(event: dict) -> bool:

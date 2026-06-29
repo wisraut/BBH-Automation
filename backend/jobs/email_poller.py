@@ -286,12 +286,45 @@ def check_inbox(db_config: dict, on_new_report) -> None:
         log.exception("IMAP connection failed")
 
 
+_LEADER_LOCK_NAME = "bbh_email_poller"
+
+
+def _check_inbox_with_leader_lock(db_config: dict, on_new_report) -> None:
+    """Acquire MySQL GET_LOCK before polling Gmail. If another bridge
+    instance already holds the lock, skip this cycle silently. Lock is
+    session-scoped so we keep the pymysql connection open for the duration
+    of check_inbox; closing it releases the lock automatically."""
+    import pymysql
+
+    from core.config import BOT_OPS_DB_CONFIG
+
+    conn = None
+    try:
+        conn = pymysql.connect(**BOT_OPS_DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+        with conn.cursor() as cur:
+            cur.execute("SELECT GET_LOCK(%s, 0) AS got", (_LEADER_LOCK_NAME,))
+            row = cur.fetchone()
+        if not row or row.get("got") != 1:
+            log.debug("Email poller: another instance holds the leader lock — skipping cycle")
+            return
+        # We are leader for this cycle; do the actual poll.
+        check_inbox(db_config, on_new_report)
+    finally:
+        if conn is not None:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT RELEASE_LOCK(%s)", (_LEADER_LOCK_NAME,))
+            except Exception:
+                pass
+            conn.close()
+
+
 async def start_poller(db_config: dict, on_new_report) -> None:
     """Background loop — รัน check_inbox ทุก POLL_INTERVAL วินาที"""
     log.info("Email poller เริ่มทำงาน (interval: %d วินาที, inbox: %s)", POLL_INTERVAL, GMAIL_EMAIL)
     while True:
         try:
-            await asyncio.to_thread(check_inbox, db_config, on_new_report)
+            await asyncio.to_thread(_check_inbox_with_leader_lock, db_config, on_new_report)
         except Exception:
             log.exception("Email poller loop error")
         await asyncio.sleep(POLL_INTERVAL)

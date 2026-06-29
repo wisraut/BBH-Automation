@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import HTTPException
 
 import integrations.dify_client as dify
+from services.pii_redactor import redact_text
 import integrations.calendar_client as cal
 from core.config import DIFY_STAFF_API_KEY
 from core.mysql import mysql_db
@@ -89,19 +90,31 @@ def chat_stream(
 
 
 def _compose_message(*, message: str, patient_id: int | None) -> str:
-    """Assemble context blocks + user question into a single prompt string."""
+    """Assemble context blocks + user question into a single prompt string.
+
+    Output is PDPA-scrubbed: PII patterns + the pinned patient's name are
+    masked before the prompt leaves the bridge for Dify/OpenRouter/Gemini.
+    """
     parts: list[str] = []
 
-    patient_ctx = _build_patient_context(patient_id) if patient_id is not None else ""
-    if patient_ctx:
-        parts.append(patient_ctx)
+    known_names: list[str] = []
+    if patient_id is not None:
+        patient_ctx = _build_patient_context(patient_id)
+        if patient_ctx:
+            parts.append(patient_ctx)
+            pat = patient_repo.get_by_id(patient_id)
+            if pat:
+                name = pat.get("display_name") or pat.get("name")
+                if name:
+                    known_names.append(name)
 
     schedule_ctx = _build_schedule_context()
     if schedule_ctx:
         parts.append(schedule_ctx)
 
     parts.append(f"=== คำถาม ===\n{message}")
-    return "\n\n".join(parts)
+    composed = "\n\n".join(parts)
+    return redact_text(composed, known_names=known_names)
 
 
 _SCHEDULE_WINDOW_DAYS = 7  # past N days + next N days = 2N+1 days centered on today

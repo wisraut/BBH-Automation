@@ -60,6 +60,8 @@ def list_recent(
         )
         args.append(decision)
 
+    # Hide soft-deleted from workspace lists
+    conditions.append("r.deleted_at IS NULL")
     where_sql = "WHERE " + " AND ".join(conditions) if conditions else ""
     offset = (page - 1) * limit
 
@@ -109,7 +111,7 @@ def list_by_patient(patient_id: int) -> list[dict[str, Any]]:
                     (SELECT MAX(a.created_at) FROM patient_report_analyses a
                        WHERE a.report_id = patient_reports.id) AS latest_analysis_at
                 FROM patient_reports
-                WHERE patient_id = %s
+                WHERE patient_id = %s AND deleted_at IS NULL
                 ORDER BY uploaded_at DESC
                 """,
                 (patient_id,),
@@ -184,11 +186,16 @@ def update_notebooklm_url(report_id: int, url: str | None) -> int:
     return rows
 
 
-def delete(report_id: int) -> int:
-    """Delete a report row. patient_report_analyses cascade via FK."""
+def soft_delete(report_id: int, *, deleted_by: int | None) -> int:
+    """Mark a report deleted. Row + file on disk are retained for compliance —
+    only hidden from default queries via deleted_at IS NULL filter."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
-            rows = cur.execute("DELETE FROM patient_reports WHERE id = %s", (report_id,))
+            rows = cur.execute(
+                "UPDATE patient_reports SET deleted_at = NOW(), deleted_by = %s "
+                "WHERE id = %s AND deleted_at IS NULL",
+                (deleted_by, report_id),
+            )
         conn.commit()
     return rows
 

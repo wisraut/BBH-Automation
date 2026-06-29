@@ -92,21 +92,21 @@ def get_report(report_id: int) -> dict[str, Any]:
     return row
 
 
-def delete_report(report_id: int) -> dict[str, bool]:
+def delete_report(report_id: int, *, user: dict[str, Any]) -> dict[str, bool]:
+    """Soft delete — record stays in DB and file stays on disk (HIPAA-like
+    retention). Future queries hide via deleted_at IS NULL filter. Audit
+    rows live in patient_access_audit; the deleted_by column on the report
+    is denormalized for fast lookup."""
     report = report_repo.get_by_id(report_id)
     if not report:
         raise HTTPException(
             status_code=404,
             detail={"code": "REPORT_NOT_FOUND", "message": "ไม่พบ Report นี้"},
         )
-    report_repo.delete(report_id)
-    file_path = report.get("file_path")
-    if file_path:
-        abs_path = os.path.join(REPORTS_ROOT, str(file_path))
-        try:
-            os.remove(abs_path)
-        except FileNotFoundError:
-            pass
+    rows = report_repo.soft_delete(report_id, deleted_by=int(user["id"]))
+    if rows == 0:
+        # already deleted — idempotent
+        pass
     return {"ok": True}
 
 

@@ -134,9 +134,17 @@ def get_report_file(report_id: int, request: Request, user: _StaffUser) -> FileR
 
 
 @router.delete("/api/reports/{report_id}", response_model=SimpleOkResponse)
-def delete_report(report_id: int, user: _StaffUser) -> dict:
-    """Delete a report (and its analyses, file on disk)."""
-    return report_service.delete_report(report_id)
+def delete_report(report_id: int, request: Request, user: _StaffUser) -> dict:
+    """Soft-delete a report. Row + file are retained for compliance and only
+    hidden from default queries; audit row links who/when."""
+    report = report_service.get_report(report_id)
+    result = report_service.delete_report(report_id, user=user)
+    audit_service.record_access(
+        request, user,
+        action="delete_report", subject_type="report", subject_id=report_id,
+        patient_id=report.get("patient_id"),
+    )
+    return result
 
 
 @router.put("/api/reports/{report_id}/notebooklm", response_model=ReportOut)

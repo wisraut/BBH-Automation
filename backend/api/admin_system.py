@@ -153,6 +153,15 @@ def _collect_db_stats() -> dict[str, Any]:
                     "WHERE status IN ('open','acknowledged')"
                 )
                 stats["open_alerts"] = int(cur.fetchone()["n"])
+
+                # Webhook queue health
+                cur.execute(
+                    "SELECT status, COUNT(*) AS n FROM webhook_event_queue "
+                    "WHERE created_at >= NOW() - INTERVAL 24 HOUR GROUP BY status"
+                )
+                by_status = {r["status"]: int(r["n"]) for r in cur.fetchall()}
+                stats["webhook_pending"] = by_status.get("pending", 0)
+                stats["webhook_failed_24h"] = by_status.get("failed", 0)
     except Exception as exc:
         stats["error"] = f"{type(exc).__name__}: {exc}"
     return stats

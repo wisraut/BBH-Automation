@@ -61,6 +61,8 @@ const DB_STAT_LABELS: Record<string, string> = {
   today_bookings: 'จองวันนี้',
   today_reports: 'รายงานวันนี้',
   open_alerts: 'Alert ค้าง',
+  webhook_pending: 'Webhook คิวค้าง',
+  webhook_failed_24h: 'Webhook fail 24h',
 }
 
 const ACTIVITY_KIND_LABEL: Record<string, string> = {

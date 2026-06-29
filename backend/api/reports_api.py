@@ -37,6 +37,7 @@ _ReportsWorkspaceUser = Annotated[
 
 @router.get("/api/reports")
 def list_reports_workspace(
+    request: Request,
     user: _ReportsWorkspaceUser,
     report_type: str | None = None,
     source: str | None = None,
@@ -47,7 +48,7 @@ def list_reports_workspace(
     limit: int = 30,
 ) -> dict:
     """Cross-patient reports workspace list — doctor/nurse/lab_staff/admin."""
-    return report_service.list_reports_workspace(
+    result = report_service.list_reports_workspace(
         user=user,
         report_type=report_type,
         source=source,
@@ -57,12 +58,28 @@ def list_reports_workspace(
         page=page,
         limit=limit,
     )
+    audit_service.record_access(
+        request, user,
+        action="list_reports_workspace", subject_type="report", subject_id="*",
+        extra={"filters": {"report_type": report_type, "source": source,
+                          "decision": decision, "search": search,
+                          "mine_only": mine_only},
+               "result_count": len(result.get("data", []))},
+    )
+    return result
 
 
 @router.get("/api/patients/{patient_id}/reports", response_model=ReportListResponse)
-def list_patient_reports(patient_id: int, user: _StaffUser) -> dict:
+def list_patient_reports(patient_id: int, request: Request, user: _StaffUser) -> dict:
     """List reports for one patient."""
-    return report_service.list_reports(patient_id)
+    result = report_service.list_reports(patient_id)
+    audit_service.record_access(
+        request, user,
+        action="list_reports", subject_type="patient", subject_id=patient_id,
+        patient_id=patient_id,
+        extra={"result_count": len(result.get("data", []))},
+    )
+    return result
 
 
 @router.post("/api/patients/{patient_id}/reports", response_model=ReportUploadResponse)
@@ -134,9 +151,10 @@ def get_report_file(report_id: int, request: Request, user: _StaffUser) -> FileR
 
 
 @router.delete("/api/reports/{report_id}", response_model=SimpleOkResponse)
-def delete_report(report_id: int, request: Request, user: _StaffUser) -> dict:
-    """Soft-delete a report. Row + file are retained for compliance and only
-    hidden from default queries; audit row links who/when."""
+def delete_report(report_id: int, request: Request, user: _DoctorOrAdmin) -> dict:
+    """Soft-delete a report. Restricted to doctor/admin — CRO cannot delete
+    medical records (hospital policy). Row + file are retained for the
+    legal retention window; audit row links who/when."""
     report = report_service.get_report(report_id)
     result = report_service.delete_report(report_id, user=user)
     audit_service.record_access(
@@ -163,18 +181,32 @@ def list_report_analyses(report_id: int, user: _StaffUser) -> dict:
 
 
 @router.post("/api/reports/{report_id}/analyze", response_model=AnalyzeResponse)
-def analyze_report(report_id: int, user: _DoctorOrAdmin) -> dict:
-    """Run Dify analysis for a report."""
-    return report_service.analyze_report(report_id=report_id, user=user)
+def analyze_report(report_id: int, request: Request, user: _DoctorOrAdmin) -> dict:
+    """Run Dify analysis for a report. Patient data crosses out to external
+    LLM here (PII-redacted in ai_service) — audit is mandatory."""
+    report = report_service.get_report(report_id)
+    result = report_service.analyze_report(report_id=report_id, user=user)
+    audit_service.record_access(
+        request, user,
+        action="analyze_report", subject_type="report", subject_id=report_id,
+        patient_id=report.get("patient_id"),
+    )
+    return result
 
 
 @router.post("/api/reports/analyses/{analysis_id}/decide", response_model=SimpleOkResponse)
 def decide_report_triage(
-    analysis_id: int, body: TriageDecideRequest, user: _DoctorOrAdmin
+    analysis_id: int, body: TriageDecideRequest, request: Request, user: _DoctorOrAdmin
 ) -> dict:
     """Confirm the final triage decision for one analysis."""
-    return report_service.decide_triage(
+    result = report_service.decide_triage(
         analysis_id=analysis_id,
         decision=body.decision,
         user=user,
     )
+    audit_service.record_access(
+        request, user,
+        action="decide_triage", subject_type="analysis", subject_id=analysis_id,
+        extra={"decision": body.decision},
+    )
+    return result

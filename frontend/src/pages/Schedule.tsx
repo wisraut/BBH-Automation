@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  Brain,
   Calendar as CalendarIcon,
   CheckCircle2,
   ClipboardList,
@@ -9,11 +10,12 @@ import {
   Loader2,
   Phone,
   RefreshCw,
+  Sparkles,
   Stethoscope,
   Clock,
 } from 'lucide-react'
-
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
+import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -49,6 +51,15 @@ function StatCard({ label, value, icon: Icon, tone = 'green' }: {
 
 function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
   const isToday = apt.requested_date === todayIso()
+  const [briefOpen, setBriefOpen] = useState(false)
+  const briefM = usePatientAiSummary()
+  const canBrief = apt.patient_id !== null
+
+  const loadBrief = () => {
+    if (!apt.patient_id) return
+    setBriefOpen(true)
+    if (!briefM.data && !briefM.isPending) briefM.mutate(apt.patient_id)
+  }
   return (
     <div className={`rounded-2xl border bg-white p-4 shadow-sm ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
       <div className="flex items-start justify-between gap-3">
@@ -89,6 +100,16 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
               <CalendarIcon size={13} /> Calendar
             </a>
           ) : null}
+          {canBrief ? (
+            <button
+              type="button"
+              onClick={loadBrief}
+              className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
+              title="สรุปก่อนตรวจ"
+            >
+              <Brain size={13} /> AI brief
+            </button>
+          ) : null}
           {apt.patient_id ? (
             <Link
               to={`/patients?patient=${apt.patient_id}`}
@@ -99,6 +120,23 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
           ) : null}
         </div>
       </div>
+      {briefOpen ? (
+        <div className="mt-3 rounded-xl border border-bbh-green/30 bg-bbh-green-soft/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-bbh-green-dark">
+              <Sparkles size={12} /> สรุปก่อนตรวจ (AI)
+            </p>
+            <button type="button" onClick={() => setBriefOpen(false)} className="text-xs text-bbh-muted hover:text-bbh-ink">ซ่อน</button>
+          </div>
+          {briefM.isPending ? (
+            <p className="inline-flex items-center gap-2 text-sm text-bbh-muted"><Loader2 size={14} className="animate-spin" /> กำลังสรุป...</p>
+          ) : briefM.error ? (
+            <p className="text-sm text-red-700">โหลด AI brief ไม่สำเร็จ</p>
+          ) : briefM.data ? (
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-bbh-ink">{briefM.data.summary}</pre>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

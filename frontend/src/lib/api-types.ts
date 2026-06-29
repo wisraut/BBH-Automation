@@ -496,6 +496,27 @@ export interface paths {
         patch: operations["update_patient_api_patients__patient_id__patch"];
         trace?: never;
     };
+    "/api/patients/{patient_id}/ai-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Patient Ai Summary
+         * @description Generate a short pre-visit Thai brief by passing the medical bundle
+         *     (PII-redacted) to the staff Dify app. Cached client-side per session.
+         */
+        get: operations["patient_ai_summary_api_patients__patient_id__ai_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calendar/events": {
         parameters: {
             query?: never;
@@ -3204,6 +3225,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patient_ai_summary_api_patients__patient_id__ai_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

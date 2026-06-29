@@ -10,7 +10,7 @@ from schemas.patients import (
     PatientOut,
     PatientUpdateRequest,
 )
-from services import audit_service, patient_service
+from services import audit_service, patient_service, patient_summary_service
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
 
@@ -62,6 +62,19 @@ def update_patient(
 ) -> dict:
     """Update patient profile fields. Only fields present in payload are changed."""
     return patient_service.update_patient(patient_id=patient_id, body=body, user=user)
+
+
+@router.get("/{patient_id}/ai-summary")
+def patient_ai_summary(patient_id: int, request: Request, user: _DoctorOrAdmin) -> dict:
+    """Generate a short pre-visit Thai brief by passing the medical bundle
+    (PII-redacted) to the staff Dify app. Cached client-side per session."""
+    result = patient_summary_service.generate_summary(patient_id, user=user)
+    audit_service.record_access(
+        request, user,
+        action="ai_pre_visit_summary", subject_type="patient", subject_id=patient_id,
+        patient_id=patient_id,
+    )
+    return result
 
 
 @router.delete("/{patient_id}")

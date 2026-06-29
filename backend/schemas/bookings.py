@@ -40,6 +40,8 @@ class BookingOut(BookingListItem):
     approved_by: str | None = None
     approved_at: datetime | None = None
     updated_at: datetime
+    reminder_24h_sent_at: datetime | None = None
+    reminder_1h_sent_at: datetime | None = None
 
 
 class PaginationMeta(BaseModel):

@@ -1591,6 +1591,10 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Reminder 24H Sent At */
+            reminder_24h_sent_at?: string | null;
+            /** Reminder 1H Sent At */
+            reminder_1h_sent_at?: string | null;
         };
         /** CalendarEventOut */
         CalendarEventOut: {

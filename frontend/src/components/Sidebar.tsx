@@ -2,6 +2,8 @@ import { Link, NavLink } from 'react-router-dom'
 import {
   Activity,
   ArrowLeft,
+  BellRing,
+  History,
   CalendarClock,
   CalendarDays,
   ClipboardList,
@@ -48,6 +50,8 @@ const NAV: NavItem[] = [
   { to: '/reports', label: 'รายงาน', icon: FileText, roles: ['doctor', 'nurse', 'lab_staff'] },
   { to: '/ai', label: 'AI Assistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
   { to: '/users', label: 'ผู้ใช้', icon: UserCog, roles: ['admin'] },
+  { to: '/alert-rules', label: 'Alert Rules', icon: BellRing, roles: ['admin'] },
+  { to: '/audit', label: 'Audit Log', icon: History, roles: ['admin'] },
   { to: '/system-health', label: 'สถานะระบบ', icon: Activity, roles: ['admin'] },
   { to: '/account', label: 'บัญชี', icon: UserCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
 ]

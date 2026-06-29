@@ -510,6 +510,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reports Workspace
+         * @description Cross-patient reports workspace list — doctor/nurse/lab_staff/admin.
+         */
+        get: operations["list_reports_workspace_api_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/patients/{patient_id}/reports": {
         parameters: {
             query?: never;
@@ -673,6 +693,58 @@ export interface paths {
         get: operations["list_doctors_api_doctors_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin List Users */
+        get: operations["admin_list_users_api_users_get"];
+        put?: never;
+        /** Admin Create User */
+        post: operations["admin_create_user_api_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Admin Update User */
+        patch: operations["admin_update_user_api_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Reset Password */
+        post: operations["admin_reset_password_api_users__user_id__reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -856,6 +928,27 @@ export interface paths {
          * @description Snapshot of every dependency. Frontend polls every ~5 seconds.
          */
         get: operations["system_health_api_admin_system_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schedule/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Schedule
+         * @description Return today's + windowed appointments and pending reports for the
+         *     authenticated doctor/nurse. Defaults to today..+7 days when not specified.
+         */
+        get: operations["my_schedule_api_schedule_me_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1333,7 +1426,7 @@ export interface components {
         LoginResponse: {
             /** Token */
             token: string;
-            user: components["schemas"]["UserOut"];
+            user: components["schemas"]["schemas__auth__UserOut"];
             /**
              * Expires At
              * Format: date-time
@@ -1342,7 +1435,7 @@ export interface components {
         };
         /** MeResponse */
         MeResponse: {
-            user: components["schemas"]["UserOut"];
+            user: components["schemas"]["schemas__auth__UserOut"];
         };
         /** NotebookLmUpdateRequest */
         NotebookLmUpdateRequest: {
@@ -1359,6 +1452,11 @@ export interface components {
             total: number;
             /** Total Pages */
             total_pages: number;
+        };
+        /** PasswordResetRequest */
+        PasswordResetRequest: {
+            /** New Password */
+            new_password: string;
         };
         /** PatientCreateRequest */
         PatientCreateRequest: {
@@ -1686,8 +1784,53 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** UserCreateRequest */
+        UserCreateRequest: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "doctor" | "cro" | "nurse" | "lab_staff";
+            /** Specialty */
+            specialty?: string | null;
+        };
+        /** UserListResponse */
+        UserListResponse: {
+            /** Data */
+            data: components["schemas"]["schemas__users__UserOut"][];
+            /** Pagination */
+            pagination: {
+                [key: string]: number;
+            };
+        };
+        /** UserUpdateRequest */
+        UserUpdateRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Role */
+            role?: ("admin" | "doctor" | "cro" | "nurse" | "lab_staff") | null;
+            /** Specialty */
+            specialty?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
         /** UserOut */
-        UserOut: {
+        schemas__auth__UserOut: {
             /** Id */
             id: number;
             /** Email */
@@ -1706,14 +1849,37 @@ export interface components {
             /** Last Login At */
             last_login_at?: string | null;
         };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
+        /** UserOut */
+        schemas__users__UserOut: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "doctor" | "cro" | "nurse" | "lab_staff";
+            /** Specialty */
+            specialty?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Last Login At */
+            last_login_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
     };
     responses: never;
@@ -2658,6 +2824,45 @@ export interface operations {
             };
         };
     };
+    list_reports_workspace_api_reports_get: {
+        parameters: {
+            query?: {
+                report_type?: string | null;
+                source?: string | null;
+                decision?: string | null;
+                search?: string | null;
+                mine_only?: boolean;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_patient_reports_api_patients__patient_id__reports_get: {
         parameters: {
             query?: never;
@@ -2969,6 +3174,142 @@ export interface operations {
             };
         };
     };
+    admin_list_users_api_users_get: {
+        parameters: {
+            query?: {
+                role?: string | null;
+                is_active?: boolean | null;
+                search?: string | null;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_user_api_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["schemas__users__UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_update_user_api_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["schemas__users__UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_reset_password_api_users__user_id__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_alerts_api_admin_alerts_get: {
         parameters: {
             query?: {
@@ -3263,6 +3604,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    my_schedule_api_schedule_me_get: {
+        parameters: {
+            query?: {
+                date_from?: string;
+                date_to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

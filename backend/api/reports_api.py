@@ -2,7 +2,7 @@
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ from schemas.reports import (
     ReportUploadResponse,
     TriageDecideRequest,
 )
-from services import report_service
+from services import audit_service, report_service
 
 router = APIRouter(tags=["reports"])
 
@@ -30,6 +30,33 @@ class ReportListResponse(BaseModel):
 
 _StaffUser = Annotated[dict, Depends(require_user(["cro", "doctor", "admin"]))]
 _DoctorOrAdmin = Annotated[dict, Depends(require_user(["doctor", "admin"]))]
+_ReportsWorkspaceUser = Annotated[
+    dict, Depends(require_user(["doctor", "nurse", "lab_staff", "admin"]))
+]
+
+
+@router.get("/api/reports")
+def list_reports_workspace(
+    user: _ReportsWorkspaceUser,
+    report_type: str | None = None,
+    source: str | None = None,
+    decision: str | None = None,
+    search: str | None = None,
+    mine_only: bool = False,
+    page: int = 1,
+    limit: int = 30,
+) -> dict:
+    """Cross-patient reports workspace list — doctor/nurse/lab_staff/admin."""
+    return report_service.list_reports_workspace(
+        user=user,
+        report_type=report_type,
+        source=source,
+        decision=decision,
+        search=search,
+        mine_only=mine_only,
+        page=page,
+        limit=limit,
+    )
 
 
 @router.get("/api/patients/{patient_id}/reports", response_model=ReportListResponse)
@@ -63,13 +90,19 @@ async def upload_patient_report(
 
 
 @router.get("/api/reports/{report_id}", response_model=ReportOut)
-def get_report(report_id: int, user: _StaffUser) -> dict:
+def get_report(report_id: int, request: Request, user: _StaffUser) -> dict:
     """Get report metadata and extracted text."""
-    return report_service.get_report(report_id)
+    row = report_service.get_report(report_id)
+    audit_service.record_access(
+        request, user,
+        action="view_report", subject_type="report", subject_id=report_id,
+        patient_id=row.get("patient_id"),
+    )
+    return row
 
 
 @router.get("/api/reports/{report_id}/file")
-def get_report_file(report_id: int, user: _StaffUser) -> FileResponse:
+def get_report_file(report_id: int, request: Request, user: _StaffUser) -> FileResponse:
     """Download or preview the stored report file."""
     report = report_service.get_report(report_id)
     file_path = report.get("file_path")
@@ -87,6 +120,12 @@ def get_report_file(report_id: int, user: _StaffUser) -> FileResponse:
             detail={"code": "REPORT_FILE_NOT_FOUND", "message": "Report file not found"},
         )
 
+    audit_service.record_access(
+        request, user,
+        action="download_report", subject_type="report", subject_id=report_id,
+        patient_id=report.get("patient_id"),
+        extra={"file_size": report.get("file_size"), "mime": report.get("file_mime")},
+    )
     return FileResponse(
         abs_path,
         media_type=report.get("file_mime") or "application/octet-stream",

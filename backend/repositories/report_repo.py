@@ -17,6 +17,88 @@ _REPORT_DETAIL_COLUMNS = (
 )
 
 
+def list_recent(
+    *,
+    assigned_doctor_id: int | None = None,
+    report_type: str | None = None,
+    source: str | None = None,
+    decision: str | None = None,
+    search: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> tuple[list[dict[str, Any]], int]:
+    """Cross-patient report list with filters for the /reports workspace.
+
+    decision filter values:
+      - 'no_analysis' = report has no analyses row
+      - 'pending' / 'review' / 'accept' / 'reject' = latest analysis triage_decision
+    """
+    conditions: list[str] = []
+    args: list[Any] = []
+
+    if assigned_doctor_id is not None:
+        conditions.append("r.assigned_doctor_id = %s")
+        args.append(assigned_doctor_id)
+    if report_type:
+        conditions.append("r.report_type = %s")
+        args.append(report_type)
+    if source:
+        conditions.append("r.source = %s")
+        args.append(source)
+    if search:
+        conditions.append("(r.title LIKE %s OR p.display_name LIKE %s OR p.hn LIKE %s)")
+        s = f"%{search}%"
+        args.extend([s, s, s])
+    if decision == "no_analysis":
+        conditions.append(
+            "NOT EXISTS (SELECT 1 FROM patient_report_analyses a WHERE a.report_id = r.id)"
+        )
+    elif decision in ("pending", "review", "accept", "reject"):
+        conditions.append(
+            "(SELECT a.triage_decision FROM patient_report_analyses a "
+            "WHERE a.report_id = r.id ORDER BY a.created_at DESC LIMIT 1) = %s"
+        )
+        args.append(decision)
+
+    where_sql = "WHERE " + " AND ".join(conditions) if conditions else ""
+    offset = (page - 1) * limit
+
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS n
+                FROM patient_reports r
+                JOIN patients p ON p.id = r.patient_id
+                {where_sql}
+                """,
+                tuple(args),
+            )
+            total = int(cur.fetchone()["n"])
+
+            cur.execute(
+                f"""
+                SELECT r.id AS report_id, r.patient_id, r.title, r.report_type,
+                       r.source, r.uploaded_at, r.notes,
+                       r.assigned_doctor_id, r.file_path IS NOT NULL AS has_file,
+                       p.display_name AS patient_name, p.hn,
+                       (SELECT a.triage_decision FROM patient_report_analyses a
+                          WHERE a.report_id = r.id ORDER BY a.created_at DESC LIMIT 1) AS latest_decision,
+                       (SELECT a.created_at FROM patient_report_analyses a
+                          WHERE a.report_id = r.id ORDER BY a.created_at DESC LIMIT 1) AS analysis_at,
+                       u.display_name AS assigned_doctor_name
+                FROM patient_reports r
+                JOIN patients p ON p.id = r.patient_id
+                LEFT JOIN users u ON u.id = r.assigned_doctor_id
+                {where_sql}
+                ORDER BY r.uploaded_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (*args, limit, offset),
+            )
+            return cur.fetchall(), total
+
+
 def list_by_patient(patient_id: int) -> list[dict[str, Any]]:
     with mysql_db() as conn:
         with conn.cursor() as cur:

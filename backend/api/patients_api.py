@@ -1,7 +1,7 @@
 """JWT-protected patient endpoints for Web Dashboard."""
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from core.security import require_user
 from schemas.patients import (
@@ -10,7 +10,7 @@ from schemas.patients import (
     PatientOut,
     PatientUpdateRequest,
 )
-from services import patient_service
+from services import audit_service, patient_service
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
 
@@ -20,19 +20,33 @@ _CroOrAdmin = Annotated[dict, Depends(require_user(["cro", "admin"]))]
 
 @router.get("", response_model=PatientListResponse)
 def list_patients(
+    request: Request,
     user: _StaffUser,
     search: str | None = Query(default=None, max_length=120),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict:
     """List patients with optional search (name/HN/phone) + pagination."""
-    return patient_service.list_patients(search=search, page=page, limit=limit)
+    result = patient_service.list_patients(search=search, page=page, limit=limit)
+    audit_service.record_access(
+        request, user,
+        action="list_patients", subject_type="patient", subject_id="*",
+        extra={"search": search, "page": page, "limit": limit,
+               "result_count": len(result.get("data", []))},
+    )
+    return result
 
 
 @router.get("/{patient_id}", response_model=PatientOut)
-def get_patient(patient_id: int, user: _StaffUser) -> dict:
+def get_patient(patient_id: int, request: Request, user: _StaffUser) -> dict:
     """Get a single patient by id."""
-    return patient_service.get_patient(patient_id)
+    row = patient_service.get_patient(patient_id)
+    audit_service.record_access(
+        request, user,
+        action="view_patient", subject_type="patient", subject_id=patient_id,
+        patient_id=patient_id,
+    )
+    return row
 
 
 @router.post("", response_model=PatientOut)

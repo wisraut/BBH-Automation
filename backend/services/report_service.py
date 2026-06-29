@@ -37,6 +37,51 @@ def list_reports(patient_id: int) -> dict[str, list[dict[str, Any]]]:
     return {"data": rows}
 
 
+def list_reports_workspace(
+    *,
+    user: dict[str, Any],
+    report_type: str | None,
+    source: str | None,
+    decision: str | None,
+    search: str | None,
+    mine_only: bool,
+    page: int,
+    limit: int,
+) -> dict[str, Any]:
+    """Workspace report list for /reports page.
+
+    mine_only=True restricts to reports assigned_doctor_id = user.id.
+    For role=doctor or nurse this is the natural default in UI.
+    Admin sees all by default; opt-in via mine_only.
+    """
+    page = max(1, page)
+    limit = max(1, min(100, limit))
+
+    assigned_doctor_id: int | None = None
+    if mine_only:
+        assigned_doctor_id = int(user["id"])
+
+    rows, total = report_repo.list_recent(
+        assigned_doctor_id=assigned_doctor_id,
+        report_type=report_type,
+        source=source,
+        decision=decision,
+        search=search,
+        page=page,
+        limit=limit,
+    )
+    pages = (total + limit - 1) // limit if limit else 1
+    return {
+        "data": rows,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "total_pages": pages,
+        },
+    }
+
+
 def get_report(report_id: int) -> dict[str, Any]:
     row = report_repo.get_by_id(report_id)
     if not row:

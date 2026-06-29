@@ -65,6 +65,54 @@ def _truncate(text: str) -> str:
     return text[:4997] + "…" if len(text) > 5000 else text
 
 
+def _channel_label(ch: "LineChannel") -> str:
+    """Map LineChannel.name to the line_push_log.channel ENUM ('main','cro')."""
+    return "main" if ch.name == "primary" else ch.name
+
+
+def _log_push(
+    ch: "LineChannel",
+    user_id: str,
+    message_type: str,
+    payload_preview: str,
+    resp: httpx.Response | None,
+    exc: Exception | None,
+    triggered_by: str | None,
+    reference_id: str | None,
+) -> None:
+    """Best-effort write to line_push_log. Never raises."""
+    try:
+        from repositories.line_push_repo import log_push, _truncate_preview
+        if exc is not None:
+            log_push(
+                channel=_channel_label(ch),
+                to_user_id=user_id,
+                message_type=message_type,
+                payload_preview=_truncate_preview(payload_preview),
+                status="failed",
+                error_code=type(exc).__name__,
+                error_message=str(exc)[:500],
+                triggered_by=triggered_by,
+                reference_id=reference_id,
+            )
+            return
+        ok = resp is not None and resp.status_code == 200
+        log_push(
+            channel=_channel_label(ch),
+            to_user_id=user_id,
+            message_type=message_type,
+            payload_preview=_truncate_preview(payload_preview),
+            status="success" if ok else "failed",
+            http_status=(resp.status_code if resp is not None else None),
+            error_message=(None if ok else (resp.text[:500] if resp is not None else None)),
+            triggered_by=triggered_by,
+            reference_id=reference_id,
+        )
+    except Exception:
+        # never let logging break LINE flow
+        pass
+
+
 def reply(reply_token: str, text: str, ch: LineChannel = PRIMARY) -> None:
     """ตอบกลับด้วย reply token (อายุ 60 วิ, ใช้ครั้งเดียว)"""
     resp = httpx.post(
@@ -77,41 +125,67 @@ def reply(reply_token: str, text: str, ch: LineChannel = PRIMARY) -> None:
         log.error("LINE[%s] reply failed %s: %s", ch.name, resp.status_code, resp.text)
 
 
-def push(user_id: str, text: str, ch: LineChannel = PRIMARY) -> None:
+def push(
+    user_id: str,
+    text: str,
+    ch: LineChannel = PRIMARY,
+    *,
+    triggered_by: str | None = None,
+    reference_id: str | None = None,
+) -> None:
     """ส่ง push ไป user โดยตรง"""
-    resp = httpx.post(
-        "https://api.line.me/v2/bot/message/push",
-        headers={"Authorization": f"Bearer {_get_token(ch)}", "Content-Type": "application/json"},
-        json={"to": user_id, "messages": [{"type": "text", "text": _truncate(text)}]},
-        timeout=10,
-    )
+    try:
+        resp = httpx.post(
+            "https://api.line.me/v2/bot/message/push",
+            headers={"Authorization": f"Bearer {_get_token(ch)}", "Content-Type": "application/json"},
+            json={"to": user_id, "messages": [{"type": "text", "text": _truncate(text)}]},
+            timeout=10,
+        )
+    except Exception as exc:
+        log.error("LINE[%s] push exception: %s", ch.name, exc)
+        _log_push(ch, user_id, "text", text, None, exc, triggered_by, reference_id)
+        raise
     if resp.status_code != 200:
         log.error("LINE[%s] push failed %s: %s", ch.name, resp.status_code, resp.text)
+    _log_push(ch, user_id, "text", text, resp, None, triggered_by, reference_id)
 
 
-def push_with_quick_reply(user_id: str, text: str, report_id: str, ch: LineChannel = PRIMARY) -> None:
+def push_with_quick_reply(
+    user_id: str,
+    text: str,
+    report_id: str,
+    ch: LineChannel = PRIMARY,
+    *,
+    triggered_by: str | None = None,
+) -> None:
     """แจ้งเตือนพร้อมปุ่ม [🔍 วิเคราะห์]"""
-    resp = httpx.post(
-        "https://api.line.me/v2/bot/message/push",
-        headers={"Authorization": f"Bearer {_get_token(ch)}", "Content-Type": "application/json"},
-        json={
-            "to": user_id,
-            "messages": [{
-                "type": "text",
-                "text": _truncate(text),
-                "quickReply": {
-                    "items": [{
-                        "type": "action",
-                        "action": {
-                            "type":  "message",
-                            "label": "🔍 วิเคราะห์",
-                            "text":  f"วิเคราะห์ {report_id}",
-                        },
-                    }],
-                },
-            }],
-        },
-        timeout=10,
-    )
+    try:
+        resp = httpx.post(
+            "https://api.line.me/v2/bot/message/push",
+            headers={"Authorization": f"Bearer {_get_token(ch)}", "Content-Type": "application/json"},
+            json={
+                "to": user_id,
+                "messages": [{
+                    "type": "text",
+                    "text": _truncate(text),
+                    "quickReply": {
+                        "items": [{
+                            "type": "action",
+                            "action": {
+                                "type":  "message",
+                                "label": "🔍 วิเคราะห์",
+                                "text":  f"วิเคราะห์ {report_id}",
+                            },
+                        }],
+                    },
+                }],
+            },
+            timeout=10,
+        )
+    except Exception as exc:
+        log.error("LINE[%s] push (quick) exception: %s", ch.name, exc)
+        _log_push(ch, user_id, "quick_reply", text, None, exc, triggered_by, report_id)
+        raise
     if resp.status_code != 200:
         log.error("LINE[%s] push (quick) failed %s: %s", ch.name, resp.status_code, resp.text)
+    _log_push(ch, user_id, "quick_reply", text, resp, None, triggered_by, report_id)

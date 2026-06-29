@@ -13,11 +13,16 @@ import type { Role } from './lib/auth'
 import { queryClient } from './lib/queryClient'
 import { Account } from './pages/Account'
 import { AdminDashboard } from './pages/AdminDashboard'
+import { AlertRules } from './pages/AlertRules'
+import { AuditLog } from './pages/AuditLog'
 import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
 import { Patients } from './pages/Patients'
+import { Reports } from './pages/Reports'
+import { Schedule } from './pages/Schedule'
 import { SystemHealth } from './pages/SystemHealth'
+import { Users } from './pages/Users'
 import { Login } from './routes/Login'
 
 const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
@@ -41,18 +46,9 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/ai': { title: 'AI Assistant' },
   '/users': { title: 'ผู้ใช้ระบบ' },
   '/system-health': { title: 'สถานะระบบ' },
+  '/alert-rules': { title: 'Alert Rules', subtitle: 'ตั้งกฎเตือนที่ evaluator ใช้สร้าง alert' },
+  '/audit': { title: 'Audit Log', subtitle: 'การเข้าถึงข้อมูลคนไข้ (HIPAA-like)' },
   '/account': { title: 'บัญชี' },
-}
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="rounded-2xl border border-dashed border-bbh-line bg-white p-12 text-center">
-        <p className="font-serif text-2xl text-bbh-ink">{title}</p>
-        <p className="mt-2 text-sm text-bbh-muted">กำลังพัฒนา — Phase ถัดไป</p>
-      </div>
-    </div>
-  )
 }
 
 function NotFound() {
@@ -91,7 +87,7 @@ function RoleHome() {
   return <Navigate to={user ? DEFAULT_PATH_BY_ROLE[user.role] : '/login'} replace />
 }
 
-const ADMIN_PATHS = ['/admin', '/users', '/system-health']
+const ADMIN_PATHS = ['/admin', '/users', '/system-health', '/alert-rules', '/audit']
 const ROLE_OF_PATH: Record<string, Role> = {
   '/bookings': 'cro',
   '/calendar': 'cro',
@@ -155,16 +151,18 @@ function AppRoutes() {
             <Route path="calendar" element={<Calendar />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
-            <Route path="schedule" element={<Placeholder title="ตารางงานแพทย์" />} />
+            <Route path="schedule" element={<Schedule />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse', 'lab_staff']} />}>
-            <Route path="reports" element={<Placeholder title="รายงาน" />} />
+            <Route path="reports" element={<Reports />} />
           </Route>
           <Route path="patients" element={<ProtectedRoute allow={['cro', 'doctor', 'admin', 'nurse']}><Patients /></ProtectedRoute>} />
           <Route path="ai" element={<AiAssistant />} />
           <Route element={<ProtectedRoute allow={['admin']} />}>
-            <Route path="users" element={<Placeholder title="ผู้ใช้" />} />
+            <Route path="users" element={<Users />} />
             <Route path="system-health" element={<SystemHealth />} />
+            <Route path="alert-rules" element={<AlertRules />} />
+            <Route path="audit" element={<AuditLog />} />
           </Route>
           <Route path="account" element={<Account />} />
         </Route>

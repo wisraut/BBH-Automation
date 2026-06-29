@@ -63,10 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isReady,
-      async login(email: string, password: string) {
+      async login(email: string, password: string, otpCode?: string) {
+        const body: Record<string, string> = { email, password }
+        if (otpCode) body.otp_code = otpCode
         const data = await api.post<LoginResponse>(
           '/auth/login',
-          { email, password },
+          body,
           { noAuth: true },
         )
         setToken(data.token)

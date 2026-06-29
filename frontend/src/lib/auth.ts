@@ -15,7 +15,7 @@ export type DashboardUser = {
 export type AuthContextValue = {
   user: DashboardUser | null
   isReady: boolean
-  login: (email: string, password: string) => Promise<DashboardUser>
+  login: (email: string, password: string, otpCode?: string) => Promise<DashboardUser>
   logout: () => Promise<void>
 }
 

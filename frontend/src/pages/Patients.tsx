@@ -4,6 +4,7 @@ import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, Plus, Sear
 
 import { API_BASE } from '../lib/apiBase'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
+import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
@@ -520,7 +521,8 @@ export function Patients() {
                   ) : null}
                 </section>
 
-                <section className="rounded-xl border border-bbh-line bg-white p-4">
+                <section className="rounded-xl border border-bbh-line bg-white p-4 space-y-3">
+                  <AllergyBanner patientId={selectedPatient.id} compact />
                   <AnalysisPanel
                     analyses={analyses}
                     loading={analysesQ.isLoading}
@@ -550,6 +552,7 @@ export function Patients() {
         saving={uploadReport.isPending}
         onClose={() => setUploadOpen(false)}
         onSubmit={submitReport}
+        patientId={selectedPatient?.id}
       />
     </div>
   )

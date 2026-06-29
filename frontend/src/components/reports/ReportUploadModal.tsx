@@ -2,6 +2,7 @@
 import { Upload } from 'lucide-react'
 
 import { Modal } from '../Modal'
+import { AllergyBanner } from '../patients/AllergyBanner'
 import { useDoctors } from '../../hooks/useDoctors'
 
 type ReportType = 'lab' | 'imaging' | 'history' | 'prescription' | 'referral' | 'other'
@@ -12,9 +13,10 @@ interface ReportUploadModalProps {
   saving?: boolean
   onClose: () => void
   onSubmit: (formData: FormData) => void
+  patientId?: number
 }
 
-export function ReportUploadModal({ open, saving, onClose, onSubmit }: ReportUploadModalProps) {
+export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }: ReportUploadModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [reportType, setReportType] = useState<ReportType>('lab')
@@ -51,6 +53,9 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit }: ReportUpl
   return (
     <Modal open={open} title="Upload report" onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-4">
+        {patientId !== undefined ? (
+          <AllergyBanner patientId={patientId} scanText={`${title}\n${notes}`} compact />
+        ) : null}
         <label className="block text-sm font-medium text-bbh-ink">
           ไฟล์ report
           <input

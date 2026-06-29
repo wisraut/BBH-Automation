@@ -480,7 +480,13 @@ export interface paths {
         get: operations["get_patient_api_patients__patient_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Patient
+         * @description Soft-delete a patient. Restricted to doctor/admin — CRO cannot delete
+         *     medical records. Related reports/bookings/audit rows are retained;
+         *     only the patient row is hidden from list/get queries.
+         */
+        delete: operations["delete_patient_api_patients__patient_id__delete"];
         options?: never;
         head?: never;
         /**
@@ -570,7 +576,9 @@ export interface paths {
         post?: never;
         /**
          * Delete Report
-         * @description Delete a report (and its analyses, file on disk).
+         * @description Soft-delete a report. Restricted to doctor/admin — CRO cannot delete
+         *     medical records (hospital policy). Row + file are retained for the
+         *     legal retention window; audit row links who/when.
          */
         delete: operations["delete_report_api_reports__report_id__delete"];
         options?: never;
@@ -650,7 +658,8 @@ export interface paths {
         put?: never;
         /**
          * Analyze Report
-         * @description Run Dify analysis for a report.
+         * @description Run Dify analysis for a report. Patient data crosses out to external
+         *     LLM here (PII-redacted in ai_service) — audit is mandatory.
          */
         post: operations["analyze_report_api_reports__report_id__analyze_post"];
         delete?: never;
@@ -936,6 +945,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit
+         * @description Patient record access audit log — HIPAA-like trail.
+         *
+         *     Filter combinations: any of actor_id / patient_id / action / date range.
+         *     Pagination: default 50 / max 200.
+         */
+        get: operations["list_audit_api_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/schedule/me": {
         parameters: {
             query?: never;
@@ -952,6 +984,176 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/medical-bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bundle */
+        get: operations["get_bundle_api_patients__patient_id__medical_bundle_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/conditions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Condition */
+        post: operations["add_condition_api_patients__patient_id__conditions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conditions/{condition_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Condition */
+        delete: operations["delete_condition_api_conditions__condition_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/allergies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Allergy */
+        post: operations["add_allergy_api_patients__patient_id__allergies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/allergies/{allergy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Allergy */
+        delete: operations["delete_allergy_api_allergies__allergy_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/medications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Medication */
+        post: operations["add_medication_api_patients__patient_id__medications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/medications/{med_id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Medication Active */
+        patch: operations["set_medication_active_api_medications__med_id__active_patch"];
+        trace?: never;
+    };
+    "/api/medications/{med_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Medication */
+        delete: operations["delete_medication_api_medications__med_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/treatments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Treatment */
+        post: operations["add_treatment_api_patients__patient_id__treatments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/treatments/{treatment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Treatment */
+        delete: operations["delete_treatment_api_treatments__treatment_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1047,6 +1249,37 @@ export interface components {
              * @default 0
              */
             total_active: number;
+        };
+        /** AllergyCreate */
+        AllergyCreate: {
+            /** Allergen */
+            allergen: string;
+            /** Reaction */
+            reaction?: string | null;
+            /** Severity */
+            severity?: ("mild" | "moderate" | "severe" | "life_threatening") | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** AllergyOut */
+        AllergyOut: {
+            /** Id */
+            id: number;
+            /** Allergen */
+            allergen: string;
+            /** Reaction */
+            reaction?: string | null;
+            /** Severity */
+            severity?: ("mild" | "moderate" | "severe" | "life_threatening") | null;
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** AnalysisListResponse */
         AnalysisListResponse: {
@@ -1396,6 +1629,53 @@ export interface components {
             /** Conversation Id */
             conversation_id: string;
         };
+        /** ConditionCreate */
+        ConditionCreate: {
+            /** Condition Name */
+            condition_name: string;
+            /** Icd10 */
+            icd10?: string | null;
+            /** Diagnosed Year */
+            diagnosed_year?: number | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "controlled" | "resolved";
+            /** Notes */
+            notes?: string | null;
+        };
+        /** ConditionOut */
+        ConditionOut: {
+            /** Id */
+            id: number;
+            /** Condition Name */
+            condition_name: string;
+            /** Icd10 */
+            icd10?: string | null;
+            /** Diagnosed Year */
+            diagnosed_year?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "controlled" | "resolved";
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** DoctorListResponse */
         DoctorListResponse: {
             /** Data */
@@ -1436,6 +1716,73 @@ export interface components {
         /** MeResponse */
         MeResponse: {
             user: components["schemas"]["schemas__auth__UserOut"];
+        };
+        /** MedicalBundle */
+        MedicalBundle: {
+            /** Conditions */
+            conditions: components["schemas"]["ConditionOut"][];
+            /** Allergies */
+            allergies: components["schemas"]["AllergyOut"][];
+            /** Medications */
+            medications: components["schemas"]["MedicationOut"][];
+            /** Treatments */
+            treatments: components["schemas"]["TreatmentOut"][];
+        };
+        /** MedicationActiveUpdate */
+        MedicationActiveUpdate: {
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** MedicationCreate */
+        MedicationCreate: {
+            /** Drug Name */
+            drug_name: string;
+            /** Dose */
+            dose?: string | null;
+            /** Frequency */
+            frequency?: string | null;
+            /** Indication */
+            indication?: string | null;
+            /** Started Year */
+            started_year?: number | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** MedicationOut */
+        MedicationOut: {
+            /** Id */
+            id: number;
+            /** Drug Name */
+            drug_name: string;
+            /** Dose */
+            dose?: string | null;
+            /** Frequency */
+            frequency?: string | null;
+            /** Indication */
+            indication?: string | null;
+            /** Started Year */
+            started_year?: number | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** NotebookLmUpdateRequest */
         NotebookLmUpdateRequest: {
@@ -1769,10 +2116,57 @@ export interface components {
              */
             current_state: string;
         };
+        /** SimpleOk */
+        SimpleOk: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
         /** SimpleOkResponse */
         SimpleOkResponse: {
             /** Ok */
             ok: boolean;
+        };
+        /** TreatmentCreate */
+        TreatmentCreate: {
+            /** Treatment Type */
+            treatment_type: string;
+            /** Description */
+            description: string;
+            /** Hospital */
+            hospital?: string | null;
+            /** Treated Date */
+            treated_date?: string | null;
+            /** Outcome */
+            outcome?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** TreatmentOut */
+        TreatmentOut: {
+            /** Id */
+            id: number;
+            /** Treatment Type */
+            treatment_type: string;
+            /** Description */
+            description: string;
+            /** Hospital */
+            hospital?: string | null;
+            /** Treated Date */
+            treated_date?: string | null;
+            /** Outcome */
+            outcome?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** TriageDecideRequest */
         TriageDecideRequest: {
@@ -2755,6 +3149,39 @@ export interface operations {
             };
         };
     };
+    delete_patient_api_patients__patient_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_patient_api_patients__patient_id__patch: {
         parameters: {
             query?: never;
@@ -3608,6 +4035,43 @@ export interface operations {
             };
         };
     };
+    list_audit_api_admin_audit_get: {
+        parameters: {
+            query?: {
+                actor_id?: number | null;
+                patient_id?: number | null;
+                action?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     my_schedule_api_schedule_me_get: {
         parameters: {
             query?: {
@@ -3627,6 +4091,336 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bundle_api_patients__patient_id__medical_bundle_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicalBundle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_condition_api_patients__patient_id__conditions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConditionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_condition_api_conditions__condition_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                condition_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOk"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_allergy_api_patients__patient_id__allergies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_allergy_api_allergies__allergy_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                allergy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOk"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_medication_api_patients__patient_id__medications_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MedicationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_medication_active_api_medications__med_id__active_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                med_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MedicationActiveUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOk"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_medication_api_medications__med_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                med_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOk"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_treatment_api_patients__patient_id__treatments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TreatmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreatmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_treatment_api_treatments__treatment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treatment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOk"];
                 };
             };
             /** @description Validation Error */

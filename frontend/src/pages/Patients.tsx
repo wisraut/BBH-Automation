@@ -4,6 +4,7 @@ import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, Plus, Sear
 
 import { API_BASE } from '../lib/apiBase'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
+import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
 import { ReportUploadModal } from '../components/reports/ReportUploadModal'
@@ -379,6 +380,11 @@ export function Patients() {
                     <p className="mt-1 text-sm font-semibold text-bbh-ink">{formatDate(patients.find((p) => p.id === selectedId)?.latest_visit_at)}</p>
                   </div>
                 </div>
+
+                <section>
+                  <h2 className="mb-3 text-sm font-semibold text-bbh-ink">ประวัติการแพทย์</h2>
+                  <PatientMedicalRecords patientId={selectedPatient.id} />
+                </section>
 
                 <section>
                   <h2 className="mb-3 text-sm font-semibold text-bbh-ink">Timeline</h2>

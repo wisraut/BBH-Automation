@@ -33,7 +33,6 @@ def login_user(
     password: str,
     ip_address: str,
     user_agent: str | None,
-    otp_code: str | None = None,
 ) -> dict[str, Any]:
     normalized_email = email.strip().lower()
     user = find_user_by_email(normalized_email)
@@ -51,28 +50,6 @@ def login_user(
             status_code=401,
             detail={"code": "INVALID_CREDENTIALS", "message": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"},
         )
-
-    # TOTP 2FA gate
-    if user.get("totp_enabled") and user.get("totp_secret"):
-        from core import totp as _totp
-        if not otp_code:
-            raise HTTPException(
-                status_code=401,
-                detail={"code": "OTP_REQUIRED", "message": "ต้องระบุรหัส 2FA"},
-            )
-        if not _totp.verify(user["totp_secret"], otp_code.strip()):
-            insert_auth_audit(
-                event_type="login_fail",
-                user_id=user["id"],
-                email=normalized_email,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                fail_reason="invalid_otp",
-            )
-            raise HTTPException(
-                status_code=401,
-                detail={"code": "INVALID_OTP", "message": "รหัส 2FA ไม่ถูกต้อง"},
-            )
 
     token, expires_at = create_access_token(user)
     mark_login_success(user["id"])

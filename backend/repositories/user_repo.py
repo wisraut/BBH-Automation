@@ -10,8 +10,7 @@ def find_user_by_email(email: str) -> dict[str, Any] | None:
             cur.execute(
                 """
                 SELECT id, email, password_hash, display_name, role, specialty, avatar_url,
-                       is_active, last_login_at, created_at, updated_at,
-                       totp_secret, totp_enabled
+                       is_active, last_login_at, created_at, updated_at
                 FROM users
                 WHERE email = %s
                 LIMIT 1
@@ -27,8 +26,7 @@ def find_user_by_id(user_id: int) -> dict[str, Any] | None:
             cur.execute(
                 """
                 SELECT id, email, password_hash, display_name, role, specialty, avatar_url,
-                       is_active, last_login_at, created_at, updated_at,
-                       totp_secret, totp_enabled
+                       is_active, last_login_at, created_at, updated_at
                 FROM users
                 WHERE id = %s
                 LIMIT 1
@@ -148,53 +146,6 @@ def list_doctors() -> list[dict[str, Any]]:
                 """
             )
             return cur.fetchall()
-
-
-def set_totp_secret(user_id: int, secret: str | None) -> int:
-    with mysql_db() as conn:
-        with conn.cursor() as cur:
-            rows = cur.execute(
-                "UPDATE users SET totp_secret = %s, totp_enabled = 0, totp_enrolled_at = NULL "
-                "WHERE id = %s",
-                (secret, user_id),
-            )
-        conn.commit()
-    return rows
-
-
-def confirm_totp(user_id: int) -> int:
-    with mysql_db() as conn:
-        with conn.cursor() as cur:
-            rows = cur.execute(
-                "UPDATE users SET totp_enabled = 1, totp_enrolled_at = NOW() "
-                "WHERE id = %s AND totp_secret IS NOT NULL",
-                (user_id,),
-            )
-        conn.commit()
-    return rows
-
-
-def disable_totp(user_id: int) -> int:
-    with mysql_db() as conn:
-        with conn.cursor() as cur:
-            rows = cur.execute(
-                "UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_enrolled_at = NULL "
-                "WHERE id = %s",
-                (user_id,),
-            )
-        conn.commit()
-    return rows
-
-
-def get_totp(user_id: int) -> dict[str, Any] | None:
-    with mysql_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, email, totp_secret, totp_enabled, totp_enrolled_at "
-                "FROM users WHERE id = %s LIMIT 1",
-                (user_id,),
-            )
-            return cur.fetchone()
 
 
 def update_password_hash(user_id: int, password_hash: str) -> int:

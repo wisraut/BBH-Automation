@@ -19,8 +19,6 @@ export function Login() {
   const [rememberMe, setRememberMe] = useState(true)
   const [notice, setNotice] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [needsOtp, setNeedsOtp] = useState(false)
-  const [otpCode, setOtpCode] = useState('')
 
   useEffect(() => {
     if (isReady && user) setMode('signed-in')
@@ -32,10 +30,8 @@ export function Login() {
     setNotice('')
 
     try {
-      const signedInUser = await login(email, password, needsOtp ? otpCode : undefined)
+      const signedInUser = await login(email, password)
       setPassword('')
-      setOtpCode('')
-      setNeedsOtp(false)
       setMode('signed-in')
       setNotice(
         signedInUser.role === 'doctor'
@@ -43,20 +39,11 @@ export function Login() {
           : 'เข้าสู่ระบบสำเร็จ เปิดพื้นที่ทำงานของ CRO',
       )
     } catch (error) {
-      // 401 with code OTP_REQUIRED → switch into 2FA challenge mode
-      const isOtpRequired =
+      setNotice(
         error instanceof ApiError
-        && (error.code === 'OTP_REQUIRED' || /2FA|OTP/i.test(error.message ?? ''))
-      if (isOtpRequired) {
-        setNeedsOtp(true)
-        setNotice('กรุณาใส่รหัส 6 หลักจากแอป Authenticator')
-      } else {
-        setNotice(
-          error instanceof ApiError
-            ? error.message
-            : 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
-        )
-      }
+          ? error.message
+          : 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -97,12 +84,9 @@ export function Login() {
               rememberMe={rememberMe}
               notice={notice}
               isSubmitting={isSubmitting || !isReady}
-              needsOtp={needsOtp}
-              otpCode={otpCode}
               onEmailChange={setEmail}
               onPasswordChange={setPassword}
               onRememberMeChange={setRememberMe}
-              onOtpChange={setOtpCode}
               onSubmit={handleLogin}
               onForgotPassword={() => setMode('forgot')}
             />

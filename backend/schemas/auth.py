@@ -10,21 +10,6 @@ Role = Literal["admin", "doctor", "cro", "nurse", "lab_staff"]
 class LoginRequest(BaseModel):
     email: str = Field(min_length=3)
     password: str = Field(min_length=1)
-    otp_code: str | None = Field(default=None, max_length=8)
-
-
-class TotpSetupResponse(BaseModel):
-    secret: str
-    otpauth_url: str
-
-
-class TotpEnableRequest(BaseModel):
-    code: str = Field(min_length=6, max_length=6)
-
-
-class TotpDisableRequest(BaseModel):
-    password: str = Field(min_length=1)
-    code: str = Field(min_length=6, max_length=6)
 
 
 class UserOut(BaseModel):

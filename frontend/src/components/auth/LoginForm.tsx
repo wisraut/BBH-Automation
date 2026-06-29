@@ -7,12 +7,9 @@ type LoginFormProps = {
   rememberMe: boolean
   notice: string
   isSubmitting: boolean
-  needsOtp?: boolean
-  otpCode?: string
   onEmailChange: (value: string) => void
   onPasswordChange: (value: string) => void
   onRememberMeChange: (value: boolean) => void
-  onOtpChange?: (value: string) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onForgotPassword: () => void
 }
@@ -23,12 +20,9 @@ export function LoginForm({
   rememberMe,
   notice,
   isSubmitting,
-  needsOtp,
-  otpCode,
   onEmailChange,
   onPasswordChange,
   onRememberMeChange,
-  onOtpChange,
   onSubmit,
   onForgotPassword,
 }: LoginFormProps) {
@@ -74,25 +68,6 @@ export function LoginForm({
             required
           />
         </label>
-
-        {needsOtp ? (
-          <label className="block">
-            <span className="text-sm font-semibold text-bbh-ink">รหัส 2FA (6 หลัก)</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={otpCode ?? ''}
-              onChange={(event) => onOtpChange?.(event.target.value.replace(/\D/g, ''))}
-              className="mt-2 h-12 w-full rounded-2xl border border-bbh-green/40 bg-white px-4 text-center font-mono text-xl tracking-[0.4em] outline-none transition focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
-              placeholder="000000"
-              autoComplete="one-time-code"
-              autoFocus
-              required
-            />
-            <p className="mt-1 text-xs text-bbh-muted">เปิดแอป Authenticator แล้วกรอกรหัส 6 หลักล่าสุด</p>
-          </label>
-        ) : null}
 
         <div className="flex items-center justify-between gap-4">
           <label className="flex items-center gap-3 text-sm text-bbh-muted">

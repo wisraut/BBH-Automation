@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { CheckCircle, Clock, KeyRound, LogOut, ShieldCheck, XCircle } from 'lucide-react'
 
-// import { TotpSection } from '../components/auth/TotpSection'  // 2FA disabled — uncomment when ready
 import { useChangePassword } from '../hooks/useChangePassword'
 import { useMyAuditLogs } from '../hooks/useMyAuditLogs'
 import { useToast } from '../hooks/useToast'
@@ -115,9 +114,6 @@ export function Account() {
               ออกจากระบบ
             </button>
           </div>
-
-          {/* ── 2FA ── (disabled — uncomment when ready) */}
-          {/* <TotpSection /> */}
 
           {/* ── Change password ── */}
           <div className="rounded-3xl border border-bbh-line bg-white p-6 shadow-sm">

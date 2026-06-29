@@ -104,6 +104,28 @@ def approve_booking(
             },
         )
 
+    # Doctor schedule block check: if booking is for a specific doctor and
+    # that doctor has a vacation/off-hours block overlapping this slot, refuse.
+    assigned = row.get("assigned_doctor_id")
+    if assigned:
+        from datetime import timedelta as _td
+        from repositories import schedule_block_repo
+        end_at = start_at + _td(minutes=duration_min)
+        overlap = schedule_block_repo.find_overlap(
+            doctor_id=int(assigned), start_at=start_at, end_at=end_at,
+        )
+        if overlap:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "DOCTOR_BLOCKED",
+                    "message": (
+                        f"แพทย์ลา/ไม่อยู่ ({overlap['block_type']}) "
+                        f"ช่วง {overlap['start_at']} – {overlap['end_at']}"
+                    ),
+                },
+            )
+
     patient_name = row.get("patient_name") or "ผู้ป่วย"
     phone = row.get("phone") or "-"
     symptom = row.get("symptom") or "-"

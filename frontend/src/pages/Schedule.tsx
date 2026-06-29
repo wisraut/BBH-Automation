@@ -3,19 +3,25 @@ import { Link } from 'react-router-dom'
 import {
   Brain,
   Calendar as CalendarIcon,
+  CalendarOff,
   CheckCircle2,
   ClipboardList,
   ExternalLink,
   FileText,
   Loader2,
   Phone,
+  Plus,
   RefreshCw,
   Sparkles,
   Stethoscope,
   Clock,
+  Trash2,
+  X,
 } from 'lucide-react'
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
+import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
+import { useAuth } from '../lib/auth'
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -262,6 +268,9 @@ export function Schedule() {
             />
           </div>
 
+          {/* Schedule blocks (vacation) */}
+          <ScheduleBlocksSection />
+
           {/* Appointments grouped by date */}
           <section>
             <h2 className="mb-3 font-serif text-base font-semibold text-bbh-ink">นัดหมาย</h2>
@@ -321,5 +330,104 @@ export function Schedule() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+// --- Schedule blocks (vacation) ----------------------------------------
+
+function ScheduleBlocksSection() {
+  const { user } = useAuth()
+  const doctorId = user ? Number(user.id) : undefined
+  const q = useScheduleBlocks({ doctorId })
+  const create = useCreateScheduleBlock()
+  const del = useDeleteScheduleBlock()
+  const [open, setOpen] = useState(false)
+  const [blockType, setBlockType] = useState('vacation')
+  const [startAt, setStartAt] = useState('')
+  const [endAt, setEndAt] = useState('')
+  const [reason, setReason] = useState('')
+
+  if (!doctorId) return null
+  const blocks = q.data?.data ?? []
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!startAt || !endAt) return
+    create.mutate(
+      { doctor_id: doctorId, block_type: blockType, start_at: startAt, end_at: endAt, reason: reason || null },
+      { onSuccess: () => { setOpen(false); setStartAt(''); setEndAt(''); setReason(''); setBlockType('vacation') } },
+    )
+  }
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="font-serif text-base font-semibold text-bbh-ink inline-flex items-center gap-2">
+          <CalendarOff size={16} className="text-amber-500" />
+          ลา / ไม่อยู่
+          <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">{blocks.length}</span>
+        </h2>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
+        >
+          <Plus size={12} /> เพิ่ม block
+        </button>
+      </div>
+
+      {blocks.length === 0 ? (
+        <p className="rounded-2xl border border-bbh-line bg-white p-4 text-sm text-bbh-muted">— ไม่มีรายการลา —</p>
+      ) : (
+        <div className="grid gap-2 md:grid-cols-2">
+          {blocks.map((b) => (
+            <div key={b.id} className="flex items-start justify-between gap-3 rounded-xl border border-bbh-line bg-white p-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-[10px] font-mono text-bbh-muted">{b.block_type}</span>
+                </div>
+                <p className="mt-1 font-mono text-xs text-bbh-ink">
+                  {b.start_at.replace('T', ' ').slice(0, 16)}
+                  <span className="mx-1 text-bbh-muted">→</span>
+                  {b.end_at.replace('T', ' ').slice(0, 16)}
+                </p>
+                {b.reason ? <p className="mt-1 text-xs text-bbh-muted">{b.reason}</p> : null}
+              </div>
+              <button type="button" onClick={() => { if (confirm('ลบรายการนี้?')) del.mutate(b.id) }} className="text-bbh-muted hover:text-red-600" title="ลบ"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bbh-ink/30" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-serif text-lg font-semibold text-bbh-ink">เพิ่ม block</h3>
+              <button type="button" onClick={() => setOpen(false)} className="text-bbh-muted hover:text-bbh-ink"><X size={18} /></button>
+            </div>
+            <form onSubmit={submit} className="space-y-3">
+              <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm">
+                <option value="vacation">vacation</option>
+                <option value="off_hours">off_hours</option>
+                <option value="conference">conference</option>
+                <option value="sick">sick</option>
+                <option value="other">other</option>
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <input required type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+                <input required type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+              </div>
+              <input type="text" placeholder="หมายเหตุ (เช่น พักร้อน)" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+              {create.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
+                <button type="submit" disabled={create.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </section>
   )
 }

@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/patients", tags=["patients"])
 
 _StaffUser = Annotated[dict, Depends(require_user(["cro", "doctor", "admin"]))]
 _CroOrAdmin = Annotated[dict, Depends(require_user(["cro", "admin"]))]
+_DoctorOrAdmin = Annotated[dict, Depends(require_user(["doctor", "admin"]))]
 
 
 @router.get("", response_model=PatientListResponse)
@@ -61,3 +62,17 @@ def update_patient(
 ) -> dict:
     """Update patient profile fields. Only fields present in payload are changed."""
     return patient_service.update_patient(patient_id=patient_id, body=body, user=user)
+
+
+@router.delete("/{patient_id}")
+def delete_patient(patient_id: int, request: Request, user: _DoctorOrAdmin) -> dict:
+    """Soft-delete a patient. Restricted to doctor/admin — CRO cannot delete
+    medical records. Related reports/bookings/audit rows are retained;
+    only the patient row is hidden from list/get queries."""
+    result = patient_service.delete_patient(patient_id, user=user)
+    audit_service.record_access(
+        request, user,
+        action="delete_patient", subject_type="patient", subject_id=patient_id,
+        patient_id=patient_id,
+    )
+    return result

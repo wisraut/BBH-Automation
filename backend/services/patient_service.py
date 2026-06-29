@@ -25,6 +25,19 @@ def get_patient(patient_id: int) -> dict[str, Any]:
     return row
 
 
+def delete_patient(patient_id: int, *, user: dict[str, Any]) -> dict[str, bool]:
+    """Soft delete the patient row. Related reports/bookings/audit rows are
+    retained for the legal retention window. Idempotent."""
+    row = patient_repo.get_by_id(patient_id, include_deleted=True)
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้นี้"},
+        )
+    patient_repo.soft_delete(patient_id, deleted_by=int(user["id"]))
+    return {"ok": True}
+
+
 def create_patient(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
     year_yy = datetime.now(TZ_BANGKOK).strftime("%y")
     hn = patient_repo.reserve_hn(year_yy)

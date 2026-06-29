@@ -24,12 +24,13 @@ def list_patients(
 ) -> tuple[list[dict[str, Any]], int]:
     """List with optional fuzzy search (name/hn/phone) + booking/report counts."""
     offset = (page - 1) * limit
-    where_sql = ""
+    conds = ["p.deleted_at IS NULL"]
     args: tuple[Any, ...] = ()
     if search:
         like = f"%{search.strip()}%"
-        where_sql = "WHERE p.display_name LIKE %s OR p.hn LIKE %s OR p.phone LIKE %s"
+        conds.append("(p.display_name LIKE %s OR p.hn LIKE %s OR p.phone LIKE %s)")
         args = (like, like, like)
+    where_sql = "WHERE " + " AND ".join(conds)
 
     with mysql_db() as conn:
         with conn.cursor() as cur:
@@ -63,11 +64,12 @@ def list_patients(
     return rows, total
 
 
-def get_by_id(patient_id: int) -> dict[str, Any] | None:
+def get_by_id(patient_id: int, *, include_deleted: bool = False) -> dict[str, Any] | None:
+    extra = "" if include_deleted else " AND deleted_at IS NULL"
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                f"SELECT {_BASE_COLUMNS} FROM patients WHERE id = %s LIMIT 1",
+                f"SELECT {_BASE_COLUMNS} FROM patients WHERE id = %s{extra} LIMIT 1",
                 (patient_id,),
             )
             return _serialize(cur.fetchone())
@@ -77,7 +79,7 @@ def get_by_hn(hn: str) -> dict[str, Any] | None:
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                f"SELECT {_BASE_COLUMNS} FROM patients WHERE hn = %s LIMIT 1",
+                f"SELECT {_BASE_COLUMNS} FROM patients WHERE hn = %s AND deleted_at IS NULL LIMIT 1",
                 (hn,),
             )
             return _serialize(cur.fetchone())
@@ -120,6 +122,20 @@ def update(*, patient_id: int, fields: dict[str, Any]) -> int:
             rows = cur.execute(
                 f"UPDATE patients SET {cols} WHERE id = %s",
                 values,
+            )
+        conn.commit()
+    return rows
+
+
+def soft_delete(patient_id: int, *, deleted_by: int | None) -> int:
+    """Mark patient deleted. Reports/bookings/audit rows are retained for
+    legal retention — only the patient row is hidden from default queries."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE patients SET deleted_at = NOW(), deleted_by = %s "
+                "WHERE id = %s AND deleted_at IS NULL",
+                (deleted_by, patient_id),
             )
         conn.commit()
     return rows

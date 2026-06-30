@@ -5,9 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import admin_alerts, admin_audit, admin_system, ai, auth, booking, bookings_api, call_logs_api, calendar_api, cro_webhook, health, line_webhook, medical_records_api, patient_message_api, patients_api, reports_api, schedule_api, schedule_blocks_api, session, users_api
 from core.config import SERVER_PORT
+from core.csrf import CsrfMiddleware
+from core.internal_guard import InternalPathGuard
 from core.lifespan import lifespan
 
 app = FastAPI(title="LINE-Dify Hospital Bridge", lifespan=lifespan)
+app.add_middleware(InternalPathGuard)
+app.add_middleware(CsrfMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

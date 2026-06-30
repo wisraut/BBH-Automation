@@ -29,15 +29,56 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _is_https_request(request: Request) -> bool:
+    # Cloudflare Tunnel terminates TLS — the inbound request to bridge is plain
+    # http but the original scheme is in X-Forwarded-Proto.
+    proto = request.headers.get("x-forwarded-proto", "").lower()
+    if proto == "https":
+        return True
+    return request.url.scheme == "https"
+
+
+def _set_session_cookies(response: Response, *, request: Request, token: str) -> None:
+    """Set the HttpOnly JWT cookie + a readable CSRF cookie (double-submit pattern)."""
+    import secrets
+
+    secure = _is_https_request(request)
+    response.set_cookie(
+        key="bbh_token",
+        value=token,
+        httponly=True,
+        secure=secure,
+        samesite="lax" if secure else "strict",
+        max_age=24 * 3600,
+        path="/",
+    )
+    csrf = secrets.token_urlsafe(32)
+    response.set_cookie(
+        key="bbh_csrf",
+        value=csrf,
+        httponly=False,  # JS reads this and echoes back in X-CSRF-Token
+        secure=secure,
+        samesite="lax" if secure else "strict",
+        max_age=24 * 3600,
+        path="/",
+    )
+
+
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, request: Request) -> dict:
-    """Exchange email and password for a dashboard JWT."""
-    return login_user(
+def login(body: LoginRequest, request: Request, response: Response) -> dict:
+    """Exchange email and password for a dashboard session.
+
+    Sets an HttpOnly bbh_token cookie (XSS-safe) plus a readable bbh_csrf
+    cookie. The token is also returned in the body so existing CLI tests
+    and the n8n bot can use the Authorization-header path."""
+    data = login_user(
         email=str(body.email),
         password=body.password,
         ip_address=_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
+    _set_session_cookies(response, request=request, token=data["token"])
+    return data
 
 
 @router.get("/me", response_model=MeResponse)
@@ -54,6 +95,8 @@ def logout(
 ) -> None:
     """Record logout audit for the current dashboard user."""
     logout_user(user=user, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent"))
+    response.delete_cookie("bbh_token", path="/")
+    response.delete_cookie("bbh_csrf", path="/")
     response.status_code = 204
 
 

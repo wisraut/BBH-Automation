@@ -4,7 +4,7 @@ import os
 from collections.abc import Iterable
 from typing import Annotated, Any
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -70,19 +70,29 @@ def _public_user(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+JWT_COOKIE_NAME = "bbh_token"
+
+
 def require_user(roles: Iterable[str] | None = None):
     allowed_roles = set(roles) if roles else None
 
     def dependency(
+        request: Request,
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     ) -> dict[str, Any]:
-        if credentials is None:
+        # Prefer HttpOnly cookie (XSS-safe). Fall back to Authorization header
+        # so legacy CLI tests and the n8n bot can still authenticate.
+        token: str | None = request.cookies.get(JWT_COOKIE_NAME)
+        if not token and credentials is not None:
+            token = credentials.credentials
+
+        if not token:
             raise HTTPException(
                 status_code=401,
                 detail={"code": "TOKEN_EXPIRED", "message": "กรุณาเข้าสู่ระบบใหม่"},
             )
 
-        payload = decode_access_token(credentials.credentials)
+        payload = decode_access_token(token)
         user_id = int(payload.get("sub", 0))
         user = find_user_by_id(user_id)
         if not user or not user.get("is_active"):

@@ -9,9 +9,20 @@ import { API_BASE } from './apiBase';
 
 const TOKEN_KEY = 'bbh_token';
 
+// Auth state lives in HttpOnly cookies set by the backend (XSS-safe). These
+// localStorage helpers stay as no-ops so existing call sites don't need to
+// change, but the bridge no longer trusts whatever is in localStorage —
+// only the bbh_token cookie matters.
 export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t: string): void => localStorage.setItem(TOKEN_KEY, t);
 export const clearToken = (): void => localStorage.removeItem(TOKEN_KEY);
+
+// CSRF double-submit: bridge sets a readable bbh_csrf cookie on login; we
+// echo its value back in X-CSRF-Token on every mutation.
+function readCookie(name: string): string | null {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]+)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -47,12 +58,18 @@ async function request<T>(
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
+  // CSRF token on state-changing methods (cookie-based session only).
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const csrf = readCookie('bbh_csrf');
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
     body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
     signal: options.signal,
+    credentials: 'include',
   });
 
   if (res.status === 401 && !options.noAuth) {

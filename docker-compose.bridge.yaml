@@ -6,6 +6,7 @@ services:
     image: hospital-bridge:dev
     container_name: hospital-bridge
     restart: always
+    stop_grace_period: 30s   # docker waits this long after SIGTERM before SIGKILL — gives lifespan shutdown time to drain
     env_file:
       - ./.env
     environment:

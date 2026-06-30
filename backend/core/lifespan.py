@@ -8,6 +8,28 @@ from flows import doctor
 from jobs import admin_alert_evaluator, appointment_reminder, email_poller, no_show_flagger, webhook_queue_worker
 
 
+# Health probe (Cloudflare + Docker healthcheck) reads this. When True, the
+# bridge is shutting down and the probe returns 503 so load balancers stop
+# routing new traffic while in-flight requests finish.
+_DRAINING = False
+
+
+def is_draining() -> bool:
+    return _DRAINING
+
+
+async def _cancel_and_wait(task: asyncio.Task, name: str, timeout: float = 10.0) -> None:
+    task.cancel()
+    try:
+        await asyncio.wait_for(task, timeout=timeout)
+    except asyncio.CancelledError:
+        log.info("worker %s cancelled cleanly", name)
+    except asyncio.TimeoutError:
+        log.warning("worker %s did not finish within %.1fs", name, timeout)
+    except Exception:
+        log.exception("worker %s raised on shutdown", name)
+
+
 def _startup_reset() -> None:
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -59,11 +81,31 @@ async def lifespan(app):
     try:
         yield
     finally:
-        poller_task.cancel()
-        evaluator_task.cancel()
-        webhook_worker_task.cancel()
-        reminder_task.cancel()
-        no_show_task.cancel()
+        # Graceful shutdown sequence:
+        # 1. Flip draining flag so health probes return 503 → LB stops new traffic
+        # 2. Cancel background workers in parallel with a per-task timeout
+        # 3. Drain shared httpx client (reused connection keepalives)
+        global _DRAINING
+        _DRAINING = True
+        log.info("Shutdown: draining started — health endpoint will return 503")
+
+        await asyncio.sleep(2)  # short window so in-flight reqs see drain
+
+        await asyncio.gather(
+            _cancel_and_wait(poller_task, "email_poller"),
+            _cancel_and_wait(evaluator_task, "alert_evaluator"),
+            _cancel_and_wait(webhook_worker_task, "webhook_queue"),
+            _cancel_and_wait(reminder_task, "appointment_reminder"),
+            _cancel_and_wait(no_show_task, "no_show_flagger"),
+            return_exceptions=True,
+        )
+        log.info("Shutdown: workers stopped")
+
         # Drain reused httpx client to close keep-alive connections cleanly.
         from api.line_webhook import close_n8n_client
-        await close_n8n_client()
+        try:
+            await asyncio.wait_for(close_n8n_client(), timeout=5)
+        except (asyncio.TimeoutError, Exception):  # noqa: BLE001
+            log.exception("close_n8n_client did not finish cleanly")
+
+        log.info("Shutdown: complete")

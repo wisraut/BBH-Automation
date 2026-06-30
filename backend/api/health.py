@@ -11,6 +11,7 @@ from core.config import (
     DIFY_API_URL,
 )
 from core.db import get_db
+from core.lifespan import is_draining
 
 router = APIRouter()
 
@@ -18,6 +19,11 @@ router = APIRouter()
 @router.get("/")
 def health(request: Request):
     base = getattr(request.app.state, "public_url", "")
+    if is_draining():
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "DRAINING", "message": "Bridge is shutting down"},
+        )
     return {
         "status": "ok",
         "public_url": base or "starting...",

@@ -85,12 +85,17 @@ def dump_mysql(work: Path) -> None:
 def dump_volume(work: Path, name: str, volume: str) -> None:
     step(f"docker volume {volume}")
     target = work / f"{name}.tar"
-    # Mount work dir as /backup so alpine tar writes there
-    work_abs = str(work).replace("\\", "/")
-    sh(["docker", "run", "--rm",
-        "-v", f"{volume}:/source:ro",
-        "-v", f"{work_abs}:/backup",
-        "alpine", "tar", "cf", f"/backup/{name}.tar", "-C", "/source", "."])
+    # Pipe tar via stdout instead of bind-mounting the host work dir as /backup.
+    # Bind mounts fail under "Access is denied" when the scheduled task runs as
+    # SYSTEM (or any context the Docker Desktop WSL2 backend can't traverse).
+    # The stdout pipe writes the tar file directly through this Python process,
+    # so file creation uses the script's own user context — no daemon write to
+    # host required.
+    with target.open("wb") as f:
+        sh(["docker", "run", "--rm", "-i",
+            "-v", f"{volume}:/source:ro",
+            "alpine", "tar", "cf", "-", "-C", "/source", "."],
+           stdout=f)
     print(f"    {name}.tar: {target.stat().st_size:,} bytes")
 
 
@@ -182,7 +187,15 @@ def main() -> int:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     out_archive = BACKUP_DIR / f"{ARCHIVE_NAME}.tar.gz"
 
-    with tempfile.TemporaryDirectory(prefix="bbh-backup-") as tmp:
+    # Force temp dir under BACKUP_DIR so docker bind-mounts work whether the
+    # scheduled task runs as wisru or SYSTEM. %TEMP% under SYSTEM resolves to
+    # C:\Windows\Temp which docker can't write to, and under wisru it lands
+    # in AppData\Local\Temp which the docker daemon (SYSTEM service) can't
+    # always traverse. BACKUP_DIR is plain user-writable + daemon-readable.
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    work_root = BACKUP_DIR / ".work"
+    work_root.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="bbh-backup-", dir=str(work_root)) as tmp:
         work = Path(tmp) / ARCHIVE_NAME
         work.mkdir(parents=True)
         (work / "db").mkdir()

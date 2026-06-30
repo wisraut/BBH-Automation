@@ -7,6 +7,7 @@ const LABELS: Record<BookingStatus, string> = {
   rejected: 'ปฏิเสธ',
   cancelled: 'ยกเลิก',
   expired: 'หมดอายุ',
+  no_show: 'No-show',
 }
 
 const STYLES: Record<BookingStatus, string> = {
@@ -16,6 +17,7 @@ const STYLES: Record<BookingStatus, string> = {
   rejected: 'bg-red-50 text-red-700 border border-red-200',
   cancelled: 'bg-gray-100 text-gray-500',
   expired: 'bg-gray-100 text-gray-500',
+  no_show: 'bg-orange-50 text-orange-800 border border-orange-300',
 }
 
 export function StatusBadge({ status }: { status: BookingStatus }) {

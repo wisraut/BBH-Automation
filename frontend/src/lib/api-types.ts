@@ -1237,6 +1237,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/patients/{patient_id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Calls */
+        get: operations["list_calls_api_patients__patient_id__calls_get"];
+        put?: never;
+        /** Add Call */
+        post: operations["add_call_api_patients__patient_id__calls_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Call */
+        delete: operations["delete_call_api_calls__call_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Custom Message */
+        post: operations["send_custom_message_api_patients__patient_id__message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1550,7 +1602,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired";
+            status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired" | "no_show";
             /** Patient Name */
             patient_name?: string | null;
             /** Phone */
@@ -1589,7 +1641,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired";
+            status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired" | "no_show";
             /** Patient Name */
             patient_name?: string | null;
             /** Phone */
@@ -1677,6 +1729,30 @@ export interface components {
             /** Data */
             data: components["schemas"]["CalendarEventOut"][];
         };
+        /** CallLogCreate */
+        CallLogCreate: {
+            /**
+             * Direction
+             * @default out
+             * @enum {string}
+             */
+            direction: "out" | "in";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "answered" | "no_answer" | "voicemail" | "wrong_number" | "refused" | "busy" | "other";
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Subject */
+            subject?: string | null;
+            /** Reference Booking Uid */
+            reference_booking_uid?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Called At */
+            called_at?: string | null;
+        };
         /** CancelRequest */
         CancelRequest: {
             /**
@@ -1757,6 +1833,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CustomMessageRequest */
+        CustomMessageRequest: {
+            /** Message */
+            message: string;
         };
         /** DoctorListResponse */
         DoctorListResponse: {
@@ -4707,6 +4788,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimpleOk"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_calls_api_patients__patient_id__calls_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_call_api_patients__patient_id__calls_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallLogCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_call_api_calls__call_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_custom_message_api_patients__patient_id__message_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

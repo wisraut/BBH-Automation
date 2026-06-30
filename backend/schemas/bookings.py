@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 BookingStatus = Literal[
-    "draft", "pending_approval", "approved", "rejected", "cancelled", "expired"
+    "draft", "pending_approval", "approved", "rejected", "cancelled", "expired", "no_show"
 ]
 BookingSource = Literal["line", "phone", "whatsapp", "email", "walkin"]
 AppointmentType = Literal["new", "followup", "procedure", "consult"]

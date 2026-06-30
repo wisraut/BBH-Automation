@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import admin_alerts, admin_audit, admin_system, ai, auth, booking, bookings_api, calendar_api, cro_webhook, health, line_webhook, medical_records_api, patients_api, reports_api, schedule_api, schedule_blocks_api, session, users_api
+from api import admin_alerts, admin_audit, admin_system, ai, auth, booking, bookings_api, call_logs_api, calendar_api, cro_webhook, health, line_webhook, medical_records_api, patient_message_api, patients_api, reports_api, schedule_api, schedule_blocks_api, session, users_api
 from core.config import SERVER_PORT
 from core.lifespan import lifespan
 
@@ -40,6 +40,8 @@ app.include_router(admin_audit.router)
 app.include_router(schedule_api.router)
 app.include_router(schedule_blocks_api.router)
 app.include_router(medical_records_api.router)
+app.include_router(call_logs_api.router)
+app.include_router(patient_message_api.router)
 
 
 if __name__ == "__main__":

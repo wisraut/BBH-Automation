@@ -16,6 +16,7 @@ const FILTERS: { key: BookingStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'ทั้งหมด' },
   { key: 'pending_approval', label: 'รอยืนยัน' },
   { key: 'approved', label: 'ยืนยันแล้ว' },
+  { key: 'no_show', label: 'No-show' },
   { key: 'rejected', label: 'ปฏิเสธ' },
 ]
 

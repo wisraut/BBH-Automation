@@ -259,8 +259,8 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
         </div>
         <div>
           <label className="text-xs font-semibold text-bbh-muted">Password *</label>
-          <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none" />
-          <p className="mt-1 text-[11px] text-bbh-muted">อย่างน้อย 6 ตัว — บอก user ให้เปลี่ยนเองหลัง login</p>
+          <input type="password" required minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none" />
+          <p className="mt-1 text-[11px] text-bbh-muted">อย่างน้อย 10 ตัว + มี 3 ประเภทขึ้นไป (a-z, A-Z, 0-9, !@#) — บอก user ให้เปลี่ยนเองหลัง login</p>
         </div>
         {m.error ? <p className="text-xs text-red-600">สร้างไม่สำเร็จ — อาจเป็น email ซ้ำ</p> : null}
         <div className="flex justify-end gap-2 pt-2">
@@ -372,7 +372,7 @@ function ResetPasswordModal({ target, onClose }: { target: UserOut | null; onClo
           </div>
           <div>
             <label className="text-xs font-semibold text-bbh-muted">Password ใหม่ *</label>
-            <input type="text" required minLength={6} value={pw} onChange={(e) => setPw(e.target.value)} className="mt-1 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm font-mono focus:border-bbh-green focus:outline-none" placeholder="≥ 6 ตัว" />
+            <input type="text" required minLength={10} value={pw} onChange={(e) => setPw(e.target.value)} className="mt-1 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm font-mono focus:border-bbh-green focus:outline-none" placeholder="≥ 10 ตัว, 3 ประเภท" />
             <p className="mt-1 text-[11px] text-bbh-muted">แสดงเป็น plain เพื่อให้ admin copy ส่งให้ user — บอก user เปลี่ยนเองหลัง login</p>
           </div>
           {m.error ? <p className="text-xs text-red-600">เปลี่ยนไม่สำเร็จ</p> : null}

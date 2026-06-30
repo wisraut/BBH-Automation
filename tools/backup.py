@@ -22,6 +22,8 @@ Contains:
 import json
 import os
 import shutil
+import argparse
+import os
 import subprocess
 import sys
 import tarfile
@@ -29,8 +31,14 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-ROOT          = Path(__file__).resolve().parent.parent
-BACKUP_DIR    = ROOT / "backups"
+ROOT       = Path(__file__).resolve().parent.parent
+
+# Allow --out to override the default backups/ folder (used by the daily
+# scheduled task that drops backups in C:\Users\wisru\backups\bbh).
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--out", default=str(ROOT / "backups"))
+_args, _ = _parser.parse_known_args()
+BACKUP_DIR    = Path(os.path.expandvars(_args.out)).expanduser()
 TIMESTAMP     = datetime.now().strftime("%Y%m%d-%H%M%S")
 ARCHIVE_NAME  = f"bbh-backup-{TIMESTAMP}"
 

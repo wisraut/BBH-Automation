@@ -40,7 +40,7 @@ class UserListResponse(BaseModel):
 
 class UserCreateRequest(BaseModel):
     email: str = Field(min_length=3, max_length=191, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=10, max_length=128)
     display_name: str = Field(min_length=1, max_length=120)
     role: Role
     specialty: str | None = Field(default=None, max_length=120)
@@ -54,4 +54,4 @@ class UserUpdateRequest(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
-    new_password: str = Field(min_length=6, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from core.security import hash_password, require_user
 from repositories import user_repo
+from services.auth_service import _check_password_strength
 from schemas.users import (
     DoctorListResponse,
     PasswordResetRequest,
@@ -56,6 +57,7 @@ def admin_create_user(body: UserCreateRequest, user: _AdminUser) -> dict:
             status_code=409,
             detail={"code": "EMAIL_EXISTS", "message": "อีเมลนี้ถูกใช้แล้ว"},
         )
+    _check_password_strength(body.password)
     new_id = user_repo.create_user(
         email=str(body.email),
         password_hash=hash_password(body.password),
@@ -98,4 +100,5 @@ def admin_reset_password(user_id: int, body: PasswordResetRequest, user: _AdminU
     existing = user_repo.find_user_by_id(user_id)
     if not existing:
         raise HTTPException(404, {"code": "USER_NOT_FOUND", "message": "ไม่พบ user"})
+    _check_password_strength(body.new_password)
     user_repo.update_password_hash(user_id, hash_password(body.new_password))

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { NewBookingModal } from '../components/bookings/NewBookingModal'
 import { RejectModal } from '../components/bookings/RejectModal'
+import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
 import { useBooking } from '../hooks/useBooking'
@@ -39,6 +40,7 @@ export function Bookings() {
   const [newBookingOpen, setNewBookingOpen] = useState(false)
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
 
   const list = useBookings({
     status: filter === 'all' ? undefined : filter,
@@ -275,6 +277,18 @@ export function Bookings() {
                 </button>
               </div>
             ) : null}
+
+            {detail.data.status === 'approved' ? (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-ink transition hover:border-bbh-green hover:text-bbh-green-dark"
+                >
+                  <CalendarIcon size={16} /> เลื่อนนัด
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </aside>
@@ -290,6 +304,13 @@ export function Bookings() {
         open={rejectOpen}
         onClose={() => setRejectOpen(false)}
         onRejected={() => void list.refetch()}
+      />
+      <RescheduleModal
+        open={rescheduleOpen}
+        uid={detail.data?.request_uid ?? null}
+        currentDateTimeText={detail.data?.requested_datetime_text ?? null}
+        onClose={() => setRescheduleOpen(false)}
+        onSuccess={() => void list.refetch()}
       />
       <NewBookingModal
         open={newBookingOpen}

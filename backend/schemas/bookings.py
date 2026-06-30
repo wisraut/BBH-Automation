@@ -83,6 +83,11 @@ class CancelRequest(BaseModel):
     reason: str = Field(default="Cancelled by CRO", max_length=500)
 
 
+class RescheduleRequest(BaseModel):
+    new_start_at: datetime = Field(description="ISO 8601 (Asia/Bangkok). Slot start.")
+    reason: str | None = Field(default=None, max_length=255)
+
+
 class ApproveResponse(BaseModel):
     ok: bool
     calendar_event_id: str

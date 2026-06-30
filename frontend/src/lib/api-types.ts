@@ -442,6 +442,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bookings/{request_uid}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedule Booking
+         * @description Move an approved booking to a new slot. Cancels old calendar event,
+         *     creates a new one, updates DB, pushes the patient on LINE. Keeps the
+         *     same request_uid so audit/history is preserved.
+         */
+        post: operations["reschedule_booking_api_bookings__request_uid__reschedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/patients": {
         parameters: {
             query?: never;
@@ -2098,6 +2120,17 @@ export interface components {
              */
             notified_doctor: boolean;
         };
+        /** RescheduleRequest */
+        RescheduleRequest: {
+            /**
+             * New Start At
+             * Format: date-time
+             * @description ISO 8601 (Asia/Bangkok). Slot start.
+             */
+            new_start_at: string;
+            /** Reason */
+            reason?: string | null;
+        };
         /** ResolveRequest */
         ResolveRequest: {
             /** Reason */
@@ -3121,6 +3154,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reschedule_booking_api_bookings__request_uid__reschedule_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
                 };
             };
             /** @description Validation Error */

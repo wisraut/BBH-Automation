@@ -218,6 +218,107 @@ def reject_booking(
     return {"ok": True}
 
 
+def reschedule_booking(
+    *, uid: str, new_start_at: datetime, user: dict[str, Any], reason: str | None = None,
+) -> dict[str, Any]:
+    """Move an approved booking to a new time. Cancels the old Google Calendar
+    event, creates a new one, then atomically rewrites the DB row + audits.
+    Patient gets a LINE push with the new slot."""
+    row = booking_repo.get_by_uid(uid)
+    if not row:
+        raise HTTPException(404, {"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"})
+    if row["status"] != "approved":
+        raise HTTPException(
+            409,
+            {"code": "BOOKING_INVALID_STATE",
+             "message": f"รายการนี้ {row['status']} แล้ว — เลื่อนนัดไม่ได้"},
+        )
+
+    if new_start_at.tzinfo is None:
+        new_start_at = new_start_at.replace(tzinfo=TZ_BANGKOK)
+    else:
+        new_start_at = new_start_at.astimezone(TZ_BANGKOK)
+    duration_min = int(row.get("duration_min") or 30)
+
+    if not calendar_client.check_availability(new_start_at, duration_min):
+        raise HTTPException(
+            409,
+            {"code": "CALENDAR_CONFLICT",
+             "message": "เวลาใหม่ชนนัดอื่น เลือกเวลาอื่น"},
+        )
+
+    # Doctor block check (same guard as approve flow)
+    if row.get("assigned_doctor_id"):
+        from datetime import timedelta as _td
+        from repositories import schedule_block_repo
+        end_at = new_start_at + _td(minutes=duration_min)
+        overlap = schedule_block_repo.find_overlap(
+            doctor_id=int(row["assigned_doctor_id"]),
+            start_at=new_start_at, end_at=end_at,
+        )
+        if overlap:
+            raise HTTPException(
+                409,
+                {"code": "DOCTOR_BLOCKED",
+                 "message": (
+                     f"แพทย์ลา/ไม่อยู่ ({overlap['block_type']}) ช่วงเวลาใหม่ "
+                     f"{overlap['start_at']} – {overlap['end_at']}"
+                 )},
+            )
+
+    # Book new calendar event first; if it fails we keep the old one.
+    new_event = calendar_client.book_event(
+        start=new_start_at,
+        duration_min=duration_min,
+        summary=f"นัด {row.get('patient_name') or '-'} (rescheduled)",
+        description=(reason or row.get("symptom") or ""),
+    )
+
+    new_date = new_start_at.strftime("%Y-%m-%d")
+    new_time = new_start_at.strftime("%H:%M:%S")
+    updated = booking_repo.reschedule_approved(
+        uid=uid,
+        new_date=new_date,
+        new_time=new_time,
+        new_event_id=new_event.get("event_id"),
+        new_event_url=new_event.get("event_url"),
+        actor_id=str(user.get("email") or user.get("sub") or "cro"),
+    )
+    if not updated:
+        # Race: someone cancelled between read + write. Roll back the new event.
+        try:
+            calendar_client.cancel_event(new_event["event_id"])
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to roll back calendar event %s", new_event.get("event_id"))
+        raise HTTPException(
+            409,
+            {"code": "BOOKING_INVALID_STATE",
+             "message": "รายการถูกแก้ไขโดยผู้อื่น ลองอีกครั้ง"},
+        )
+
+    # Best-effort: cancel old calendar event after the new one is committed.
+    old_event = row.get("calendar_event_id")
+    if old_event and old_event != new_event.get("event_id"):
+        try:
+            calendar_client.cancel_event(old_event)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to cancel old calendar event %s for booking %s",
+                             old_event, uid)
+
+    # Notify patient via LINE (channel is line_main / external_user_id stored on booking).
+    if row.get("channel", "").startswith("line") and row.get("external_user_id"):
+        _safe_push_patient(
+            row["external_user_id"],
+            (
+                f"แจ้งเปลี่ยนเวลานัดของท่าน\n"
+                f"เวลาใหม่: {updated.get('requested_datetime_text') or new_date + ' ' + new_time[:5]}\n"
+                + (f"\nหมายเหตุ: {reason}" if reason else "")
+            ),
+        )
+
+    return updated
+
+
 def cancel_booking(
     *, uid: str, reason: str, user: dict[str, Any]
 ) -> dict[str, bool]:

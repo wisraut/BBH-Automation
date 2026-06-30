@@ -147,6 +147,98 @@ def create_manual_booking(
     return request_uid
 
 
+def reschedule_approved(
+    *,
+    uid: str,
+    new_date: str,
+    new_time: str,
+    new_event_id: str | None,
+    new_event_url: str | None,
+    actor_id: str,
+) -> dict[str, Any] | None:
+    """Atomically rewrite the time of an approved booking + log the audit row
+    that captures the old slot. Returns the new row or None if the booking is
+    not currently approved (e.g. already cancelled)."""
+    with mysql_db() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, request_uid, status,
+                           requested_date, requested_time, requested_datetime_text,
+                           calendar_event_id, calendar_event_url
+                    FROM booking_requests
+                    WHERE request_uid = %s
+                    FOR UPDATE
+                    """,
+                    (uid,),
+                )
+                row = cur.fetchone()
+                if not row or row["status"] != "approved":
+                    conn.rollback()
+                    return None
+
+                old_date = row.get("requested_date")
+                old_time = row.get("requested_time")
+                old_text = row.get("requested_datetime_text")
+                old_event = row.get("calendar_event_id")
+
+                new_text = f"{new_date} {new_time[:5]}"
+                cur.execute(
+                    """
+                    UPDATE booking_requests
+                    SET requested_date = %s,
+                        requested_time = %s,
+                        requested_datetime_text = %s,
+                        calendar_event_id = %s,
+                        calendar_event_url = %s,
+                        calendar_status = CASE
+                            WHEN %s IS NULL THEN 'pending_event' ELSE 'created'
+                        END,
+                        reminder_24h_sent_at = NULL,
+                        reminder_1h_sent_at = NULL
+                    WHERE id = %s
+                    """,
+                    (new_date, new_time, new_text, new_event_id, new_event_url,
+                     new_event_id, row["id"]),
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO booking_audit_logs
+                        (booking_request_id, actor_type, actor_id, action,
+                         from_status, to_status, detail)
+                    VALUES (%s, 'cro', %s, 'rescheduled', 'approved', 'approved', %s)
+                    """,
+                    (
+                        row["id"],
+                        actor_id,
+                        json.dumps({
+                            "old_date": str(old_date) if old_date else None,
+                            "old_time": str(old_time) if old_time else None,
+                            "old_text": old_text,
+                            "old_event_id": old_event,
+                            "new_date": new_date,
+                            "new_time": new_time,
+                            "new_event_id": new_event_id,
+                        }),
+                    ),
+                )
+
+                cur.execute(
+                    "SELECT request_uid, status, requested_date, requested_time, "
+                    "requested_datetime_text, calendar_event_id, calendar_event_url "
+                    "FROM booking_requests WHERE id = %s",
+                    (row["id"],),
+                )
+                fresh = cur.fetchone()
+            conn.commit()
+            return _serialize_booking_row(fresh) if fresh else None
+        except Exception:
+            conn.rollback()
+            raise
+
+
 def update_approved(
     *,
     uid: str,

@@ -13,6 +13,7 @@ from schemas.bookings import (
     BookingOut,
     CancelRequest,
     RejectRequest,
+    RescheduleRequest,
     SimpleOkResponse,
 )
 from services import booking_service
@@ -67,3 +68,15 @@ def reject_booking(request_uid: str, body: RejectRequest, user: _CroOrAdmin) -> 
 def cancel_booking(request_uid: str, body: CancelRequest, user: _CroOrAdmin) -> dict:
     """Cancel an approved booking and remove its Google Calendar event."""
     return booking_service.cancel_booking(uid=request_uid, reason=body.reason, user=user)
+
+
+@router.post("/{request_uid}/reschedule", response_model=BookingOut)
+def reschedule_booking(
+    request_uid: str, body: RescheduleRequest, user: _CroOrAdmin,
+) -> dict:
+    """Move an approved booking to a new slot. Cancels old calendar event,
+    creates a new one, updates DB, pushes the patient on LINE. Keeps the
+    same request_uid so audit/history is preserved."""
+    return booking_service.reschedule_booking(
+        uid=request_uid, new_start_at=body.new_start_at, user=user, reason=body.reason,
+    )

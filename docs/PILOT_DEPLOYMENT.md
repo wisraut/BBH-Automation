@@ -109,7 +109,7 @@ docker compose -f docker-compose.bridge.staging.yaml --env-file .env.staging up 
 - [ ] Apply migrations 0001..0041 ลง prod DB
 - [ ] Set `LOGIN_ALLOWED_ROLES=admin,cro` ใน prod `.env`
 - [ ] JWT_SECRET ≥32 chars + เก็บใน secret manager (ไม่ใช่ committed file)
-- [ ] Create admin + CRO user ผ่าน `scratch/_create_admin.py` (gitignored)
+- [ ] Create admin + CRO user ผ่าน `tools/_create_admin.py` (docker cp ใส่ container แล้ว `python /tmp/_create_admin.py`)
 - [ ] Test login 5 ครั้งติด → ครั้งที่ 6 ได้ 429
 - [ ] Test password weak → 400 `WEAK_PASSWORD`
 - [ ] Test doctor user → 403 `ROLE_NOT_AVAILABLE`

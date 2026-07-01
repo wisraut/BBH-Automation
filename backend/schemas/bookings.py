@@ -120,3 +120,14 @@ class ApproveResponse(BaseModel):
 
 class SimpleOkResponse(BaseModel):
     ok: bool
+
+
+class RescheduledMark(BaseModel):
+    """A booking currently in a rescheduled state — for the gray marker on
+    the Calendar day cell. Display date is the new date for with-time
+    reschedules or the ORIGINAL date (from audit log) for TBD ones."""
+    request_uid: str
+    patient_name: str | None = None
+    display_date: str = Field(description="YYYY-MM-DD — the date to render the marker on")
+    is_tbd: bool = Field(description="True if the reschedule has no committed new time yet")
+    current_status: BookingStatus

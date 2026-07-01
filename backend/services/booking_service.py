@@ -225,6 +225,15 @@ def reject_booking(
     return {"ok": True}
 
 
+def list_rescheduled_marks(
+    *, start_date: str, end_date: str,
+) -> list[dict[str, Any]]:
+    """Return active reschedule marks for a date range (inclusive)."""
+    return booking_repo.list_rescheduled_in_range(
+        start_date=start_date, end_date=end_date,
+    )
+
+
 def assign_doctor(
     *, uid: str, assigned_doctor_id: int | None, user: dict[str, Any],
 ) -> dict[str, Any]:

@@ -404,6 +404,72 @@ def update_approved(
             raise
 
 
+def list_rescheduled_in_range(
+    *, start_date: str, end_date: str,
+) -> list[dict[str, Any]]:
+    """Bookings whose LATEST audit action is a reschedule that is still in
+    effect. Used by Calendar to render a gray "เลื่อนนัด N" marker on the day
+    cell.
+
+    With-time reschedule → status='approved', marker on new requested_date.
+    TBD reschedule → status='pending_approval', marker on old_date from
+    the audit detail (until CRO re-approves with a new time).
+    """
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT b.request_uid, b.patient_name, b.status,
+                       b.requested_date,
+                       la.action AS latest_action, la.detail AS latest_detail
+                FROM booking_requests b
+                INNER JOIN (
+                    SELECT booking_request_id, MAX(id) AS latest_id
+                    FROM booking_audit_logs
+                    GROUP BY booking_request_id
+                ) latest ON latest.booking_request_id = b.id
+                INNER JOIN booking_audit_logs la ON la.id = latest.latest_id
+                WHERE la.action IN ('rescheduled', 'rescheduled_pending')
+                """
+            )
+            rows = cur.fetchall() or []
+
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        action = row["latest_action"]
+        status = row["status"]
+        # An "in effect" reschedule requires the current status to match the
+        # audit — TBD then re-approved has status='approved' but latest audit
+        # still 'rescheduled_pending', which should NOT show a marker.
+        if action == "rescheduled" and status != "approved":
+            continue
+        if action == "rescheduled_pending" and status != "pending_approval":
+            continue
+
+        if action == "rescheduled":
+            display = row.get("requested_date")
+            display_date = display.isoformat() if hasattr(display, "isoformat") else str(display or "")
+            is_tbd = False
+        else:
+            try:
+                detail = json.loads(row["latest_detail"]) if row["latest_detail"] else {}
+            except Exception:  # noqa: BLE001
+                detail = {}
+            display_date = str(detail.get("old_date") or "")
+            is_tbd = True
+
+        if not display_date or display_date < start_date or display_date > end_date:
+            continue
+        result.append({
+            "request_uid": row["request_uid"],
+            "patient_name": row.get("patient_name"),
+            "display_date": display_date,
+            "is_tbd": is_tbd,
+            "current_status": status,
+        })
+    return result
+
+
 def assign_doctor(
     *,
     uid: str,

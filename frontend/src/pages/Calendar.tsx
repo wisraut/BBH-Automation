@@ -9,6 +9,7 @@ import { useAllBookings } from '../hooks/useAllBookings'
 import { useCancelBooking } from '../hooks/useCancelBooking'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 import type { CalendarEvent } from '../hooks/useCalendarEvents'
+import { useRescheduledMarks } from '../hooks/useRescheduledMarks'
 import { useToast } from '../hooks/useToast'
 import type { components } from '../lib/api-types'
 
@@ -49,6 +50,10 @@ const APPT_TYPE_LABELS: Record<string, string> = {
 
 function toDateKey(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function daysInMonthFor(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
 }
 
 function parseBookingDate(text: string | null | undefined): string | null {
@@ -149,6 +154,11 @@ export function Calendar() {
   const cancelledQ = useAllBookings('cancelled')
   const rejectedQ = useAllBookings('rejected')
   const googleQ = useCalendarEvents(rangeStart, rangeEnd)
+  const monthKey = (d: Date) => toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
+  const rescheduledQ = useRescheduledMarks(
+    monthKey(new Date(year, month, 1)),
+    monthKey(new Date(year, month, daysInMonthFor(year, month))),
+  )
 
   const bookingsByDate = useMemo(() => {
     const all = [
@@ -163,6 +173,11 @@ export function Calendar() {
   const googleByDate = useMemo(
     () => mapByDate(googleQ.data?.data ?? [], eventDateKey),
     [googleQ.data],
+  )
+
+  const rescheduledByDate = useMemo(
+    () => mapByDate(rescheduledQ.data ?? [], (m) => m.display_date),
+    [rescheduledQ.data],
   )
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -260,9 +275,11 @@ export function Calendar() {
             const isSelected = dk === selectedDate
             const items = bookingsByDate[dk] ?? []
             const googleItems = googleByDate[dk] ?? []
+            const rescheduledItems = rescheduledByDate[dk] ?? []
             const approvedCnt = items.filter((b) => b.status === 'approved').length
             const pendingCnt = items.filter((b) => b.status === 'pending_approval').length
             const cancelledCnt = items.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
+            const rescheduledCnt = rescheduledItems.length
 
             return (
               <button
@@ -283,6 +300,7 @@ export function Calendar() {
                 <div className="mt-auto flex w-full flex-col gap-0.5">
                   {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark">{approvedCnt} ยืนยัน</span>}
                   {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700">{pendingCnt} รอ</span>}
+                  {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700">{rescheduledCnt} เลื่อนนัด</span>}
                   {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500">{cancelledCnt} ยกเลิก</span>}
                   {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700">{googleItems.length} นัด</span>}
                 </div>
@@ -297,6 +315,7 @@ export function Calendar() {
         <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-bbh-muted">
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />ยืนยันแล้ว</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />รอยืนยัน</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-slate-300 bg-slate-200" />เลื่อนนัด (รอเวลาใหม่)</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-gray-200 bg-gray-100" />ยกเลิก / ปฏิเสธ</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-sky-200 bg-sky-50" />นัดในปฏิทิน</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border-2 border-bbh-green/50 bg-white" />วันนี้</span>
@@ -468,6 +487,7 @@ export function Calendar() {
         onSuccess={() => {
           void qc.invalidateQueries({ queryKey: ['bookings-all'] })
           void qc.invalidateQueries({ queryKey: ['calendar-events'] })
+          void qc.invalidateQueries({ queryKey: ['rescheduled-marks'] })
           toast.show('success', 'เลื่อนนัดสำเร็จ')
         }}
       />

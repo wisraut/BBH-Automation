@@ -14,6 +14,7 @@ from schemas.bookings import (
     BookingOut,
     CancelRequest,
     RejectRequest,
+    RescheduledMark,
     RescheduleRequest,
     SimpleOkResponse,
 )
@@ -22,6 +23,19 @@ from services import booking_service
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 
 _CroOrAdmin = Annotated[dict, Depends(require_user(["cro", "admin"]))]
+
+
+@router.get("/rescheduled", response_model=list[RescheduledMark])
+def list_rescheduled(
+    user: _CroOrAdmin,
+    from_date: str = Query(alias="from"),
+    to_date: str = Query(alias="to"),
+) -> list[dict]:
+    """Active reschedule markers within [from, to] (YYYY-MM-DD, inclusive).
+    Calendar uses this to draw the gray "เลื่อนนัด N" pill on day cells."""
+    return booking_service.list_rescheduled_marks(
+        start_date=from_date, end_date=to_date,
+    )
 
 
 @router.get("", response_model=BookingListResponse)

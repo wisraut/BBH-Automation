@@ -342,6 +342,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bookings/rescheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rescheduled
+         * @description Active reschedule markers within [from, to] (YYYY-MM-DD, inclusive).
+         *     Calendar uses this to draw the gray "เลื่อนนัด N" pill on day cells.
+         */
+        get: operations["list_rescheduled_api_bookings_rescheduled_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bookings": {
         parameters: {
             query?: never;
@@ -2252,6 +2273,33 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /**
+         * RescheduledMark
+         * @description A booking currently in a rescheduled state — for the gray marker on
+         *     the Calendar day cell. Display date is the new date for with-time
+         *     reschedules or the ORIGINAL date (from audit log) for TBD ones.
+         */
+        RescheduledMark: {
+            /** Request Uid */
+            request_uid: string;
+            /** Patient Name */
+            patient_name?: string | null;
+            /**
+             * Display Date
+             * @description YYYY-MM-DD — the date to render the marker on
+             */
+            display_date: string;
+            /**
+             * Is Tbd
+             * @description True if the reschedule has no committed new time yet
+             */
+            is_tbd: boolean;
+            /**
+             * Current Status
+             * @enum {string}
+             */
+            current_status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired" | "no_show";
+        };
         /** ResolveRequest */
         ResolveRequest: {
             /** Reason */
@@ -3073,6 +3121,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rescheduled_api_bookings_rescheduled_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescheduledMark"][];
                 };
             };
             /** @description Validation Error */

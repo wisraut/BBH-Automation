@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -80,7 +80,7 @@ export function AuditLog() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">Audit Trail</p>
           <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">บันทึกการเข้าถึงข้อมูลคนไข้</h1>

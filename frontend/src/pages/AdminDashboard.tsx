@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity,
@@ -95,7 +95,7 @@ function MetricCard({ label, value, helper, icon: Icon, tone, onClick, active }:
           : 'ring-2 ring-bbh-green border-bbh-green/40'
       : 'border-bbh-line hover:border-bbh-green/40'
   const className =
-    `rounded-2xl border bg-white px-4 py-4 shadow-sm transition ${activeRing} ` +
+    `rounded-2xl border bg-white px-5 py-5 shadow-sm transition ${activeRing} ` +
     (onClick ? 'cursor-pointer text-left w-full' : '')
 
   const content = (
@@ -146,8 +146,8 @@ export function AdminDashboard() {
 
   return (
     <div className="flex h-full min-w-0 overflow-hidden rounded-[20px] border border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur md:rounded-[28px]">
-      <section className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-4 md:p-7">
-        <div className="mb-6 flex items-start justify-between gap-4">
+      <section className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-5 md:p-8">
+        <div className="mb-8 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">Admin Control Room</p>
             <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">ภาพรวมสำหรับผู้ดูแลระบบ</h1>
@@ -165,7 +165,7 @@ export function AdminDashboard() {
           </button>
         </div>
 
-        <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Critical"
             value={summary?.by_severity?.critical ?? 0}
@@ -201,19 +201,19 @@ export function AdminDashboard() {
           />
         </div>
 
-        <div className="mb-6 rounded-2xl border border-bbh-line bg-white/85 p-4 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+        <div className="mb-8 rounded-2xl border border-bbh-line bg-white/85 p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-2">
             <ExternalLink size={18} className="text-bbh-green" />
             <h2 className="font-serif text-lg font-semibold text-bbh-ink">Role workspaces</h2>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {ROLE_WORKSPACES.map((item) => {
               const Icon = item.icon
               return (
                 <a
                   key={item.label}
                   href={item.path}
-                  className="rounded-2xl border border-bbh-line bg-white p-4 transition hover:border-bbh-green hover:shadow-bbh-card"
+                  className="rounded-2xl border border-bbh-line bg-white p-5 transition hover:border-bbh-green hover:shadow-bbh-card"
                 >
                   <div className="flex items-center gap-3">
                     <div className="grid h-10 w-10 place-items-center rounded-xl bg-bbh-green-soft text-bbh-green-dark">
@@ -230,7 +230,7 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
+        <div className="mb-8 flex flex-wrap items-center gap-3 rounded-2xl border border-bbh-line bg-white/80 px-5 py-4 shadow-sm">
           <div className="mr-2 flex items-center gap-2 text-sm font-semibold text-bbh-ink">
             <BellRing size={18} className="text-bbh-green" />
             Action required
@@ -256,7 +256,7 @@ export function AdminDashboard() {
             <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลดรายการ
           </div>
         ) : alertsQ.isError ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
             โหลดข้อมูลไม่สำเร็จ — ลองรีเฟรชอีกครั้ง
           </div>
         ) : alerts.length === 0 ? (
@@ -267,7 +267,7 @@ export function AdminDashboard() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
-            <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted lg:grid-cols-[130px_1.3fr_130px_120px]">
+            <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-bbh-line bg-bbh-surface px-5 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted lg:grid-cols-[140px_1.3fr_140px_120px]">
               <span>Area</span>
               <span>เรื่อง</span>
               <span className="hidden lg:block">Last seen</span>
@@ -281,7 +281,7 @@ export function AdminDashboard() {
                     key={a.alert_id}
                     type="button"
                     onClick={() => { setSelectedId(a.alert_id); setDetailOpen(true) }}
-                    className={`grid w-full grid-cols-[1fr_auto] gap-3 px-4 py-4 text-left transition lg:grid-cols-[130px_1.3fr_130px_120px] ${
+                    className={`grid w-full grid-cols-[1fr_auto] gap-3 px-5 py-5 text-left transition lg:grid-cols-[140px_1.3fr_140px_120px] ${
                       active ? 'bg-bbh-green-soft/60' : 'bg-white hover:bg-bbh-surface'
                     }`}
                   >
@@ -304,10 +304,33 @@ export function AdminDashboard() {
         )}
       </section>
 
-      <aside className="hidden w-[420px] overflow-y-auto border-l border-bbh-line bg-white/95 p-6 lg:block">
-        {selected ? <AlertDetail alert={selected} ruleDescription={rulesByKey[selected.rule_key]?.description ?? null} /> : (
+      <aside className="hidden w-[460px] overflow-y-auto border-l border-bbh-line bg-white/95 p-7 lg:block xl:w-[500px]">
+        {severityFilter ? (
+          alerts.length === 0 ? (
+            <div className="rounded-2xl border border-bbh-green/30 bg-bbh-green-soft p-6 text-center">
+              <CheckCircle2 size={28} className="mx-auto mb-2 text-bbh-green" />
+              <p className="text-sm font-semibold text-bbh-ink">
+                ไม่มี {severityFilter} alert เปิดอยู่
+              </p>
+              <p className="mt-1 text-xs text-bbh-muted">ระบบ healthy ในระดับความรุนแรงนี้</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className={`rounded-xl border px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] ${SEVERITY_STYLES[severityFilter]}`}>
+                {alerts.length} {severityFilter} alert{alerts.length > 1 ? 's' : ''} · เลื่อนดูทุกอัน
+              </div>
+              {alerts.map((a, i) => (
+                <div key={a.alert_id} className={i < alerts.length - 1 ? 'border-b border-bbh-line pb-6' : ''}>
+                  <AlertDetail alert={a} ruleDescription={rulesByKey[a.rule_key]?.description ?? null} />
+                </div>
+              ))}
+            </div>
+          )
+        ) : selected ? (
+          <AlertDetail alert={selected} ruleDescription={rulesByKey[selected.rule_key]?.description ?? null} />
+        ) : (
           <div className="rounded-2xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-            เลือก alert จากด้านซ้ายเพื่อดูรายละเอียดและจัดการ
+            เลือก alert จากด้านซ้าย หรือกด Critical/Warning/Info เพื่อกรอง
           </div>
         )}
       </aside>
@@ -358,7 +381,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
       </div>
 
       {ruleDescription ? (
-        <div className="rounded-2xl border border-bbh-line p-4">
+        <div className="rounded-2xl border border-bbh-line p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">Rule</p>
           <p className="mt-2 text-sm font-semibold text-bbh-ink">{alert.rule_display_name}</p>
           <p className="mt-1 text-xs leading-relaxed text-bbh-muted">{ruleDescription}</p>
@@ -366,7 +389,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
       ) : null}
 
       {detailEntries.length > 0 ? (
-        <div className="rounded-2xl border border-bbh-line p-4">
+        <div className="rounded-2xl border border-bbh-line p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">Context</p>
           <dl className="mt-2 grid grid-cols-1 gap-1 text-xs">
             {detailEntries.map(([k, v]) => (
@@ -379,19 +402,19 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-bbh-line p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-bbh-line p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted">First seen</p>
           <p className="mt-2 text-sm font-semibold text-bbh-ink">{formatRelative(alert.first_seen_at)}</p>
         </div>
-        <div className="rounded-2xl border border-bbh-line p-4">
+        <div className="rounded-2xl border border-bbh-line p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted">Last seen</p>
           <p className="mt-2 text-sm font-semibold text-bbh-ink">{formatRelative(alert.last_seen_at)}</p>
         </div>
       </div>
 
       {alert.status === 'open' ? (
-        <div className="rounded-2xl border border-bbh-line p-4">
+        <div className="rounded-2xl border border-bbh-line p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">Acknowledge</p>
           <textarea
             value={ackNote}
@@ -434,7 +457,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
       ) : null}
 
       {alert.status !== 'resolved' ? (
-        <div className="rounded-2xl border border-bbh-line p-4">
+        <div className="rounded-2xl border border-bbh-line p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">Resolve</p>
           <select
             value={resolveReason}
@@ -467,7 +490,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
           </button>
         </div>
       ) : (
-        <div className="rounded-2xl border border-bbh-green/30 bg-bbh-green-soft p-4 text-sm text-bbh-green-dark">
+        <div className="rounded-2xl border border-bbh-green/30 bg-bbh-green-soft p-5 text-sm text-bbh-green-dark">
           ปิดแล้วเมื่อ {alert.resolved_at ? formatRelative(alert.resolved_at) : '—'} ({alert.resolved_reason ?? 'unknown'})
         </div>
       )}

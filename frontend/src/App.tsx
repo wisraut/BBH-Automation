@@ -130,7 +130,7 @@ function DashboardLayout() {
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
-        <main className="flex-1 overflow-hidden p-3 md:p-5">
+        <main className="flex-1 overflow-hidden p-4 md:p-7 lg:p-8">
           <Outlet />
         </main>
       </div>

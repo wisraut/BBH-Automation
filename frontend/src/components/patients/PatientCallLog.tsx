@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -51,7 +51,7 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
   const calls = q.data?.data ?? []
 
   return (
-    <section className="rounded-2xl border border-bbh-line bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-bbh-line bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <PhoneIncoming size={18} className="text-bbh-green" />

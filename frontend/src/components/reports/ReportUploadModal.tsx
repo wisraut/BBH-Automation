@@ -74,7 +74,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
             className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
           />
         </label>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
             ประเภท
             <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm">

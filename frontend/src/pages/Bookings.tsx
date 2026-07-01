@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
@@ -62,7 +62,7 @@ export function Bookings() {
   return (
     <div className="flex h-full min-w-0 overflow-hidden rounded-[20px] border border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur md:rounded-[28px]">
       <section className={`${selectedUid ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-4 md:p-7`}>
-        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
+        <div className="mb-8 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
           {FILTERS.map((item) => {
             const active = item.key === filter
             return (

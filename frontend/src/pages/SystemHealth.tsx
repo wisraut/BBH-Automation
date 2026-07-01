@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -87,7 +87,7 @@ function ServiceCard({ check }: { check: ServiceCheck }) {
   const label = SERVICE_LABELS[check.name] ?? check.name
   const s = STATUS_STYLES[check.status]
   return (
-    <div className="rounded-2xl border border-bbh-line bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-bbh-line bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="relative shrink-0 pt-0.5 text-bbh-muted">
           <Icon size={20} />
@@ -124,7 +124,7 @@ export function SystemHealth() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">System Monitor</p>
           <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">สถานะระบบโรงพยาบาล</h1>
@@ -166,7 +166,7 @@ export function SystemHealth() {
           {/* Services grid */}
           <section>
             <h2 className="mb-3 font-serif text-base font-semibold text-bbh-ink">Services</h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {data.services.map((s) => (
                 <ServiceCard key={s.name} check={s} />
               ))}
@@ -178,7 +178,7 @@ export function SystemHealth() {
             <h2 className="mb-3 font-serif text-base font-semibold text-bbh-ink">ข้อมูลในระบบ</h2>
             <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
               {dbStatsEntries.map(([key, value]) => (
-                <div key={key} className="rounded-2xl border border-bbh-line bg-white p-4 shadow-sm">
+                <div key={key} className="rounded-2xl border border-bbh-line bg-white p-5 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-bbh-muted">
                     {DB_STAT_LABELS[key] ?? key}
                   </p>

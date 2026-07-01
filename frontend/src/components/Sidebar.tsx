@@ -69,6 +69,8 @@ interface SidebarProps {
 export function Sidebar({ role, actualRole, viewAs, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
   const items = NAV.filter((item) => item.roles.includes(role))
   const showBackToAdmin = Boolean(viewAs && actualRole === 'admin')
+  // Preserve view-as query so admin stays in the shadowed role while navigating
+  const withViewAs = (path: string) => (viewAs ? `${path}?as=${viewAs}` : path)
 
   return (
     <>
@@ -154,7 +156,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
             return (
               <NavLink
                 key={item.to}
-                to={item.to}
+                to={withViewAs(item.to)}
                 onClick={onClose}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>

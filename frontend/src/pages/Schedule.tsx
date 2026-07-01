@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Brain,
@@ -67,7 +67,7 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
     if (!briefM.data && !briefM.isPending) briefM.mutate(apt.patient_id)
   }
   return (
-    <div className={`rounded-2xl border bg-white p-4 shadow-sm ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
+    <div className={`rounded-2xl border bg-white p-5 shadow-sm ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs text-bbh-muted">
@@ -214,7 +214,7 @@ export function Schedule() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">My Workspace</p>
           <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">ตารางงาน</h1>
@@ -287,7 +287,7 @@ export function Schedule() {
                       {formatThaiDate(date_)}
                       {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· วันนี้</span> : null}
                     </p>
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2">
                       {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} />)}
                     </div>
                   </div>

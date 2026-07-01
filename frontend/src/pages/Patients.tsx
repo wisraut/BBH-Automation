@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
 
@@ -374,7 +374,7 @@ export function Patients() {
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
               <section className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="rounded-xl border border-bbh-line p-4">
                     <p className="text-xs text-bbh-muted">Reports</p>
                     <p className="mt-1 font-serif text-2xl font-semibold text-bbh-ink">{reports.length}</p>

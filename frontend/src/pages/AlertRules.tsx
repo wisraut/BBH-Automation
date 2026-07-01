@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
   Check,
@@ -53,7 +53,7 @@ export function AlertRules() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">Alert Rules</p>
           <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">กฎเตือน (Admin)</h1>
@@ -85,7 +85,7 @@ export function AlertRules() {
             const Icon = SEVERITY_ICONS[r.severity] ?? ShieldAlert
             const togglePending = toggle.isPending && toggle.variables?.ruleKey === r.rule_key
             return (
-              <div key={r.rule_key} className={`rounded-2xl border bg-white p-4 shadow-sm transition ${!r.enabled ? 'border-bbh-line opacity-60' : 'border-bbh-line'}`}>
+              <div key={r.rule_key} className={`rounded-2xl border bg-white p-5 shadow-sm transition ${!r.enabled ? 'border-bbh-line opacity-60' : 'border-bbh-line'}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

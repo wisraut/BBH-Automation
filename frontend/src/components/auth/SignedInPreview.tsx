@@ -1,4 +1,4 @@
-import { AuthNotice } from './AuthNotice'
+﻿import { AuthNotice } from './AuthNotice'
 import type { DashboardUser, Role } from '../../lib/auth'
 
 const roleLabels: Record<Role, string> = {
@@ -26,7 +26,7 @@ type SignedInPreviewProps = {
 export function SignedInPreview({ user, notice, onLogout }: SignedInPreviewProps) {
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-bbh-green">
             Signed in

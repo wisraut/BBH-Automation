@@ -1,6 +1,8 @@
 ﻿import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
+import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAllBookings } from '../hooks/useAllBookings'
@@ -123,6 +125,7 @@ function mapByDate<T>(items: T[], getDate: (item: T) => string | null): Record<s
 export function Calendar() {
   const cancelBooking = useCancelBooking()
   const toast = useToast()
+  const qc = useQueryClient()
   const now = new Date()
   const [monthStart, setMonthStart] = useState(
     () => new Date(now.getFullYear(), now.getMonth(), 1),
@@ -131,6 +134,9 @@ export function Calendar() {
     () => toDateKey(now.getFullYear(), now.getMonth(), now.getDate()),
   )
   const [panelFilter, setPanelFilter] = useState<BookingStatus | 'all'>('all')
+  const [rescheduleTarget, setRescheduleTarget] = useState<{
+    uid: string; currentText: string | null
+  } | null>(null)
 
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
@@ -384,7 +390,14 @@ export function Calendar() {
                       </div>
                       {b.symptom && <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>}
                       {b.status === 'approved' ? (
-                        <div className="grid overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
+                        <div className="grid grid-cols-2 gap-2 overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => setRescheduleTarget({ uid: b.request_uid, currentText: b.requested_datetime_text })}
+                            className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-xs font-semibold text-bbh-ink transition hover:border-bbh-green hover:text-bbh-green-dark"
+                          >
+                            เลื่อนนัด
+                          </button>
                           <button
                             type="button"
                             disabled={cancelBooking.isPending}
@@ -446,6 +459,18 @@ export function Calendar() {
           </>
         )}
       </aside>
+
+      <RescheduleModal
+        open={rescheduleTarget !== null}
+        uid={rescheduleTarget?.uid ?? null}
+        currentDateTimeText={rescheduleTarget?.currentText ?? null}
+        onClose={() => setRescheduleTarget(null)}
+        onSuccess={() => {
+          void qc.invalidateQueries({ queryKey: ['bookings-all'] })
+          void qc.invalidateQueries({ queryKey: ['calendar-events'] })
+          toast.show('success', 'เลื่อนนัดสำเร็จ')
+        }}
+      />
     </div>
   )
 }

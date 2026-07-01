@@ -113,7 +113,7 @@ function DashboardLayout() {
   }, [location.pathname])
 
   if (!user) return null
-  const meta = PAGE_META[location.pathname] ?? { title: 'BBH Portal' }
+  const meta = PAGE_META[location.pathname] ?? { title: 'BBH Hospital' }
   const viewAs = computeViewAs(location.pathname, searchParams.get('as'), user.role)
   const effectiveRole: Role = viewAs ?? user.role
 

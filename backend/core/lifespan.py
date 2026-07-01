@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from core.config import CRO_CHANNEL_ENABLED, DB_CONFIG, PUBLIC_URL, SERVER_PORT, log
 from core.db import get_db
 from flows import doctor
-from jobs import admin_alert_evaluator, appointment_reminder, email_poller, no_show_flagger, webhook_queue_worker
+from jobs import admin_alert_evaluator, appointment_reminder, no_show_flagger, webhook_queue_worker
 
 
 # Health probe (Cloudflare + Docker healthcheck) reads this. When True, the
@@ -63,9 +63,9 @@ async def lifespan(app):
         log.info("CRO Webhook URL:   %s/webhook/cro", app.state.public_url)
     log.info("=" * 60)
 
-    poller_task = asyncio.create_task(
-        email_poller.start_poller(DB_CONFIG, doctor.notify_new_report)
-    )
+    # email_poller disabled 2026-07-01 — Gmail App Password revoked; Reports page in
+    # Web Dashboard covers report intake. Re-enable by restoring the import + task
+    # after regenerating GMAIL_APP_PASSWORD.
     evaluator_task = asyncio.create_task(
         admin_alert_evaluator.start_evaluator(interval_seconds=60)
     )
@@ -92,7 +92,6 @@ async def lifespan(app):
         await asyncio.sleep(2)  # short window so in-flight reqs see drain
 
         await asyncio.gather(
-            _cancel_and_wait(poller_task, "email_poller"),
             _cancel_and_wait(evaluator_task, "alert_evaluator"),
             _cancel_and_wait(webhook_worker_task, "webhook_queue"),
             _cancel_and_wait(reminder_task, "appointment_reminder"),

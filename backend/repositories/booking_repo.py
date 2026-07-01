@@ -1,7 +1,8 @@
 """CRUD helpers for booking_requests - parameterized SQL only."""
 import json
+import re
 import uuid
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from core.mysql import mysql_db
@@ -404,6 +405,30 @@ def update_approved(
             raise
 
 
+_DATE_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
+
+
+def _parse_thai_date_text(text: str | None, fallback_year: int) -> str | None:
+    """Parse "25/6 11:00" or "25/6/2026 11:00" → "2026-06-25".
+
+    LINE-originated bookings store the request as free text only, so
+    reschedule audits fall back to parsing this when the DATE column is NULL.
+    """
+    if not text:
+        return None
+    m = _DATE_RE.search(text)
+    if not m:
+        return None
+    d, mm, yr = m.groups()
+    year = int(yr) if yr else fallback_year
+    if year < 100:
+        year += 2000
+    try:
+        return f"{year:04d}-{int(mm):02d}-{int(d):02d}"
+    except ValueError:
+        return None
+
+
 def list_rescheduled_in_range(
     *, start_date: str, end_date: str,
 ) -> list[dict[str, Any]]:
@@ -413,15 +438,17 @@ def list_rescheduled_in_range(
 
     With-time reschedule → status='approved', marker on new requested_date.
     TBD reschedule → status='pending_approval', marker on old_date from
-    the audit detail (until CRO re-approves with a new time).
+    the audit detail (falls back to parsing old_text when the DATE column
+    was NULL — common for LINE-originated bookings).
     """
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT b.request_uid, b.patient_name, b.status,
-                       b.requested_date,
-                       la.action AS latest_action, la.detail AS latest_detail
+                       b.requested_date, b.requested_datetime_text,
+                       la.action AS latest_action, la.detail AS latest_detail,
+                       la.created_at AS audit_at
                 FROM booking_requests b
                 INNER JOIN (
                     SELECT booking_request_id, MAX(id) AS latest_id
@@ -438,24 +465,37 @@ def list_rescheduled_in_range(
     for row in rows:
         action = row["latest_action"]
         status = row["status"]
-        # An "in effect" reschedule requires the current status to match the
-        # audit — TBD then re-approved has status='approved' but latest audit
-        # still 'rescheduled_pending', which should NOT show a marker.
+        # Status must match the audit — TBD then re-approved has
+        # status='approved' but latest audit still 'rescheduled_pending';
+        # skip so a freshly re-approved booking is not still marked.
         if action == "rescheduled" and status != "approved":
             continue
         if action == "rescheduled_pending" and status != "pending_approval":
             continue
 
+        audit_at = row.get("audit_at")
+        fallback_year = audit_at.year if audit_at else datetime.utcnow().year
+
         if action == "rescheduled":
             display = row.get("requested_date")
-            display_date = display.isoformat() if hasattr(display, "isoformat") else str(display or "")
+            if hasattr(display, "isoformat"):
+                display_date = display.isoformat()
+            elif display:
+                display_date = str(display)
+            else:
+                # LINE booking has no DATE column — parse the text instead
+                display_date = _parse_thai_date_text(
+                    row.get("requested_datetime_text"), fallback_year,
+                ) or ""
             is_tbd = False
         else:
             try:
                 detail = json.loads(row["latest_detail"]) if row["latest_detail"] else {}
             except Exception:  # noqa: BLE001
                 detail = {}
-            display_date = str(detail.get("old_date") or "")
+            display_date = str(detail.get("old_date") or "") \
+                or _parse_thai_date_text(detail.get("old_text"), fallback_year) \
+                or ""
             is_tbd = True
 
         if not display_date or display_date < start_date or display_date > end_date:

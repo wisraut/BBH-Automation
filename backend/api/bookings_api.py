@@ -7,6 +7,7 @@ from core.security import require_user
 from schemas.bookings import (
     ApproveRequest,
     ApproveResponse,
+    AssignDoctorRequest,
     BookingCreateRequest,
     BookingCreateResponse,
     BookingListResponse,
@@ -48,14 +49,29 @@ def get_booking(request_uid: str, user: _CroOrAdmin) -> dict:
 
 @router.post("/{request_uid}/approve", response_model=ApproveResponse)
 def approve_booking(request_uid: str, body: ApproveRequest, user: _CroOrAdmin) -> dict:
-    """Check Google Calendar conflict, create event, mark approved, push patient LINE."""
+    """Check Google Calendar conflict, create event, mark approved, push patient LINE.
+
+    ``assigned_doctor_id`` is optional at the API layer for backwards compat with
+    LINE CONFIRM (n8n) — the Web ApproveModal requires it."""
     result = booking_service.approve_booking(
         uid=request_uid,
         start_at=body.start_at,
         duration_min=body.duration_min,
         user=user,
+        assigned_doctor_id=body.assigned_doctor_id,
     )
     return {"ok": True, **result}
+
+
+@router.post("/{request_uid}/assign-doctor", response_model=BookingOut)
+def assign_doctor(
+    request_uid: str, body: AssignDoctorRequest, user: _CroOrAdmin,
+) -> dict:
+    """Set (or clear) the assigned doctor on a booking. Used to complete
+    LINE-originated approvals or to correct a wrong assignment."""
+    return booking_service.assign_doctor(
+        uid=request_uid, assigned_doctor_id=body.assigned_doctor_id, user=user,
+    )
 
 
 @router.post("/{request_uid}/reject", response_model=SimpleOkResponse)

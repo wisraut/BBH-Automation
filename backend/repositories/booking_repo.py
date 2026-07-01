@@ -226,9 +226,90 @@ def reschedule_approved(
                 )
 
                 cur.execute(
-                    "SELECT request_uid, status, requested_date, requested_time, "
-                    "requested_datetime_text, calendar_event_id, calendar_event_url "
-                    "FROM booking_requests WHERE id = %s",
+                    f"SELECT {_DETAIL_COLUMNS} FROM booking_requests WHERE id = %s",
+                    (row["id"],),
+                )
+                fresh = cur.fetchone()
+            conn.commit()
+            return _serialize_booking_row(fresh) if fresh else None
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def reschedule_to_pending(
+    *,
+    uid: str,
+    actor_id: str,
+    reason: str | None = None,
+) -> dict[str, Any] | None:
+    """Move an approved booking back to pending_approval without a fixed time.
+
+    Used when the patient asks to reschedule but is not yet sure when. Clears
+    the calendar event, requested date/time, and reminder flags. The audit row
+    captures the old slot so the previous time is not lost.
+    """
+    with mysql_db() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, request_uid, status,
+                           requested_date, requested_time, requested_datetime_text,
+                           calendar_event_id, calendar_event_url
+                    FROM booking_requests
+                    WHERE request_uid = %s
+                    FOR UPDATE
+                    """,
+                    (uid,),
+                )
+                row = cur.fetchone()
+                if not row or row["status"] != "approved":
+                    conn.rollback()
+                    return None
+
+                cur.execute(
+                    """
+                    UPDATE booking_requests
+                    SET status = 'pending_approval',
+                        requested_date = NULL,
+                        requested_time = NULL,
+                        requested_datetime_text = NULL,
+                        calendar_event_id = NULL,
+                        calendar_event_url = NULL,
+                        calendar_status = 'pending',
+                        approved_at = NULL,
+                        approved_by = NULL,
+                        reminder_24h_sent_at = NULL,
+                        reminder_1h_sent_at = NULL
+                    WHERE id = %s
+                    """,
+                    (row["id"],),
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO booking_audit_logs
+                        (booking_request_id, actor_type, actor_id, action,
+                         from_status, to_status, detail)
+                    VALUES (%s, 'cro', %s, 'rescheduled_pending', 'approved',
+                            'pending_approval', %s)
+                    """,
+                    (
+                        row["id"],
+                        actor_id,
+                        json.dumps({
+                            "old_date": str(row.get("requested_date")) if row.get("requested_date") else None,
+                            "old_time": str(row.get("requested_time")) if row.get("requested_time") else None,
+                            "old_text": row.get("requested_datetime_text"),
+                            "old_event_id": row.get("calendar_event_id"),
+                            "reason": reason,
+                        }),
+                    ),
+                )
+
+                cur.execute(
+                    f"SELECT {_DETAIL_COLUMNS} FROM booking_requests WHERE id = %s",
                     (row["id"],),
                 )
                 fresh = cur.fetchone()
@@ -247,6 +328,7 @@ def update_approved(
     approved_by: str,
     approved_by_user_id: int | None,
     hn_year: str,
+    assigned_doctor_id: int | None = None,
 ) -> dict[str, Any] | None:
     """Approve booking and attach/create the real patient record atomically."""
     with mysql_db() as conn:
@@ -300,22 +382,76 @@ def update_approved(
                 rows = cur.execute(
                     """
                     UPDATE booking_requests SET
-                        status            = 'approved',
-                        patient_id        = %s,
-                        calendar_event_id = %s,
-                        calendar_event_url= %s,
-                        calendar_status   = 'created',
-                        approved_by       = %s,
-                        approved_at       = NOW()
+                        status              = 'approved',
+                        patient_id          = %s,
+                        calendar_event_id   = %s,
+                        calendar_event_url  = %s,
+                        calendar_status     = 'created',
+                        approved_by         = %s,
+                        approved_at         = NOW(),
+                        assigned_doctor_id  = COALESCE(%s, assigned_doctor_id)
                     WHERE request_uid = %s AND status = 'pending_approval'
                     """,
-                    (patient_id, event_id, event_url, approved_by, uid),
+                    (patient_id, event_id, event_url, approved_by, assigned_doctor_id, uid),
                 )
             if rows == 0:
                 conn.rollback()
                 return None
             conn.commit()
             return {"patient_id": patient_id, "hn": hn}
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def assign_doctor(
+    *,
+    uid: str,
+    assigned_doctor_id: int | None,
+    actor_id: str,
+) -> dict[str, Any] | None:
+    """Set (or clear) the assigned doctor on a booking. Works on any status
+    so CRO can also correct assignments post-approval. Writes an audit row
+    with the old + new doctor id."""
+    with mysql_db() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, status, assigned_doctor_id FROM booking_requests "
+                    "WHERE request_uid = %s FOR UPDATE",
+                    (uid,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    conn.rollback()
+                    return None
+                old_doctor = row.get("assigned_doctor_id")
+                cur.execute(
+                    "UPDATE booking_requests SET assigned_doctor_id = %s WHERE id = %s",
+                    (assigned_doctor_id, row["id"]),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO booking_audit_logs
+                        (booking_request_id, actor_type, actor_id, action,
+                         from_status, to_status, detail)
+                    VALUES (%s, 'cro', %s, 'doctor_assigned', %s, %s, %s)
+                    """,
+                    (
+                        row["id"], actor_id, row["status"], row["status"],
+                        json.dumps({
+                            "old_doctor_id": int(old_doctor) if old_doctor else None,
+                            "new_doctor_id": int(assigned_doctor_id) if assigned_doctor_id else None,
+                        }),
+                    ),
+                )
+                cur.execute(
+                    f"SELECT {_DETAIL_COLUMNS} FROM booking_requests WHERE id = %s",
+                    (row["id"],),
+                )
+                fresh = cur.fetchone()
+            conn.commit()
+            return _serialize_booking_row(fresh) if fresh else None
         except Exception:
             conn.rollback()
             raise

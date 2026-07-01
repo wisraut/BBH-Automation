@@ -5,9 +5,10 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from core.email_service import send_email
 from integrations import calendar_client
 from integrations.line_client import PRIMARY, push as line_push
-from repositories import booking_repo
+from repositories import booking_repo, user_repo
 from utils.pagination import paginate
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,12 @@ def create_booking(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
 
 
 def approve_booking(
-    *, uid: str, start_at: datetime, duration_min: int, user: dict[str, Any]
+    *,
+    uid: str,
+    start_at: datetime,
+    duration_min: int,
+    user: dict[str, Any],
+    assigned_doctor_id: int | None = None,
 ) -> dict[str, str]:
     row = booking_repo.get_by_uid(uid)
     if not row:
@@ -149,6 +155,7 @@ def approve_booking(
         approved_by=str(user.get("email") or user.get("sub") or "cro"),
         approved_by_user_id=user.get("id"),
         hn_year=start_at.strftime("%y"),
+        assigned_doctor_id=assigned_doctor_id,
     )
     if not approved:
         # Lost race — another approver acted first; clean up the just-created event
@@ -218,12 +225,44 @@ def reject_booking(
     return {"ok": True}
 
 
+def assign_doctor(
+    *, uid: str, assigned_doctor_id: int | None, user: dict[str, Any],
+) -> dict[str, Any]:
+    """CRO/admin sets or clears the assigned doctor on a booking. Idempotent
+    — writes an audit row with the old + new doctor id."""
+    row = booking_repo.get_by_uid(uid)
+    if not row:
+        raise HTTPException(404, {"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"})
+
+    if assigned_doctor_id is not None:
+        doctor = user_repo.find_user_by_id(int(assigned_doctor_id))
+        if not doctor or doctor.get("role") != "doctor" or not doctor.get("is_active"):
+            raise HTTPException(
+                422,
+                {"code": "DOCTOR_NOT_FOUND",
+                 "message": "แพทย์ที่เลือกไม่พบหรือไม่อยู่ในระบบ"},
+            )
+
+    updated = booking_repo.assign_doctor(
+        uid=uid,
+        assigned_doctor_id=assigned_doctor_id,
+        actor_id=str(user.get("email") or user.get("sub") or "cro"),
+    )
+    if not updated:
+        raise HTTPException(500, {"code": "ASSIGN_FAILED", "message": "บันทึกไม่สำเร็จ"})
+    return updated
+
+
 def reschedule_booking(
-    *, uid: str, new_start_at: datetime, user: dict[str, Any], reason: str | None = None,
+    *, uid: str, new_start_at: datetime | None, user: dict[str, Any], reason: str | None = None,
 ) -> dict[str, Any]:
     """Move an approved booking to a new time. Cancels the old Google Calendar
-    event, creates a new one, then atomically rewrites the DB row + audits.
-    Patient gets a LINE push with the new slot."""
+    event, creates a new one (if new_start_at given), rewrites the DB row +
+    audits. Patient gets a LINE push. Assigned doctor gets an email.
+
+    If new_start_at is None the booking is moved back to pending_approval
+    (used when the patient asks to reschedule but is not yet sure when).
+    """
     row = booking_repo.get_by_uid(uid)
     if not row:
         raise HTTPException(404, {"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"})
@@ -233,6 +272,44 @@ def reschedule_booking(
             {"code": "BOOKING_INVALID_STATE",
              "message": f"รายการนี้ {row['status']} แล้ว — เลื่อนนัดไม่ได้"},
         )
+
+    # ── TBD branch: no new time — move to pending_approval ─────────────────
+    if new_start_at is None:
+        updated = booking_repo.reschedule_to_pending(
+            uid=uid,
+            actor_id=str(user.get("email") or user.get("sub") or "cro"),
+            reason=reason,
+        )
+        if not updated:
+            raise HTTPException(
+                409,
+                {"code": "BOOKING_INVALID_STATE",
+                 "message": "รายการถูกแก้ไขโดยผู้อื่น ลองอีกครั้ง"},
+            )
+
+        # Cancel the old calendar event best-effort after DB commits.
+        old_event = row.get("calendar_event_id")
+        if old_event:
+            try:
+                calendar_client.cancel_event(old_event)
+            except Exception:  # noqa: BLE001
+                logger.exception("Failed to cancel old calendar event %s", old_event)
+
+        if row.get("channel", "").startswith("line") and row.get("external_user_id"):
+            _safe_push_patient(
+                row["external_user_id"],
+                (
+                    f"แจ้งเลื่อนนัดของท่าน\n"
+                    f"เวลาเดิม: {row.get('requested_datetime_text') or '-'}\n"
+                    f"เวลาใหม่: รอยืนยัน — กรุณาแจ้งเวลาที่สะดวกกลับมาที่คลินิก"
+                    + (f"\nหมายเหตุ: {reason}" if reason else "")
+                ),
+            )
+
+        _notify_doctor_reschedule(
+            row=row, new_start_at=None, reason=reason, actor_email=str(user.get("email") or ""),
+        )
+        return updated
 
     if new_start_at.tzinfo is None:
         new_start_at = new_start_at.replace(tzinfo=TZ_BANGKOK)
@@ -316,7 +393,56 @@ def reschedule_booking(
             ),
         )
 
+    _notify_doctor_reschedule(
+        row=row, new_start_at=new_start_at, reason=reason, actor_email=str(user.get("email") or ""),
+    )
     return updated
+
+
+def _notify_doctor_reschedule(
+    *,
+    row: dict[str, Any],
+    new_start_at: datetime | None,
+    reason: str | None,
+    actor_email: str,
+) -> None:
+    """Email the assigned doctor about a rescheduled appointment. Silent if
+    the booking has no doctor, the doctor has no email, or SMTP fails."""
+    doctor_id = row.get("assigned_doctor_id")
+    if not doctor_id:
+        return
+    doctor = user_repo.find_user_by_id(int(doctor_id))
+    if not doctor or not doctor.get("email"):
+        return
+
+    patient_name = row.get("patient_name") or "-"
+    phone = row.get("phone") or "-"
+    symptom = row.get("symptom") or "-"
+    old_slot = row.get("requested_datetime_text") or "-"
+    new_slot = (
+        new_start_at.strftime("%d/%m/%Y %H:%M น.")
+        if new_start_at
+        else "รอยืนยัน (คนไข้จะแจ้งเวลาใหม่)"
+    )
+    subject = f"[BBH] เลื่อนนัดคนไข้ {patient_name} — {new_slot}"
+    body = (
+        f"เรียน คุณหมอ {doctor.get('display_name') or ''}\n\n"
+        f"มีการเลื่อนนัดคนไข้ในความดูแลของท่านครับ\n\n"
+        f"คนไข้: {patient_name}\n"
+        f"เบอร์: {phone}\n"
+        f"อาการ: {symptom}\n"
+        f"เวลาเดิม: {old_slot}\n"
+        f"เวลาใหม่: {new_slot}\n"
+        f"เหตุผล: {reason or '-'}\n\n"
+        f"ดำเนินการโดย: {actor_email or 'CRO'}\n"
+        f"Booking UID: {row.get('request_uid')}\n"
+    )
+    ok = send_email(to=doctor["email"], subject=subject, body=body)
+    if not ok:
+        logger.warning(
+            "Doctor reschedule email skipped or failed (booking=%s doctor=%s)",
+            row.get("request_uid"), doctor.get("email"),
+        )
 
 
 def cancel_booking(

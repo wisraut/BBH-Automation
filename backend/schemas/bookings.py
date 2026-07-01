@@ -73,6 +73,20 @@ class BookingCreateResponse(BaseModel):
 class ApproveRequest(BaseModel):
     start_at: datetime = Field(description="ISO 8601 datetime (Asia/Bangkok). Slot start.")
     duration_min: int = Field(default=60, ge=15, le=240)
+    assigned_doctor_id: int | None = Field(
+        default=None,
+        description=(
+            "Optional at the API layer for backwards compatibility. The Web "
+            "ApproveModal enforces selection; LINE-originated confirms may "
+            "arrive without one and be assigned later via /assign-doctor."
+        ),
+    )
+
+
+class AssignDoctorRequest(BaseModel):
+    assigned_doctor_id: int | None = Field(
+        description="Doctor user id, or null to unassign.",
+    )
 
 
 class RejectRequest(BaseModel):
@@ -84,7 +98,15 @@ class CancelRequest(BaseModel):
 
 
 class RescheduleRequest(BaseModel):
-    new_start_at: datetime = Field(description="ISO 8601 (Asia/Bangkok). Slot start.")
+    new_start_at: datetime | None = Field(
+        default=None,
+        description=(
+            "ISO 8601 (Asia/Bangkok). Slot start. Optional — omit to move the "
+            "booking back to pending_approval so the patient can reconfirm a "
+            "time later (used when the patient asks to reschedule but is not "
+            "yet sure when)."
+        ),
+    )
     reason: str | None = Field(default=None, max_length=255)
 
 

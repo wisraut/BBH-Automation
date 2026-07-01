@@ -49,7 +49,11 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description Exchange email and password for a dashboard JWT.
+         * @description Exchange email and password for a dashboard session.
+         *
+         *     Sets an HttpOnly bbh_token cookie (XSS-safe) plus a readable bbh_csrf
+         *     cookie. The token is also returned in the body so existing CLI tests
+         *     and the n8n bot can use the Authorization-header path.
          */
         post: operations["login_auth_login_post"];
         delete?: never;
@@ -394,8 +398,32 @@ export interface paths {
         /**
          * Approve Booking
          * @description Check Google Calendar conflict, create event, mark approved, push patient LINE.
+         *
+         *     ``assigned_doctor_id`` is optional at the API layer for backwards compat with
+         *     LINE CONFIRM (n8n) — the Web ApproveModal requires it.
          */
         post: operations["approve_booking_api_bookings__request_uid__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookings/{request_uid}/assign-doctor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Doctor
+         * @description Set (or clear) the assigned doctor on a booking. Used to complete
+         *     LINE-originated approvals or to correct a wrong assignment.
+         */
+        post: operations["assign_doctor_api_bookings__request_uid__assign_doctor_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1480,6 +1508,11 @@ export interface components {
              * @default 60
              */
             duration_min: number;
+            /**
+             * Assigned Doctor Id
+             * @description Optional at the API layer for backwards compatibility. The Web ApproveModal enforces selection; LINE-originated confirms may arrive without one and be assigned later via /assign-doctor.
+             */
+            assigned_doctor_id?: number | null;
         };
         /** ApproveResponse */
         ApproveResponse: {
@@ -1493,6 +1526,14 @@ export interface components {
             patient_id: number;
             /** Hn */
             hn?: string | null;
+        };
+        /** AssignDoctorRequest */
+        AssignDoctorRequest: {
+            /**
+             * Assigned Doctor Id
+             * @description Doctor user id, or null to unassign.
+             */
+            assigned_doctor_id: number | null;
         };
         /** AuditLogItem */
         AuditLogItem: {
@@ -2205,10 +2246,9 @@ export interface components {
         RescheduleRequest: {
             /**
              * New Start At
-             * Format: date-time
-             * @description ISO 8601 (Asia/Bangkok). Slot start.
+             * @description ISO 8601 (Asia/Bangkok). Slot start. Optional — omit to move the booking back to pending_approval so the patient can reconfirm a time later (used when the patient asks to reschedule but is not yet sure when).
              */
-            new_start_at: string;
+            new_start_at?: string | null;
             /** Reason */
             reason?: string | null;
         };
@@ -3165,6 +3205,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApproveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_doctor_api_bookings__request_uid__assign_doctor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignDoctorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
                 };
             };
             /** @description Validation Error */

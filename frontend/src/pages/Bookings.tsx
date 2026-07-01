@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { AlertTriangle, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, Loader2, Plus, Stethoscope, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { NewBookingModal } from '../components/bookings/NewBookingModal'
@@ -7,9 +7,12 @@ import { RejectModal } from '../components/bookings/RejectModal'
 import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
+import { useAssignDoctor } from '../hooks/useAssignDoctor'
 import { useBooking } from '../hooks/useBooking'
 import { useBookings } from '../hooks/useBookings'
 import type { BookingStatus } from '../hooks/useBookings'
+import { useDoctors } from '../hooks/useDoctors'
+import { useToast } from '../hooks/useToast'
 import { ApiError } from '../lib/api'
 
 const FILTERS: { key: BookingStatus | 'all'; label: string }[] = [
@@ -280,14 +283,19 @@ export function Bookings() {
             ) : null}
 
             {detail.data.status === 'approved' ? (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setRescheduleOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-ink transition-all duration-200 hover:border-bbh-green hover:text-bbh-green-dark"
-                >
-                  <CalendarIcon size={16} /> เลื่อนนัด
-                </button>
+              <div className="space-y-3 pt-2">
+                {!detail.data.assigned_doctor_id ? (
+                  <AssignDoctorInlinePanel uid={detail.data.request_uid} onDone={() => void list.refetch()} />
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRescheduleOpen(true)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-ink transition-all duration-200 hover:border-bbh-green hover:text-bbh-green-dark"
+                  >
+                    <CalendarIcon size={16} /> เลื่อนนัด
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>
@@ -323,6 +331,68 @@ export function Bookings() {
           void list.refetch()
         }}
       />
+    </div>
+  )
+}
+
+// Inline picker for bookings that were confirmed via LINE (n8n CONFIRM) and
+// arrived without a doctor. CRO picks a doctor to complete the assignment;
+// email reschedule notifications rely on this being set.
+function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => void }) {
+  const doctorsQ = useDoctors()
+  const assign = useAssignDoctor()
+  const toast = useToast()
+  const [doctorId, setDoctorId] = useState<number | ''>('')
+
+  async function submit() {
+    if (doctorId === '') {
+      toast.show('error', 'กรุณาเลือกแพทย์')
+      return
+    }
+    try {
+      await assign.mutateAsync({ uid, body: { assigned_doctor_id: Number(doctorId) } })
+      toast.show('success', 'บันทึกแพทย์ประจำตัวสำเร็จ')
+      onDone()
+    } catch (error) {
+      const msg = error instanceof ApiError ? error.message : 'บันทึกไม่สำเร็จ'
+      toast.show('error', msg)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+      <div className="flex items-start gap-2">
+        <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-amber-900">ยังไม่ได้เลือกแพทย์ประจำตัว</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+            การจองนี้ยืนยันผ่าน LINE โดยไม่ได้ระบุแพทย์ กรุณาเลือกแพทย์เพื่อให้ระบบส่งอีเมลแจ้งได้ตอนเลื่อนนัด
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <select
+          value={doctorId}
+          onChange={(e) => setDoctorId(e.target.value === '' ? '' : Number(e.target.value))}
+          className="min-w-[180px] flex-1 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">— เลือกแพทย์ —</option>
+          {(doctorsQ.data?.data ?? []).map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={assign.isPending || doctorId === ''}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+        >
+          {assign.isPending ? <Loader2 size={14} className="animate-spin" /> : <Stethoscope size={14} />}
+          บันทึก
+        </button>
+      </div>
     </div>
   )
 }

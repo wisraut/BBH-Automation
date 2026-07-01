@@ -24,14 +24,18 @@ def send_email(
     to: str,
     subject: str,
     body: str,
+    html: str | None = None,
     attachment_path: str | None = None,
     attachment_filename: str | None = None,
     attachment_mime: str | None = None,
+    from_name: str | None = None,
 ) -> bool:
-    """Send an email. Optionally attaches one file from disk.
+    """Send an email. When ``html`` is provided the message is sent as
+    multipart/alternative so mail clients can pick either the text (body)
+    or the html version. Optionally attaches one file from disk.
 
     Returns False (logs, never raises) on failure so a notification outage
-    never blocks a report upload. Attachment is silently skipped if the file
+    never blocks the caller. Attachment is silently skipped if the file
     is missing or too large — body still sends.
     """
     if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
@@ -39,18 +43,30 @@ def send_email(
         return False
 
     if attachment_path:
-        msg = _build_multipart(
+        msg = _build_with_attachment(
             to=to,
             subject=subject,
             body=body,
+            html=html,
             attachment_path=attachment_path,
             attachment_filename=attachment_filename,
             attachment_mime=attachment_mime,
+            from_name=from_name,
         )
+    elif html:
+        # multipart/alternative — client picks text or html
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = _from_header(from_name)
+        msg["To"] = to
+        # Order matters — the LAST part is preferred by clients that
+        # support both, so put html second.
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+        msg.attach(MIMEText(html, "html", "utf-8"))
     else:
         msg = MIMEText(body, "plain", "utf-8")
         msg["Subject"] = subject
-        msg["From"] = GMAIL_EMAIL
+        msg["From"] = _from_header(from_name)
         msg["To"] = to
 
     try:
@@ -64,20 +80,35 @@ def send_email(
         return False
 
 
-def _build_multipart(
+def _from_header(from_name: str | None) -> str:
+    if from_name:
+        return f"{from_name} <{GMAIL_EMAIL}>"
+    return GMAIL_EMAIL
+
+
+def _build_with_attachment(
     *,
     to: str,
     subject: str,
     body: str,
+    html: str | None,
     attachment_path: str,
     attachment_filename: str | None,
     attachment_mime: str | None,
+    from_name: str | None,
 ) -> MIMEMultipart:
-    msg = MIMEMultipart()
+    """multipart/mixed with an alternative sub-part when html is provided."""
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
-    msg["From"] = GMAIL_EMAIL
+    msg["From"] = _from_header(from_name)
     msg["To"] = to
-    msg.attach(MIMEText(body, "plain", "utf-8"))
+    if html:
+        alt = MIMEMultipart("alternative")
+        alt.attach(MIMEText(body, "plain", "utf-8"))
+        alt.attach(MIMEText(html, "html", "utf-8"))
+        msg.attach(alt)
+    else:
+        msg.attach(MIMEText(body, "plain", "utf-8"))
 
     try:
         size = os.path.getsize(attachment_path)

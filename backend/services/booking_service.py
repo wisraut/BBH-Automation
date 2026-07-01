@@ -428,30 +428,173 @@ def _notify_doctor_reschedule(
     phone = row.get("phone") or "-"
     symptom = row.get("symptom") or "-"
     old_slot = row.get("requested_datetime_text") or "-"
+    is_tbd = new_start_at is None
     new_slot = (
         new_start_at.strftime("%d/%m/%Y %H:%M น.")
         if new_start_at
-        else "รอยืนยัน (คนไข้จะแจ้งเวลาใหม่)"
+        else "รอยืนยัน · คนไข้จะแจ้งเวลาใหม่"
     )
+    doctor_name = doctor.get("display_name") or ""
+    request_uid = row.get("request_uid") or ""
+    actor = actor_email or "CRO"
+
     subject = f"[BBH] เลื่อนนัดคนไข้ {patient_name} — {new_slot}"
-    body = (
-        f"เรียน คุณหมอ {doctor.get('display_name') or ''}\n\n"
-        f"มีการเลื่อนนัดคนไข้ในความดูแลของท่านครับ\n\n"
-        f"คนไข้: {patient_name}\n"
-        f"เบอร์: {phone}\n"
-        f"อาการ: {symptom}\n"
-        f"เวลาเดิม: {old_slot}\n"
-        f"เวลาใหม่: {new_slot}\n"
-        f"เหตุผล: {reason or '-'}\n\n"
-        f"ดำเนินการโดย: {actor_email or 'CRO'}\n"
-        f"Booking UID: {row.get('request_uid')}\n"
+    body_text = _render_reschedule_text(
+        doctor_name=doctor_name, patient_name=patient_name, phone=phone,
+        symptom=symptom, old_slot=old_slot, new_slot=new_slot, reason=reason,
+        actor=actor, request_uid=request_uid, is_tbd=is_tbd,
     )
-    ok = send_email(to=doctor["email"], subject=subject, body=body)
+    body_html = _render_reschedule_html(
+        doctor_name=doctor_name, patient_name=patient_name, phone=phone,
+        symptom=symptom, old_slot=old_slot, new_slot=new_slot, reason=reason,
+        actor=actor, request_uid=request_uid, is_tbd=is_tbd,
+    )
+    ok = send_email(
+        to=doctor["email"], subject=subject,
+        body=body_text, html=body_html,
+        from_name="Better Being Hospital",
+    )
     if not ok:
         logger.warning(
             "Doctor reschedule email skipped or failed (booking=%s doctor=%s)",
-            row.get("request_uid"), doctor.get("email"),
+            request_uid, doctor.get("email"),
         )
+
+
+def _render_reschedule_text(**k: Any) -> str:
+    """Plain-text fallback — kept simple and monospace-friendly for accessibility."""
+    lead = "รอเวลาใหม่จากคนไข้" if k["is_tbd"] else "เวลานัดถูกเลื่อน"
+    return (
+        f"BETTER BEING HOSPITAL\n"
+        f"การแจ้งเตือน · {lead}\n"
+        f"{'=' * 40}\n\n"
+        f"เรียน คุณหมอ {k['doctor_name']}\n\n"
+        f"คนไข้: {k['patient_name']}\n\n"
+        f"เวลาเดิม   {k['old_slot']}\n"
+        f"เวลาใหม่   {k['new_slot']}\n\n"
+        f"---- ข้อมูลคนไข้ ----\n"
+        f"เบอร์      {k['phone']}\n"
+        f"อาการ     {k['symptom']}\n"
+        f"เหตุผล    {k['reason'] or '-'}\n\n"
+        f"---- Audit ----\n"
+        f"ดำเนินการโดย: {k['actor']}\n"
+        f"Booking UID:  {k['request_uid']}\n\n"
+        f"Better Being Hospital · bbh-hospital.com\n"
+    )
+
+
+def _render_reschedule_html(**k: Any) -> str:
+    """Table-based, inline-styled HTML — safe across Gmail, Outlook, Apple Mail.
+
+    Design: 600px capped container, single column, clay/jade/bone palette,
+    Georgia serif for headline (safe Fraunces substitute), system font for
+    body. Comparison card shows old (strikethrough) vs new (bold jade)."""
+    lead = (
+        "รอเวลาใหม่จากคนไข้ (คนไข้ยังไม่ยืนยัน)"
+        if k["is_tbd"] else "เวลานัดถูกเลื่อนแล้ว"
+    )
+    new_time_color = "#8A7B63" if k["is_tbd"] else "#0E7E5E"
+    new_eyebrow_color = "#8A7B63" if k["is_tbd"] else "#16A77C"
+    reason_html = k["reason"] or "-"
+    body_font = (
+        "-apple-system,BlinkMacSystemFont,'Segoe UI','Sarabun',"
+        "'Prompt','Noto Sans Thai',Arial,sans-serif"
+    )
+    serif_font = "Georgia,'Sarabun','Noto Sans Thai',serif"
+    return f"""<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>BBH · เลื่อนนัด</title>
+</head>
+<body style="margin:0;padding:0;background:#F6F3EC;font-family:{body_font};color:#2B2622;">
+<div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;">
+  {lead} · คนไข้ {k['patient_name']} · {k['new_slot']}
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F6F3EC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="padding:24px 32px 20px;border-bottom:1px solid #E7E0D3;">
+            <p style="margin:0;font-size:11px;letter-spacing:0.22em;color:#8C8377;text-transform:uppercase;font-weight:600;">
+              Better Being Hospital · การแจ้งเตือน
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 32px 16px;">
+            <h1 style="margin:0;font-family:{serif_font};font-size:26px;line-height:1.3;color:#2B2622;font-weight:600;">
+              เลื่อนนัด <span style="color:#0E7E5E;">{k['patient_name']}</span>
+            </h1>
+            <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:#8C8377;">
+              เรียน คุณหมอ {k['doctor_name']} — {lead}
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F6F3EC;border-radius:12px;">
+              <tr>
+                <td width="50%" valign="top" style="padding:20px;border-right:1px solid #E7E0D3;">
+                  <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#8C8377;font-weight:600;">เวลาเดิม</p>
+                  <p style="margin:8px 0 0;font-family:{serif_font};font-size:18px;color:#8A7B63;text-decoration:line-through;font-weight:500;">
+                    {k['old_slot']}
+                  </p>
+                </td>
+                <td width="50%" valign="top" style="padding:20px;">
+                  <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:{new_eyebrow_color};font-weight:600;">เวลาใหม่</p>
+                  <p style="margin:8px 0 0;font-family:{serif_font};font-size:18px;color:{new_time_color};font-weight:600;">
+                    {k['new_slot']}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 32px 28px;">
+            <p style="margin:0 0 12px;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#8C8377;font-weight:600;">
+              ข้อมูลคนไข้
+            </p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;line-height:1.6;">
+              <tr>
+                <td style="padding:6px 12px 6px 0;color:#8C8377;width:80px;vertical-align:top;">เบอร์</td>
+                <td style="padding:6px 0;color:#2B2622;">{k['phone']}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 12px 6px 0;color:#8C8377;vertical-align:top;">อาการ</td>
+                <td style="padding:6px 0;color:#2B2622;">{k['symptom']}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 12px 6px 0;color:#8C8377;vertical-align:top;">เหตุผล</td>
+                <td style="padding:6px 0;color:#2B2622;">{reason_html}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px 28px;background:#F0EADD;">
+            <p style="margin:0;font-size:11px;line-height:1.7;color:#8C8377;">
+              การแจ้งเตือนอัตโนมัติจาก BBH Bridge<br>
+              ดำเนินการโดย: <span style="color:#2B2622;">{k['actor']}</span><br>
+              รหัสการจอง: <span style="font-family:'SFMono-Regular',Consolas,monospace;color:#2B2622;">{k['request_uid']}</span>
+            </p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:16px 0 0;font-size:11px;color:#8C8377;text-align:center;letter-spacing:0.06em;">
+        Better Being Hospital · bbh-hospital.com
+      </p>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+"""
 
 
 def cancel_booking(

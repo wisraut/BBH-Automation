@@ -420,7 +420,7 @@ export function Calendar() {
                       <SourceBadge source={b.booking_source} />
                     </div>
                     {b.symptom && <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>}
-                    <div className="mt-3">
+                    <div className="grid overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
                       <button
                         type="button"
                         onClick={() => setApproveTargetUid(b.request_uid)}

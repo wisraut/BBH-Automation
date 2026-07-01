@@ -277,7 +277,7 @@ def reschedule_to_pending(
                         requested_datetime_text = NULL,
                         calendar_event_id = NULL,
                         calendar_event_url = NULL,
-                        calendar_status = 'pending',
+                        calendar_status = 'not_created',
                         approved_at = NULL,
                         approved_by = NULL,
                         reminder_24h_sent_at = NULL,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Modal } from '../Modal'
@@ -59,7 +59,7 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
     <Modal open={open} title="ยืนยันการจอง" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-bbh-muted">คนไข้</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-bbh-muted">คนไข้</p>
           <p className="mt-1 text-base font-semibold text-bbh-ink">
             {booking?.patient_name ?? '-'}
           </p>
@@ -100,7 +100,7 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
             type="button"
             onClick={onClose}
             disabled={approve.isPending}
-            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
+            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
           >
             ยกเลิก
           </button>

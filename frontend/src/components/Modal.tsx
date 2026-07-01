@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 
@@ -37,7 +37,7 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
       >
         <div className="h-1 bg-bbh-green" />
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-bbh-line bg-bbh-surface px-4 py-4 md:px-7">
-          <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">{title}</h2>
+          <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl md:text-xl">{title}</h2>
           <button
             type="button"
             onClick={onClose}

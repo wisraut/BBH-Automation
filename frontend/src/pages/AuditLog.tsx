@@ -82,8 +82,8 @@ export function AuditLog() {
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">Audit Trail</p>
-          <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">บันทึกการเข้าถึงข้อมูลคนไข้</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-green">Audit Trail</p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">บันทึกการเข้าถึงข้อมูลคนไข้</h1>
           <p className="mt-1 text-sm text-bbh-muted">
             ใครเข้าดู / download / ตัดสิน record ของคนไข้ — สำหรับ compliance audit
           </p>
@@ -172,7 +172,7 @@ export function AuditLog() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
-          <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-bbh-muted lg:grid">
+          <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-muted lg:grid">
             <span>เวลา</span>
             <span>Actor</span>
             <span>Action</span>

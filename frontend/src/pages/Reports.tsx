@@ -110,8 +110,8 @@ export function Reports() {
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">Patient Reports</p>
-          <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">รายงาน</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-green">Patient Reports</p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">รายงาน</h1>
           <p className="mt-1 text-sm text-bbh-muted">
             ค้นหา filter และดู report ของคนไข้ — คลิกเพื่อไปยังหน้าคนไข้และตัดสินใจ triage
           </p>
@@ -211,7 +211,7 @@ export function Reports() {
       ) : (
         <>
           <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
-            <div className="hidden grid-cols-[180px_1fr_110px_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-bbh-muted lg:grid">
+            <div className="hidden grid-cols-[180px_1fr_110px_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-muted lg:grid">
               <span>คนไข้ / HN</span>
               <span>เรื่อง</span>
               <span>ประเภท</span>

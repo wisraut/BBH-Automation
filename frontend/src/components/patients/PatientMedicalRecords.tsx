@@ -50,7 +50,7 @@ function SectionCard({
   onAdd?: () => void
 }) {
   return (
-    <section className="rounded-2xl border border-bbh-line bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-bbh-line bg-white p-6 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon size={18} className={accent} />
@@ -238,9 +238,9 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
 function FormShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bbh-ink/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-lg font-semibold text-bbh-ink">{title}</h2>
+          <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{title}</h2>
           <button type="button" onClick={onClose} className="text-bbh-muted hover:text-bbh-ink"><X size={18} /></button>
         </div>
         {children}

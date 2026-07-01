@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+﻿import type { FormEvent } from 'react'
 
 type ForgotPasswordFormProps = {
   email: string
@@ -15,7 +15,7 @@ export function ForgotPasswordForm({
 }: ForgotPasswordFormProps) {
   return (
     <section>
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-bbh-green">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-bbh-green">
         Account recovery
       </p>
       <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">รีเซ็ตรหัสผ่าน</h2>
@@ -45,7 +45,7 @@ export function ForgotPasswordForm({
         <button
           type="button"
           onClick={onBackToLogin}
-          className="h-12 w-full rounded-2xl border border-bbh-line px-5 text-base font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
+          className="h-12 w-full rounded-2xl border border-bbh-line px-5 text-base font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
         >
           กลับไปหน้าเข้าสู่ระบบ
         </button>

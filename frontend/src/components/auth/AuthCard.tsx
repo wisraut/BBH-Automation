@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { BrandMark } from './BrandMark'
 
 type AuthCardProps = {
@@ -22,7 +22,7 @@ export function AuthCard({ children }: AuthCardProps) {
           <BrandMark />
         </div>
 
-        <div className="rounded-[24px] border border-bbh-line bg-white p-5 shadow-xl shadow-bbh-green/5 sm:rounded-[28px] sm:p-8">
+        <div className="rounded-[24px] border border-bbh-line bg-white p-6 shadow-xl shadow-bbh-green/5 sm:rounded-[28px] sm:p-8">
           {children}
         </div>
       </div>

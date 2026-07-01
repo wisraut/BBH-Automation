@@ -57,7 +57,7 @@ export function AnalysisPanel({
       {loading ? (
         <div className="h-24 animate-pulse rounded-xl bg-bbh-surface" />
       ) : analyses.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-bbh-line p-5 text-center text-sm text-bbh-muted">
+        <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
           ยังไม่มีผลวิเคราะห์
         </div>
       ) : (

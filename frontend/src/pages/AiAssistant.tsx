@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, Send, User, X } from 'lucide-react'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
@@ -155,7 +155,7 @@ export function AiAssistant() {
           <button
             type="button"
             onClick={() => setSessionsOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-xs font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-xs font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
           >
             <MessageSquare size={15} />
             ประวัติสนทนา
@@ -187,7 +187,7 @@ export function AiAssistant() {
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-1.5 text-xs font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
+            className="flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-1.5 text-xs font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
           >
             <User size={14} />
             เลือกคนไข้

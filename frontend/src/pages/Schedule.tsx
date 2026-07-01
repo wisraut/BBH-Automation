@@ -47,7 +47,7 @@ function StatCard({ label, value, icon: Icon, tone = 'green' }: {
   return (
     <div className="rounded-2xl border border-bbh-line bg-white px-4 py-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">{label}</p>
         <Icon size={18} className={iconClass} />
       </div>
       <p className="mt-2 font-serif text-3xl font-semibold text-bbh-ink">{value}</p>
@@ -67,7 +67,7 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
     if (!briefM.data && !briefM.isPending) briefM.mutate(apt.patient_id)
   }
   return (
-    <div className={`rounded-2xl border bg-white p-5 shadow-sm ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
+    <div className={`rounded-2xl border bg-white p-6 shadow-sm ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs text-bbh-muted">
@@ -216,8 +216,8 @@ export function Schedule() {
     <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-green">My Workspace</p>
-          <h1 className="mt-2 font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">ตารางงาน</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-green">My Workspace</p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">ตารางงาน</h1>
           <p className="mt-1 text-sm text-bbh-muted">
             นัดหมายและรายงานที่ได้รับมอบหมายให้กับท่าน — เริ่ม {formatThaiDate(dateFrom)} ถึง {formatThaiDate(dateTo)}
           </p>
@@ -283,11 +283,11 @@ export function Schedule() {
               <div className="space-y-4">
                 {apptsByDate.map(([date_, items]) => (
                   <div key={date_}>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-bbh-muted">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
                       {formatThaiDate(date_)}
                       {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· วันนี้</span> : null}
                     </p>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-6 md:grid-cols-2">
                       {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} />)}
                     </div>
                   </div>
@@ -309,7 +309,7 @@ export function Schedule() {
               </div>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
-                <div className="hidden grid-cols-[160px_1fr_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-bbh-muted lg:grid">
+                <div className="hidden grid-cols-[160px_1fr_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-muted lg:grid">
                   <span>คนไข้</span>
                   <span>เรื่อง</span>
                   <span className="text-right">วันที่อัพโหลด</span>
@@ -401,9 +401,9 @@ function ScheduleBlocksSection() {
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bbh-ink/30" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-serif text-lg font-semibold text-bbh-ink">เพิ่ม block</h3>
+              <h3 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">เพิ่ม block</h3>
               <button type="button" onClick={() => setOpen(false)} className="text-bbh-muted hover:text-bbh-ink"><X size={18} /></button>
             </div>
             <form onSubmit={submit} className="space-y-3">

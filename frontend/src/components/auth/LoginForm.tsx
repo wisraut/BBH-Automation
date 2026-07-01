@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+﻿import type { FormEvent } from 'react'
 import { AuthNotice } from './AuthNotice'
 
 type LoginFormProps = {
@@ -28,7 +28,7 @@ export function LoginForm({
 }: LoginFormProps) {
   return (
     <section>
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-bbh-green">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-bbh-green">
         Secure access
       </p>
       <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">

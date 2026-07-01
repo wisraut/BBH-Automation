@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Modal } from '../Modal'
@@ -81,7 +81,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
   return (
     <Modal open={open} title="จองใหม่" onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm font-medium text-bbh-ink">ชื่อคนไข้</span>
             <input
@@ -145,7 +145,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             type="button"
             onClick={onClose}
             disabled={createBooking.isPending}
-            className="h-11 rounded-xl border border-bbh-line px-4 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-60 sm:h-auto sm:py-2"
+            className="h-11 rounded-xl border border-bbh-line px-4 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-60 sm:h-auto sm:py-2"
           >
             ยกเลิก
           </button>

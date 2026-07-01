@@ -85,7 +85,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
           />
         </label>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
             เบอร์โทร
             <input
@@ -105,7 +105,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
           </label>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
             วันเกิด
             <input

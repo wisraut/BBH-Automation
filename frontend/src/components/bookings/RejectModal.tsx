@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Modal } from '../Modal'
@@ -64,7 +64,7 @@ export function RejectModal({ booking, open, onClose, onRejected }: RejectModalP
             type="button"
             onClick={onClose}
             disabled={reject.isPending}
-            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
+            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
           >
             ยกเลิก
           </button>

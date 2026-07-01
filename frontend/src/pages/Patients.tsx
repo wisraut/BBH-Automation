@@ -339,7 +339,7 @@ export function Patients() {
             <button
               type="button"
               onClick={() => setShowPatientDetail(false)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
             >
               <ChevronLeft size={16} />
               กลับไปรายการ
@@ -347,7 +347,7 @@ export function Patients() {
             <section className="flex flex-wrap items-start justify-between gap-4 border-b border-bbh-line pb-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-serif text-2xl font-semibold text-bbh-ink md:text-3xl">{selectedPatient.display_name}</h1>
+                  <h1 className="font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{selectedPatient.display_name}</h1>
                   <span className="rounded-full bg-bbh-surface px-2.5 py-1 text-xs text-bbh-muted">{selectedPatient.hn ?? 'ไม่มี HN'}</span>
                 </div>
                 <p className="mt-1 text-sm text-bbh-muted">
@@ -456,7 +456,7 @@ export function Patients() {
                   </div>
 
                   {reports.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-bbh-line p-5 text-center text-sm text-bbh-muted">
+                    <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
                       ยังไม่มี report
                     </div>
                   ) : (

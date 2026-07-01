@@ -60,7 +60,7 @@ export function Bookings() {
   const total = list.data?.pagination.total ?? 0
 
   return (
-    <div className="flex h-full min-w-0 overflow-hidden rounded-[20px] border border-bbh-line bg-white/90 shadow-bbh-card backdrop-blur md:rounded-[28px]">
+    <div className="flex h-full min-w-0 overflow-hidden rounded-2xl bg-white/70 backdrop-blur">
       <section className={`${selectedUid ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-4 md:p-7`}>
         <div className="mb-8 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
           {FILTERS.map((item) => {
@@ -166,7 +166,7 @@ export function Bookings() {
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
+              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
             >
               <ChevronLeft size={16} /> ก่อนหน้า
             </button>
@@ -177,7 +177,7 @@ export function Bookings() {
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
+              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
             >
               ถัดไป <ChevronRight size={16} />
             </button>
@@ -190,7 +190,7 @@ export function Bookings() {
           <button
             type="button"
             onClick={() => setSelectedUid(null)}
-            className="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
           >
             <ChevronLeft size={16} />
             กลับไปรายการ
@@ -209,7 +209,7 @@ export function Bookings() {
         ) : detail.data ? (
           <div className="space-y-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-bbh-muted">คนไข้</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-bbh-muted">คนไข้</p>
               <p className="mt-1 font-serif text-2xl font-semibold text-bbh-ink">
                 {detail.data.patient_name ?? '-'}
               </p>
@@ -221,7 +221,7 @@ export function Bookings() {
             </div>
 
             <div className="rounded-2xl border border-bbh-line p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
                 เวลาที่ลูกค้าขอ
               </p>
               <p className="mt-1 text-sm text-bbh-ink">
@@ -230,7 +230,7 @@ export function Bookings() {
             </div>
 
             <div className="rounded-2xl border border-bbh-line p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
                 อาการ / รายละเอียด
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
@@ -251,7 +251,7 @@ export function Bookings() {
 
             {detail.data.notes ? (
               <div className="rounded-2xl border border-bbh-line p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bbh-muted">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
                   หมายเหตุ
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
@@ -284,7 +284,7 @@ export function Bookings() {
                 <button
                   type="button"
                   onClick={() => setRescheduleOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-ink transition hover:border-bbh-green hover:text-bbh-green-dark"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-ink transition-all duration-200 hover:border-bbh-green hover:text-bbh-green-dark"
                 >
                   <CalendarIcon size={16} /> เลื่อนนัด
                 </button>

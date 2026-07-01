@@ -1,4 +1,4 @@
-import { ArrowLeft, Menu } from 'lucide-react'
+﻿import { ArrowLeft, Menu } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import type { Role } from '../lib/auth'
@@ -37,13 +37,13 @@ export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
           <button
             type="button"
             onClick={onMenuClick}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-bbh-line bg-white/80 text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-bbh-line bg-white/80 text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
             aria-label="เปิดเมนู"
           >
             <Menu size={20} />
           </button>
           <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-bbh-green">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-green">
             Better Being Hospital
           </p>
           <h1 className="auth-heading truncate text-lg font-semibold leading-tight text-bbh-ink md:text-xl lg:text-2xl">{title}</h1>
@@ -55,7 +55,7 @@ export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
             {showBackToAdmin && viewAs ? (
               <Link
                 to="/admin"
-                className="inline-flex items-center gap-2 rounded-xl border border-bbh-green/40 bg-white px-3 py-1.5 text-sm font-semibold text-bbh-green-dark shadow-sm transition hover:border-bbh-green hover:bg-bbh-green-soft"
+                className="inline-flex items-center gap-2 rounded-xl border border-bbh-green/40 bg-white px-3 py-1.5 text-sm font-semibold text-bbh-green-dark shadow-sm transition-all duration-200 hover:border-bbh-green hover:bg-bbh-green-soft"
                 title="กลับหน้า Admin"
               >
                 <ArrowLeft size={15} />
@@ -75,7 +75,7 @@ export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
             <button
               type="button"
               onClick={() => void logout()}
-              className="rounded-xl border border-bbh-line bg-white px-2.5 py-1.5 text-sm font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green sm:px-3"
+              className="rounded-xl border border-bbh-line bg-white px-2.5 py-1.5 text-sm font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green sm:px-3"
             >
               ออก
             </button>

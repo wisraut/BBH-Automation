@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom'
+﻿import { Link, NavLink } from 'react-router-dom'
 import {
   Activity,
   ArrowLeft,
@@ -97,7 +97,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
               />
               <div className="min-w-0 flex-1">
                 <p className="font-serif text-base font-semibold leading-none text-bbh-ink">BBH</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-bbh-muted">Portal</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-bbh-muted">Portal</p>
               </div>
             </>
           ) : (
@@ -112,7 +112,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto grid h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className="ml-auto grid h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
             aria-label="ปิดเมนู"
           >
             <X size={18} />
@@ -123,7 +123,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
             <button
               type="button"
               onClick={onToggleCollapsed}
-              className={`hidden h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green lg:grid ${collapsed ? 'ml-0' : 'ml-auto'}`}
+              className={`hidden h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:grid ${collapsed ? 'ml-0' : 'ml-auto'}`}
               aria-label={collapsed ? 'กางเมนู' : 'พับเมนู'}
               title={collapsed ? 'กางเมนู' : 'พับเมนู'}
             >
@@ -138,7 +138,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
               to="/admin"
               onClick={onClose}
               title={collapsed ? 'กลับ Admin' : undefined}
-              className={`flex items-center rounded-xl border border-bbh-green/30 bg-white text-xs font-semibold text-bbh-green-dark transition hover:border-bbh-green ${
+              className={`flex items-center rounded-xl border border-bbh-green/30 bg-white text-xs font-semibold text-bbh-green-dark transition-all duration-200 hover:border-bbh-green ${
                 collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-2'
               }`}
             >

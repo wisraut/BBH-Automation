@@ -28,7 +28,7 @@ export function SignedInPreview({ user, notice, onLogout }: SignedInPreviewProps
     <section>
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-bbh-green">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-bbh-green">
             Signed in
           </p>
           <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">
@@ -42,7 +42,7 @@ export function SignedInPreview({ user, notice, onLogout }: SignedInPreviewProps
         <button
           type="button"
           onClick={onLogout}
-          className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-semibold text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green"
+          className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
         >
           ออก
         </button>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { CheckCircle, Clock, KeyRound, LogOut, ShieldCheck, XCircle } from 'lucide-react'
 
@@ -119,7 +119,7 @@ export function Account() {
           <div className="rounded-3xl border border-bbh-line bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <KeyRound size={18} className="text-bbh-green" />
-              <h2 className="font-serif text-lg font-semibold text-bbh-ink">เปลี่ยนรหัสผ่าน</h2>
+              <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">เปลี่ยนรหัสผ่าน</h2>
             </div>
             <form onSubmit={handleChangePassword} className="space-y-3">
               <label className="block">
@@ -177,7 +177,7 @@ export function Account() {
         <section className="rounded-3xl border border-bbh-line bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <Clock size={18} className="text-bbh-green" />
-            <h2 className="font-serif text-lg font-semibold text-bbh-ink">กิจกรรมล่าสุด</h2>
+            <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">กิจกรรมล่าสุด</h2>
           </div>
 
           {audit.isLoading ? (

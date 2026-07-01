@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+﻿import type { FormEvent } from 'react'
 
 type ResetPasswordFormProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
@@ -7,7 +7,7 @@ type ResetPasswordFormProps = {
 export function ResetPasswordForm({ onSubmit }: ResetPasswordFormProps) {
   return (
     <section>
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-bbh-green">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-bbh-green">
         New password
       </p>
       <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">

@@ -12,6 +12,16 @@ from fastapi import HTTPException, UploadFile
 import integrations.dify_client as dify
 from core.config import log
 from core.email_service import REPORT_NOTIFY_EMAIL, send_email
+from core.email_templates import (
+    COLOR_GREEN_DARK,
+    COLOR_MUTED,
+    FONT_MONO,
+    render_cta_button,
+    render_html_shell,
+    render_kv_section,
+    render_steps_section,
+    render_text_shell,
+)
 from repositories import patient_repo, report_repo, user_repo
 
 REPORTS_ROOT = os.getenv("REPORTS_STORAGE_ROOT", "/app/data/reports")
@@ -300,41 +310,95 @@ def _notify_report_uploaded(
     doctor is picked or the doctor has no email on file). Best-effort: never
     raises, so a mail outage can't block the upload itself."""
     doctor = user_repo.find_user_by_id(assigned_doctor_id) if assigned_doctor_id else None
-    doctor_line = f"หมอที่เลือก: {doctor['display_name']}" if doctor else "หมอที่เลือก: (ไม่ระบุ)"
     recipient = (doctor.get("email") if doctor else None) or REPORT_NOTIFY_EMAIL
 
     frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
     deep_link = f"{frontend_base}/patients?patient={patient_id}&report={report_id}"
 
-    body = "\n".join([
-        "มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
-        "",
-        f"คนไข้: {patient.get('display_name') or '-'} (HN: {patient.get('hn') or '-'})",
-        f"ชื่อ Report: {title}",
-        f"ประเภท: {report_type}",
-        f"แหล่งที่มา: {source}",
-        doctor_line,
-        f"อัพโหลดโดย: {uploaded_by.get('display_name') or uploaded_by.get('email') or '-'}",
-        "",
-        "เปิดดูใน BBH Portal:",
-        deep_link,
-        "",
-        "ขั้นตอนใส่ NotebookLM:",
-        "  1) เปิดลิงก์ด้านบน → กด ‘ดาวน์โหลดไฟล์’",
-        "  2) เปิด https://notebooklm.google.com → New notebook → Add source → Upload",
-        "  3) คัดลอกลิงก์ของ notebook กลับมาวางใน BBH Portal (ปุ่ม ‘บันทึก NotebookLM link’)",
-    ])
+    patient_display = patient.get("display_name") or "-"
+    hn = patient.get("hn") or "-"
+    doctor_display = doctor["display_name"] if doctor else "(ไม่ระบุ)"
+    uploader_display = (
+        uploaded_by.get("display_name") or uploaded_by.get("email") or "-"
+    )
+
+    steps = [
+        "เปิดลิงก์ด้านบน → กด &lsquo;ดาวน์โหลดไฟล์&rsquo;",
+        (
+            "เปิด <a href=\"https://notebooklm.google.com\" style=\"color:"
+            + COLOR_GREEN_DARK
+            + ";\">notebooklm.google.com</a> → New notebook → Add source → Upload"
+        ),
+        "คัดลอกลิงก์ notebook กลับมาวางใน BBH Portal (ปุ่ม &lsquo;บันทึก NotebookLM link&rsquo;)",
+    ]
+
+    subject = f"[BBH] Report ใหม่: {title}"
+    body_text = render_text_shell(
+        eyebrow="รายงานใหม่ · ต้องดำเนินการ",
+        title=f"Report ใหม่ของคนไข้ {patient_display}",
+        subtitle=f"เรียน คุณหมอ {doctor_display}",
+        content_text=(
+            f"คนไข้:       {patient_display} (HN: {hn})\n"
+            f"ชื่อ Report:  {title}\n"
+            f"ประเภท:      {report_type}\n"
+            f"แหล่งที่มา:  {source}\n"
+            f"อัพโหลดโดย:  {uploader_display}\n\n"
+            f"เปิดใน BBH Portal:\n  {deep_link}\n\n"
+            f"ขั้นตอนใส่ NotebookLM:\n"
+            f"  1) เปิดลิงก์ด้านบน → ดาวน์โหลดไฟล์\n"
+            f"  2) เปิด notebooklm.google.com → New notebook → Upload\n"
+            f"  3) คัดลอกลิงก์ notebook กลับมาวางใน BBH Portal"
+        ),
+        footer_text=(
+            f"Report ID: {report_id}\n"
+            f"Patient ID: {patient_id}"
+        ),
+    )
+
+    details = render_kv_section(
+        eyebrow="รายละเอียด Report",
+        items=[
+            ("คนไข้", f"{patient_display} <span style=\"color:{COLOR_MUTED};\">(HN: {hn})</span>"),
+            ("ชื่อ Report", title),
+            ("ประเภท", report_type),
+            ("แหล่งที่มา", source),
+            ("อัพโหลดโดย", uploader_display),
+        ],
+    )
+    cta = render_cta_button(label="เปิดใน BBH Portal", url=deep_link)
+    steps_section = render_steps_section(
+        eyebrow="ขั้นตอนใส่ NotebookLM",
+        steps=steps,
+    )
+    footer_html = (
+        f"การแจ้งเตือนอัตโนมัติจาก BBH Bridge<br>"
+        f"Report ID: <span style=\"font-family:{FONT_MONO};color:{COLOR_MUTED};\">{report_id}</span>"
+        f" &middot; Patient ID: <span style=\"font-family:{FONT_MONO};color:{COLOR_MUTED};\">{patient_id}</span>"
+    )
+    body_html = render_html_shell(
+        eyebrow="รายงานใหม่ · ต้องดำเนินการ",
+        title_html=(
+            f"Report ใหม่ของ <span style=\"color:{COLOR_GREEN_DARK};\">{patient_display}</span>"
+        ),
+        subtitle=f"เรียน คุณหมอ {doctor_display} — มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
+        content_html=details + cta + steps_section,
+        footer_html=footer_html,
+        preheader=f"{title} · {patient_display} (HN: {hn})",
+    )
+
     # Attach the actual report file so the doctor can grab it straight from
     # Gmail (drag-drop into NotebookLM). File path is the absolute disk path
     # under REPORTS_ROOT; helper silently drops attachment if > 20MB or missing.
     attach_name = original_filename or f"{title}{_ext_for(original_filename or title, file_mime or '')}"
     return send_email(
         to=recipient,
-        subject=f"[BBH] Report ใหม่: {title}",
-        body=body,
+        subject=subject,
+        body=body_text,
+        html=body_html,
         attachment_path=file_path,
         attachment_filename=attach_name,
         attachment_mime=file_mime,
+        from_name="Better Being Hospital",
     )
 
 

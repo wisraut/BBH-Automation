@@ -2,10 +2,12 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
+import { ApproveModal } from '../components/bookings/ApproveModal'
 import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAllBookings } from '../hooks/useAllBookings'
+import { useBooking } from '../hooks/useBooking'
 import { useCancelBooking } from '../hooks/useCancelBooking'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 import type { CalendarEvent } from '../hooks/useCalendarEvents'
@@ -142,6 +144,7 @@ export function Calendar() {
   const [rescheduleTarget, setRescheduleTarget] = useState<{
     uid: string; currentText: string | null
   } | null>(null)
+  const [approveTargetUid, setApproveTargetUid] = useState<string | null>(null)
 
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
@@ -189,6 +192,18 @@ export function Calendar() {
 
   const rawSelected = selectedDate ? bookingsByDate[selectedDate] ?? [] : []
   const selectedGoogle = selectedDate ? googleByDate[selectedDate] ?? [] : []
+  const tbdMarksSelected = useMemo(
+    () => selectedDate
+      ? (rescheduledByDate[selectedDate] ?? []).filter((m) => m.is_tbd)
+      : [],
+    [selectedDate, rescheduledByDate],
+  )
+  const tbdBookings = useMemo(() => {
+    if (tbdMarksSelected.length === 0) return []
+    const uids = new Set(tbdMarksSelected.map((m) => m.request_uid))
+    return pendingQ.data.filter((b) => uids.has(b.request_uid))
+  }, [tbdMarksSelected, pendingQ.data])
+  const approveDetailQ = useBooking(approveTargetUid)
   const filteredSelected = (
     panelFilter === 'all' ? rawSelected : rawSelected.filter((b) => b.status === panelFilter)
   ).sort((a, b) => {
@@ -384,12 +399,39 @@ export function Calendar() {
               <div className="space-y-3">
                 {[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-bbh-surface" />)}
               </div>
-            ) : filteredSelected.length === 0 && selectedGoogle.length === 0 ? (
+            ) : filteredSelected.length === 0 && selectedGoogle.length === 0 && tbdBookings.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-bbh-line p-10 text-center">
                 <p className="text-sm text-bbh-muted">ยังไม่มีนัดหมายในวันนี้</p>
               </div>
             ) : (
               <div className="space-y-3">
+                {tbdBookings.map((b) => (
+                  <div key={`tbd-${b.request_uid}`} className="group rounded-2xl border border-slate-300 bg-slate-50 p-4 transition hover:border-slate-400 hover:bg-slate-100/70">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-bbh-ink">{b.patient_name ?? '-'}</p>
+                        <p className="mt-0.5 text-xs text-bbh-muted">{b.phone ?? '-'}</p>
+                      </div>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300">เลื่อนนัด · รอเวลาใหม่</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-600">คนไข้ยังไม่ยืนยันเวลา</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ?? b.appointment_type}</span>
+                      <SourceBadge source={b.booking_source} />
+                    </div>
+                    {b.symptom && <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>}
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setApproveTargetUid(b.request_uid)}
+                        className="w-full rounded-xl bg-bbh-green px-3 py-2 text-xs font-semibold text-white transition hover:bg-bbh-green-dark"
+                      >
+                        กำหนดวัน-เวลาใหม่
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
                 {filteredSelected.map((b) => {
                   const time = parseBookingTime(b.requested_datetime_text)
                   const dimmed = b.status === 'cancelled' || b.status === 'rejected' || b.status === 'expired'
@@ -489,6 +531,17 @@ export function Calendar() {
           void qc.invalidateQueries({ queryKey: ['calendar-events'] })
           void qc.invalidateQueries({ queryKey: ['rescheduled-marks'] })
           toast.show('success', 'เลื่อนนัดสำเร็จ')
+        }}
+      />
+
+      <ApproveModal
+        booking={approveDetailQ.data ?? null}
+        open={approveTargetUid !== null && !!approveDetailQ.data}
+        onClose={() => setApproveTargetUid(null)}
+        onApproved={() => {
+          void qc.invalidateQueries({ queryKey: ['bookings-all'] })
+          void qc.invalidateQueries({ queryKey: ['calendar-events'] })
+          void qc.invalidateQueries({ queryKey: ['rescheduled-marks'] })
         }}
       />
     </div>

@@ -3,39 +3,14 @@ services:
     image: n8nio/n8n:latest
     container_name: hospital-n8n
     restart: unless-stopped
+    # All secrets/config live in .env.n8n. Only static overrides remain here.
+    env_file:
+      - .env.n8n
     environment:
-      GENERIC_TIMEZONE: ${TZ:-Asia/Bangkok}
-      TZ: ${TZ:-Asia/Bangkok}
-      N8N_HOST: ${N8N_HOST:-localhost}
-      N8N_PORT: ${N8N_PORT:-5678}
-      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
-      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
-      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      N8N_LICENSE_ACTIVATION_KEY: ${N8N_LICENSE_ACTIVATION_KEY}
-      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
-      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
-      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
-      BRIDGE_INTERNAL_URL: ${BRIDGE_INTERNAL_URL:-http://hospital-bridge:8000}
-      BRIDGE_INTERNAL_TOKEN: ${BRIDGE_INTERNAL_TOKEN}
-      # LINE credentials (used inside Code nodes via process.env)
-      LINE_CHANNEL_ID: ${LINE_CHANNEL_ID}
-      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
-      LINE_CRO_CHANNEL_ID: ${LINE_CRO_CHANNEL_ID}
-      LINE_CRO_CHANNEL_SECRET: ${LINE_CRO_CHANNEL_SECRET}
-      # Dify
-      DIFY_API_URL: ${DIFY_API_URL:-http://nginx/v1}
-      DIFY_API_KEY: ${DIFY_API_KEY}
-      # Bot Ops DB (business state for booking/dashboard, separate from hospital DB)
-      BOT_OPS_DB_HOST: ${BOT_OPS_DB_HOST:-bot-ops-db}
-      BOT_OPS_DB_PORT: ${BOT_OPS_DB_PORT:-3306}
-      BOT_OPS_DB_NAME: ${BOT_OPS_DB_NAME:-bbh_bot_ops}
-      BOT_OPS_DB_USER: ${BOT_OPS_DB_USER:-bbh_bot}
-      BOT_OPS_DB_PASSWORD: ${BOT_OPS_DB_PASSWORD}
+      GENERIC_TIMEZONE: Asia/Bangkok
+      WEBHOOK_URL: https://n8n.bbh-hospital.com
       NODE_FUNCTION_ALLOW_EXTERNAL: "*"
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
-      N8N_RUNNERS_ENABLED: "false"
     ports:
       - "${N8N_PORT:-5678}:5678"
     volumes:
@@ -48,12 +23,13 @@ services:
     image: mysql:8.4
     container_name: hospital-bot-ops-db
     restart: unless-stopped
+    env_file:
+      - .env.n8n
     environment:
       MYSQL_ROOT_PASSWORD: ${BOT_OPS_DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${BOT_OPS_DB_NAME:-bbh_bot_ops}
       MYSQL_USER: ${BOT_OPS_DB_USER:-bbh_bot}
       MYSQL_PASSWORD: ${BOT_OPS_DB_PASSWORD}
-      TZ: ${TZ:-Asia/Bangkok}
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci

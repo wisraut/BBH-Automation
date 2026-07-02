@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { X } from 'lucide-react'
 
 import { ToastContext } from './toast-context'
 import type { Toast, ToastKind } from './toast-context'
@@ -21,7 +22,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback(
     (kind: ToastKind, message: string) => {
       const id = ++counterRef.current
-      setToasts((prev) => [...prev, { id, kind, message }])
+      // Cap the stack at 3 so rapid mode toggles / actions don't bury the UI.
+      // Newest bottom, so drop the oldest (head) when we exceed the cap.
+      setToasts((prev) => [...prev, { id, kind, message }].slice(-3))
       setTimeout(() => dismiss(id), 4500)
     },
     [dismiss],
@@ -36,9 +39,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto min-w-[280px] max-w-md rounded-xl border px-4 py-3 text-sm font-medium shadow-bbh-card ${STYLES[t.kind]}`}
+            className={`pointer-events-auto flex min-w-[280px] max-w-md items-start gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-bbh-card ${STYLES[t.kind]}`}
           >
-            {t.message}
+            <span className="min-w-0 flex-1">{t.message}</span>
+            <button
+              type="button"
+              onClick={() => dismiss(t.id)}
+              aria-label="ปิด"
+              className="-mr-1 shrink-0 rounded p-0.5 opacity-60 transition hover:bg-black/5 hover:opacity-100"
+            >
+              <X size={14} />
+            </button>
           </div>
         ))}
       </div>

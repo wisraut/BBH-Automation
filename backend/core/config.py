@@ -53,6 +53,9 @@ BOT_OPS_DB_CONFIG = {
     "database": os.getenv("BOT_OPS_DB_NAME", "bbh_bot_ops"),
     "user":     os.getenv("BOT_OPS_DB_USER", "bbh_bot"),
     "password": os.getenv("BOT_OPS_DB_PASSWORD", ""),
+    # Force utf8mb4 both ways — without this, some pooled connections
+    # negotiate latin1 and Thai text round-trips as byte-per-codepoint.
+    "charset":  "utf8mb4",
 }
 
 # Patterns

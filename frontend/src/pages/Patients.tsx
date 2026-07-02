@@ -7,7 +7,7 @@ import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
-import { PatientChatDrawer } from '../components/patients/PatientChatDrawer'
+import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
 import { ReportUploadModal } from '../components/reports/ReportUploadModal'
@@ -100,7 +100,7 @@ export function Patients() {
   const [showPatientDetail, setShowPatientDetail] = useState(Boolean(queryPatientId))
   const [selectedReportId, setSelectedReportId] = useState<number | null>(queryReportId)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
-  const [sendMsgOpen, setSendMsgOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'detail' | 'chat'>('detail')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [notebookUrlDraft, setNotebookUrlDraft] = useState('')
 
@@ -295,6 +295,7 @@ export function Patients() {
                       setSelectedId(patient.id)
                       setShowPatientDetail(true)
                       setSelectedReportId(null)
+                      setViewMode('detail')
                     }}
                     className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
                       active ? 'border-bbh-green bg-bbh-green-soft' : 'border-bbh-line bg-white hover:border-bbh-green/40'
@@ -329,10 +330,34 @@ export function Patients() {
         </div>
       </section>
 
-      <main className={`${showPatientDetail ? 'block' : 'hidden lg:block'} min-w-0 flex-1 overflow-y-auto p-4 md:p-6`}>
+      <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto p-4 md:p-6'}`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
             เลือกคนไข้จากรายการด้านซ้าย
+          </div>
+        ) : viewMode === 'chat' ? (
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="flex items-center justify-between gap-3 border-b border-bbh-line px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setViewMode('detail')}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-1.5 text-sm font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
+              >
+                <ChevronLeft size={16} />
+                กลับข้อมูลคนไข้
+              </button>
+              <div className="min-w-0 text-right">
+                <p className="truncate font-serif text-lg font-semibold text-bbh-ink">{selectedPatient.display_name}</p>
+                <p className="text-xs text-bbh-muted">{selectedPatient.hn ?? 'ไม่มี HN'} · {selectedPatient.phone ?? 'ไม่มีเบอร์'}</p>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <ChatPane
+                patientId={selectedPatient.id}
+                patientName={selectedPatient.display_name}
+                showHeader={false}
+              />
+            </div>
           </div>
         ) : (
           <div className="mx-auto max-w-6xl space-y-5">
@@ -361,7 +386,7 @@ export function Patients() {
                     แก้ไข
                   </button>
                 ) : null}
-                <button type="button" onClick={() => setSendMsgOpen(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-ink hover:border-bbh-green hover:text-bbh-green sm:flex-none">
+                <button type="button" onClick={() => setViewMode('chat')} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-ink hover:border-bbh-green hover:text-bbh-green sm:flex-none">
                   <MessageCircle size={16} />
                   Chat LINE
                 </button>
@@ -562,12 +587,6 @@ export function Patients() {
         onClose={() => setUploadOpen(false)}
         onSubmit={submitReport}
         patientId={selectedPatient?.id}
-      />
-      <PatientChatDrawer
-        open={sendMsgOpen}
-        patientId={selectedPatient?.id ?? null}
-        patientName={selectedPatient?.display_name ?? null}
-        onClose={() => setSendMsgOpen(false)}
       />
     </div>
   )

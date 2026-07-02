@@ -144,6 +144,5 @@ def list_by_patient(patient_id: int, limit: int = 100) -> list[dict]:
                 """,
                 (*sess_ids, limit),
             )
-            rows = cur.fetchall()
-    rows.reverse()
-    return rows
+            rows = list(cur.fetchall())
+    return rows[::-1]

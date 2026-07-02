@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from flows import cro
 from integrations import line_client
-from repositories import webhook_queue_repo
+from repositories import message_repo, webhook_queue_repo
 from core.config import N8N_INTERNAL_BASE_URL, log
 
 router = APIRouter()
@@ -58,6 +58,14 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
             continue
         if not event.get("source", {}).get("userId"):
             continue
+        # Log inbound to booking_messages for chat-history render. Best-effort;
+        # message_repo swallows exceptions so this never blocks LINE ack.
+        message_repo.log_inbound(
+            channel="line_main",
+            external_user_id=event["source"]["userId"],
+            text=event.get("message", {}).get("text", ""),
+            raw_payload={"webhookEventId": event.get("webhookEventId"), "type": event.get("type")},
+        )
         # Persist BEFORE acking LINE so a crash here doesn't drop the
         # message. If DB insert fails (dup or DB down) fall back to in-process
         # only — better one missed retry than complete silence.

@@ -7,7 +7,7 @@ import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
-import { SendMessageModal } from '../components/patients/SendMessageModal'
+import { PatientChatDrawer } from '../components/patients/PatientChatDrawer'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
 import { ReportUploadModal } from '../components/reports/ReportUploadModal'
@@ -363,7 +363,7 @@ export function Patients() {
                 ) : null}
                 <button type="button" onClick={() => setSendMsgOpen(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-ink hover:border-bbh-green hover:text-bbh-green sm:flex-none">
                   <MessageCircle size={16} />
-                  ส่ง LINE
+                  Chat LINE
                 </button>
                 <button type="button" onClick={() => setUploadOpen(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-bbh-green px-3 py-2 text-sm font-semibold text-white sm:flex-none">
                   <Upload size={16} />
@@ -563,7 +563,7 @@ export function Patients() {
         onSubmit={submitReport}
         patientId={selectedPatient?.id}
       />
-      <SendMessageModal
+      <PatientChatDrawer
         open={sendMsgOpen}
         patientId={selectedPatient?.id ?? null}
         patientName={selectedPatient?.display_name ?? null}

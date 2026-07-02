@@ -225,15 +225,54 @@ export interface paths {
         };
         /**
          * Get Session
-         * @description Return the Dify conversation_id for this LINE user, but drop it if the
-         *     user has been idle longer than BOT_SESSION_CONV_TTL_MIN. Forcing a fresh
-         *     conversation prevents the LLM memory window from carrying a stale
-         *     classification (e.g. an old ESCALATE turn) into a brand new topic.
+         * @description Return the Dify conversation_id + effective AI mode for this LINE user.
+         *     n8n branches on `effective_mode` before deciding whether to call Dify.
          */
         get: operations["get_session_internal_session__channel___user_id__get"];
         put?: never;
         /** Save Session */
         post: operations["save_session_internal_session__channel___user_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/session/{channel}/{user_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Session
+         * @description Slide the auto-pause window: `ai_pause_until = NOW() + minutes`.
+         *     Called from patient_message_api after CRO sends a message.
+         */
+        post: operations["pause_session_internal_session__channel___user_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log Message
+         * @description n8n calls this after Dify replies so we can render chat history.
+         */
+        post: operations["log_message_internal_message_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1338,6 +1377,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/patients/{patient_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description Return chat history (ascending by time) for CRO to render as LINE-style bubbles.
+         */
+        get: operations["list_messages_api_patients__patient_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/ai-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Mode
+         * @description Return sticky + effective mode + banner state for a patient's LINE session.
+         */
+        get: operations["get_mode_api_patients__patient_id__ai_mode_get"];
+        put?: never;
+        /**
+         * Set Mode
+         * @description Set sticky ai_mode + write audit event. Requires patient to have a
+         *     LINE session (won't create one from scratch).
+         */
+        post: operations["set_mode_api_patients__patient_id__ai_mode_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1920,6 +2004,25 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** LogMessageRequest */
+        LogMessageRequest: {
+            /**
+             * Channel
+             * @default line_main
+             */
+            channel: string;
+            /** External User Id */
+            external_user_id: string;
+            /** Text */
+            text: string;
+            /**
+             * Direction
+             * @default out
+             */
+            direction: string;
+            /** Route Prefix */
+            route_prefix?: string | null;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -2008,6 +2111,19 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ModeRequest */
+        ModeRequest: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "auto" | "copilot" | "silent";
+            /**
+             * Reason
+             * @default cro_manual
+             */
+            reason: string;
         };
         /** NotebookLmUpdateRequest */
         NotebookLmUpdateRequest: {
@@ -2126,6 +2242,16 @@ export interface components {
             gender?: ("male" | "female" | "other" | "unknown") | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** PauseRequest */
+        PauseRequest: {
+            /** Minutes */
+            minutes?: number | null;
+            /**
+             * Trigger Reason
+             * @default cro_reply
+             */
+            trigger_reason: string;
         };
         /** RejectBooking */
         RejectBooking: {
@@ -2907,6 +3033,79 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SessionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_session_internal_session__channel___user_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-internal-token"?: string | null;
+            };
+            path: {
+                channel: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    log_message_internal_message_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-internal-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogMessageRequest"];
             };
         };
         responses: {
@@ -5073,6 +5272,111 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CustomMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_patients__patient_id__messages_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mode_api_patients__patient_id__ai_mode_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_mode_api_patients__patient_id__ai_mode_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModeRequest"];
             };
         };
         responses: {

@@ -63,3 +63,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("bridge")
 
 CRO_CHANNEL_ENABLED = bool(LINE_CRO_CHANNEL_ID and LINE_CRO_CHANNEL_SECRET)
+
+# AI Takeover — 3-mode + auto-pause + business hours override
+AI_AUTO_PAUSE_MINUTES = int(os.getenv("AI_AUTO_PAUSE_MINUTES", 30))
+CRO_BUSINESS_START    = os.getenv("CRO_BUSINESS_START", "09:00")
+CRO_BUSINESS_END      = os.getenv("CRO_BUSINESS_END", "18:00")
+CRO_TIMEZONE          = os.getenv("CRO_TIMEZONE", "Asia/Bangkok")

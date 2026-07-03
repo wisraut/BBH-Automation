@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import admin_alerts, admin_audit, admin_system, ai, ai_mode_api, auth, booking, bookings_api, call_logs_api, calendar_api, cro_webhook, health, line_webhook, medical_records_api, patient_message_api, patients_api, reports_api, schedule_api, schedule_blocks_api, session, users_api
+from api import admin_alerts, admin_audit, admin_system, ai, ai_mode_api, auth, booking, bookings_api, call_logs_api, calendar_api, cro_webhook, health, line_webhook, medical_records_api, patient_message_api, patients_api, rag_api, reports_api, schedule_api, schedule_blocks_api, session, users_api
 from core.config import SERVER_PORT
 from core.csrf import CsrfMiddleware
 from core.internal_guard import InternalPathGuard
@@ -32,6 +32,7 @@ app.include_router(line_webhook.router)
 app.include_router(cro_webhook.router)
 app.include_router(session.router)
 app.include_router(session.message_router)
+app.include_router(rag_api.router)
 app.include_router(booking.router)
 app.include_router(bookings_api.router)
 app.include_router(patients_api.router)

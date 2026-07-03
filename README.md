@@ -1,10 +1,52 @@
 # LINE-Dify Hospital Bridge
 
-ระบบ LINE chatbot สำหรับ **โรงพยาบาล Better Being Hospital (BBH)** สาย Functional Medicine โดยใช้ n8n เป็นตัว orchestrate, Dify เป็น AI/RAG engine, และ FastAPI bridge เป็น internal API สำหรับ session, booking, LINE fallback, Google Calendar และงาน background ของโรงพยาบาล
+ระบบ LINE chatbot สำหรับ **โรงพยาบาล Better Being Hospital (BBH)** สาย Functional Medicine โดยใช้ n8n เป็นตัว orchestrate, **own-RAG (Python) เป็น AI engine**, และ FastAPI bridge เป็น internal API สำหรับ session, booking, LINE fallback, Google Calendar และงาน background ของโรงพยาบาล
+
+> **หมายเหตุ (2026-07-03): เลิกใช้ Dify แล้ว** — AI/RAG ย้ายมาเป็น Python ของเราเองใน `backend/rag/` (BGE-M3 embedding + MySQL vector store + Gemini via OpenRouter) สลับกลับ Dify ได้ด้วย `USE_OWN_RAG=false` ชื่อ repo ยังเป็น "LINE-Dify Hospital Bridge" ตามประวัติ
 
 ตอนนี้ `main` เป็น source of truth ของ repo นี้ และ Python backend ทั้งหมดอยู่ใน `backend/`
 
 ---
+
+## ระบบนี้คืออะไร (ฉบับเข้าใจง่าย — ไม่ต้องรู้ tech)
+
+ระบบนี้คือ **"ผู้ช่วยอัจฉริยะของโรงพยาบาล"** ที่ทำงานผ่าน LINE
+
+**มันทำอะไรให้บ้าง**
+
+- คนไข้ทัก LINE มาถาม (เปิดกี่โมง ราคาเท่าไหร่ จองคิวยังไง) → ระบบตอบเองอัตโนมัติ
+- คนไข้อยากจองคิว → ระบบถามข้อมูลทีละอย่าง เก็บให้ครบ แล้วส่งให้เจ้าหน้าที่กดยืนยัน
+- เจ้าหน้าที่มีหน้าเว็บไว้ดูคิว จัดการข้อมูลคนไข้ และเข้ามาคุยกับคนไข้ต่อเองได้
+
+**เปรียบเหมือนทีมงานในโรงพยาบาล**
+
+| ส่วนของระบบ | เปรียบเหมือน |
+|---|---|
+| LINE | โทรศัพท์หน้าเคาน์เตอร์ (ช่องทางที่คนไข้ทักเข้ามา) |
+| n8n | พนักงานรับสาย (รับข้อความ ส่งต่อ ตอบกลับ) |
+| AI ของเรา (own-RAG) | ผู้ช่วยที่อ่าน "คู่มือ FAQ" ของโรงพยาบาลแล้วเรียบเรียงคำตอบ |
+| ตัวแปลง (BGE-M3) | ล่ามที่ช่วยหาว่าคำถามตรงกับหน้าไหนในคู่มือ แม้พิมพ์คนละคำ |
+| ฐานข้อมูล (MySQL) | ตู้เก็บเอกสาร (คิว ประวัติแชท คู่มือ FAQ) |
+| หน้าเว็บ (dashboard) | แผงควบคุมของเจ้าหน้าที่ |
+
+**พอคนไข้ทักมา 1 ข้อความ เกิดอะไรขึ้น**
+
+1. คนไข้พิมพ์ใน LINE
+2. พนักงานรับสาย (n8n) รับมา ส่งต่อให้ผู้ช่วย AI
+3. AI เปิดคู่มือ FAQ หาหน้าที่ตรงคำถาม แล้วเรียบเรียงเป็นคำตอบสุภาพ
+4. ตอบกลับไปใน LINE ให้คนไข้
+
+**เรื่องความปลอดภัย (สำคัญที่สุด)**
+
+ถ้าคนไข้พิมพ์อาการฉุกเฉิน เช่น เจ็บหน้าอก หายใจไม่ออก หมดสติ ชัก — ระบบจะ **บอกให้โทร 1669 ทันที** ไม่เดา ไม่เสี่ยง (มีตัวดักคำฉุกเฉินแบบตายตัว ทำงานก่อน AI เสมอ)
+
+**เปลี่ยนอะไรล่าสุด (2026-07-03)**
+
+เมื่อก่อนใช้ AI สำเร็จรูปที่เช่าเขามา (ชื่อ Dify) ซึ่งเป็น "กล่องดำ" แก้เองไม่ได้และพังบ่อย → ตอนนี้เปลี่ยนมาใช้ **AI ที่เราสร้างเอง** คุมได้ 100% แก้ปรับได้ทุกอย่าง และเสถียรกว่า
+
+---
+
+> ส่วนด้านล่างนี้เป็นรายละเอียดเชิงเทคนิคสำหรับ developer
 
 ## Current Architecture
 
@@ -14,15 +56,21 @@ LINE Main Bot
    | webhook: /webhook/bbh-line-main
    v
 hospital-n8n
-   |-- calls Dify advanced-chat for public inquiry / booking / escalation
-   |-- calls Bridge internal APIs for sessions and booking requests
-   |-- replies or pushes via LINE Messaging API
-   |
-   +--> Dify API (http://api:5001/v1 or http://nginx/v1)
+   |-- reads session + USE_OWN_RAG flag from Bridge
+   |-- calls Bridge for the AI answer, then replies/pushes via LINE
    |
    +--> hospital-bridge (FastAPI, http://hospital-bridge:8000)
+   |       POST /internal/rag/answer  → own-RAG pipeline:
+   |         1. safety gate (emergency keywords → ESCALATE:emergency + 1669)
+   |         2. embed question (BGE-M3)
+   |         3. search kb_chunks (MySQL, brute-force cosine, top-5)
+   |         4. build prompt (AUTO/CONSULT/BOOKING/ESCALATE:class)
+   |         5. Gemini via OpenRouter → parse route prefix
+   |       (USE_OWN_RAG=false → falls back to Dify /chat-messages)
    |
-   +--> hospital-bot-ops-db (MySQL)
+   +--> bbh-embedder (Infinity + BGE-M3, http://bbh-embedder:7997)
+   |
+   +--> hospital-bot-ops-db (MySQL: bot_sessions, booking_requests, kb_chunks)
 
 LINE CRO Bot
    |
@@ -40,11 +88,13 @@ Core containers:
 
 | Container | Purpose |
 |---|---|
-| `hospital-bridge` | FastAPI bridge, internal session/booking APIs, LINE fallback webhooks, Calendar integration |
+| `hospital-bridge` | FastAPI bridge: own-RAG (`/internal/rag/answer`), session/booking APIs, LINE fallback webhooks, Calendar |
 | `hospital-n8n` | LINE workflow orchestration and LINE reply/push logic |
-| `hospital-bot-ops-db` | MySQL database for `bot_sessions` and `booking_requests` |
-| `docker-api-1` / `docker-nginx-1` | Dify API and reverse proxy |
-| `docker-db_postgres-1` | Dify PostgreSQL and legacy hospital DB data |
+| `hospital-bot-ops-db` | MySQL: `bot_sessions`, `booking_requests`, `kb_chunks` (RAG FAQ vectors) |
+| `bbh-embedder` | Infinity server running BGE-M3 embedding on CPU (replaces Dify's Ollama) |
+| `docker-db_postgres-1` | legacy `hospital_db` (Dify's Postgres — kept until hospital_db is migrated to MySQL) |
+
+Dify app containers (`docker-api-1`, `docker-nginx-1`, `docker-weaviate-1`, workers, …) were **stopped 2026-07-03** when own-RAG went live. They can be restarted for rollback (`docker start …` + `USE_OWN_RAG=false`).
 
 All services join Docker network `docker_default`.
 
@@ -53,20 +103,21 @@ All services join Docker network `docker_default`.
 ## Main Features
 
 - LINE Main Bot receives public inquiry and booking conversations.
-- Dify returns routing prefixes such as `AUTO:`, `BOOKING_ASK:`, `BOOKING_DONE:`, `CONSULT:`, and `ESCALATE:*`.
+- **Own-RAG** (`backend/rag/`) returns routing prefixes such as `AUTO:`,
+  `BOOKING_ASK:`, `BOOKING_DONE:`, `CONSULT:`, and `ESCALATE:*` — grounded in
+  the FAQ retrieved from `kb_chunks`, with a deterministic emergency safety
+  gate that forces `ESCALATE:emergency` before the LLM ever runs.
 - n8n strips/handles AI prefixes and sends LINE replies.
 - Bridge stores LINE session state and booking requests in Bot Ops MySQL.
 - CRO LINE Bot tracks staff users and handles booking approval/rejection.
 - Confirmed bookings can create Google Calendar events and notify patients.
 - Emergency and personal-data requests are escalated instead of answered directly.
-- Web dashboard (`frontend/`) for CRO/Doctor/Admin: Bookings inbox, Patients,
+- Web dashboard (`frontend/`) for CRO/Doctor/Admin: Bookings inbox, Patients
+  (+ per-patient LINE chat with 3-mode AI takeover: Auto/Copilot/Silent),
   Reports, Calendar, AI chat (`/ai`), Account.
-- Two separate Dify apps power the AI:
-  - **Patient Summary** (`DIFY_API_KEY`) — LINE customer routing classifier
-  - **BBH Staff Assistant** (`DIFY_STAFF_API_KEY`) — free-form CRO assistant
-    on the web `/ai` page, source of truth in
-    `dify_patches/bbh_staff_assistant/`
-- Integration test suite covers the LINE/n8n/Dify/Bridge paths end to end.
+- The AI pipeline (embed → retrieve → generate) is plain Python, so prompts and
+  routing live in `backend/rag/prompts.py` — edit + `git commit`, no black box.
+- Integration test suite covers the LINE/n8n/Bridge paths end to end.
 
 ---
 
@@ -83,10 +134,20 @@ line-dify-bridge/
 │   │   ├── cro_webhook.py         # CRO LINE fallback webhook
 │   │   ├── health.py              # root/health endpoints + internal token guard
 │   │   ├── line_webhook.py        # main LINE fallback webhook
-│   │   └── session.py             # internal Dify session API
+│   │   ├── rag_api.py             # POST /internal/rag/answer (own-RAG entrypoint)
+│   │   └── session.py             # internal session API (+ use_own_rag flag)
+│   ├── rag/                       # own-RAG engine (replaces Dify)
+│   │   ├── embedder.py            # HTTP client to bbh-embedder (BGE-M3)
+│   │   ├── vector_store.py        # kb_chunks on MySQL + brute-force cosine
+│   │   ├── ingester.py            # FAQ markdown → chunks → embed → store
+│   │   ├── memory.py              # recent turns from booking_messages
+│   │   ├── llm.py                 # Gemini via OpenRouter
+│   │   ├── prompts.py             # BBH routing prompt + prefix parser
+│   │   ├── safety.py              # deterministic emergency gate
+│   │   └── service.py             # answer() — the whole pipeline
 │   ├── core/                      # config, DB helpers, lifespan startup
 │   ├── flows/                     # doctor / patient / CRO fallback logic
-│   ├── integrations/              # Dify, LINE, Google Calendar clients
+│   ├── integrations/              # LINE, Google Calendar clients (Dify legacy)
 │   ├── jobs/                      # background jobs, including email poller
 │   ├── migrations/                # DB migration SQL
 │   ├── ops/                       # operational helpers
@@ -399,6 +460,19 @@ git checkout -b feature/<short-name>
 - Bridge is still responsible for internal APIs and fallback LINE webhook handling.
 - Calendar verification depends on valid Google service account credentials and workflow execution in n8n.
 - The LINE integration test is the best smoke test for end-to-end booking/CRO behavior.
+
+### Own-RAG status (2026-07-03)
+
+- **Live**: `USE_OWN_RAG=true`, embedder = **BGE-M3** via `bbh-embedder` (Infinity, CPU).
+- Dify app containers are **stopped** (own-RAG replaces them); `docker-db_postgres-1`
+  is kept only for legacy `hospital_db`.
+- FAQ knowledge base lives in MySQL `kb_chunks` — rebuild with
+  `python -m rag.ingester /app/docs/BBH_MAIN_BOT_FAQ.md` inside the bridge after editing the FAQ.
+- Swapping the embedding model is config-only: set `EMBED_MODEL`, recreate
+  `bbh-embedder` with the matching `--model-id`, and re-ingest (dimension may change).
+- Open follow-ups: migrate `hospital_db` (Postgres) → MySQL then drop Postgres;
+  add a retrieval score threshold + reranker (Phase 2); fully purge stopped Dify
+  once confident; re-open the public web (Cloudflare WAF rule currently blocks it for dev).
 
 ---
 

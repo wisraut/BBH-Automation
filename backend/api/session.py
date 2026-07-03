@@ -7,7 +7,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from api.health import _require_internal_token
-from core.config import BOT_OPS_DB_CONFIG, BOT_SESSION_CONV_TTL_MIN, log
+from core.config import BOT_OPS_DB_CONFIG, BOT_SESSION_CONV_TTL_MIN, USE_OWN_RAG, log
 from repositories import message_repo
 from utils.ai_mode import AUTO_PAUSE_MINUTES, compute_effective
 
@@ -82,6 +82,7 @@ def get_session(channel: str, user_id: str, x_internal_token: str | None = Heade
             "current_state": "idle",
             "ai_mode": "auto",
             "ai_pause_until": None,
+            "use_own_rag": USE_OWN_RAG,
             **eff,
         }
 
@@ -104,6 +105,7 @@ def get_session(channel: str, user_id: str, x_internal_token: str | None = Heade
         "current_state": row["current_state"],
         "ai_mode": row.get("ai_mode") or "auto",
         "ai_pause_until": row["ai_pause_until"].isoformat() if row.get("ai_pause_until") else None,
+        "use_own_rag": USE_OWN_RAG,
         **eff,
     }
 

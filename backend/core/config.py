@@ -72,3 +72,8 @@ AI_AUTO_PAUSE_MINUTES = int(os.getenv("AI_AUTO_PAUSE_MINUTES", 30))
 CRO_BUSINESS_START    = os.getenv("CRO_BUSINESS_START", "09:00")
 CRO_BUSINESS_END      = os.getenv("CRO_BUSINESS_END", "18:00")
 CRO_TIMEZONE          = os.getenv("CRO_TIMEZONE", "Asia/Bangkok")
+
+# Own-RAG cutover switch. n8n reads this from the /internal/session response
+# and calls /internal/rag/answer instead of Dify when true. Flip = edit .env
+# + restart bridge (no n8n redeploy). Default false = Dify stays primary.
+USE_OWN_RAG = os.getenv("USE_OWN_RAG", "false").strip().lower() == "true"

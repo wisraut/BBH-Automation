@@ -180,8 +180,8 @@ def approve_booking(
 
     _safe_push_patient(
         row.get("external_user_id"),
-        f"✅ ยืนยันนัด {patient_name}\n"
-        f"📅 {start_at.strftime('%d/%m/%Y %H:%M น.')}\n"
+        f"ยืนยันนัด {patient_name}\n"
+        f"{start_at.strftime('%d/%m/%Y %H:%M น.')}\n"
         f"ที่ BBH (Better Being Hospital)",
     )
 

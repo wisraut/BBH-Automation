@@ -62,7 +62,7 @@ def _handle_cro_registration(reply_token: str, user_id: str, code: str) -> None:
     if status == "registered":
         line_client.reply(
             reply_token,
-            f"✅ ลงทะเบียนสำเร็จ\n"
+            f"ลงทะเบียนสำเร็จ\n"
             f"ยินดีต้อนรับ พี่{c['name']} ({c['cro_code']})\n\n"
             "คำสั่งที่ใช้ได้:\n"
             "• active / list — ดู conversations\n"
@@ -70,17 +70,17 @@ def _handle_cro_registration(reply_token: str, user_id: str, code: str) -> None:
             "• view <N>      — ดูประวัติ #N\n"
             "• take <N>      — รับคุยเอง override AI\n"
             "• /end          — จบ take-over\n\n"
-            "🔴 ระหว่าง take-over: ทุกข้อความ → ส่งลูกค้า",
+            "ระหว่าง take-over: ทุกข้อความ → ส่งลูกค้า",
             ch=line_client.CRO,
         )
         log.info("CRO registered: %s (%s) → %s", c["name"], c["cro_code"], user_id)
     elif status == "already_me":
         line_client.reply(
             reply_token,
-            f"✅ คุณลงทะเบียนแล้ว (พี่{c['name']} / {c['cro_code']})",
+            f"คุณลงทะเบียนแล้ว (พี่{c['name']} / {c['cro_code']})",
             ch=line_client.CRO,
         )
     elif status == "already_taken":
-        line_client.reply(reply_token, f"❌ รหัส {code} ถูกใช้งานแล้ว ติดต่อผู้ดูแล", ch=line_client.CRO)
+        line_client.reply(reply_token, f"รหัส {code} ถูกใช้งานแล้ว ติดต่อผู้ดูแล", ch=line_client.CRO)
     else:
-        line_client.reply(reply_token, f"❌ ไม่พบรหัส {code} (ใช้ CRO001-004)", ch=line_client.CRO)
+        line_client.reply(reply_token, f"ไม่พบรหัส {code} (ใช้ CRO001-004)", ch=line_client.CRO)

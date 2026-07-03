@@ -158,7 +158,7 @@ def push_with_quick_reply(
     *,
     triggered_by: str | None = None,
 ) -> None:
-    """แจ้งเตือนพร้อมปุ่ม [🔍 วิเคราะห์]"""
+    """แจ้งเตือนพร้อมปุ่ม [วิเคราะห์]"""
     try:
         resp = httpx.post(
             "https://api.line.me/v2/bot/message/push",
@@ -173,7 +173,7 @@ def push_with_quick_reply(
                             "type": "action",
                             "action": {
                                 "type":  "message",
-                                "label": "🔍 วิเคราะห์",
+                                "label": "วิเคราะห์",
                                 "text":  f"วิเคราะห์ {report_id}",
                             },
                         }],

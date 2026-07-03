@@ -88,6 +88,7 @@ backups/*.tar
 # Markdown working docs (all except README.md + shared team docs in docs/)
 *.md
 !README.md
+!CLAUDE.md
 !docs/dev-setup-lan.md
 !dify_patches/**/README.md
 !dify_patches/**/system_prompt.md

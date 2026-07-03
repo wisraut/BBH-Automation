@@ -251,7 +251,7 @@ def main():
     banner("[Phase 3]  Build Patient Context (JOIN 4 tables)")
     # ══════════════════════════════════════════════════════════════════
 
-    # Import doctor flow module (safe — does not start server/ngrok/poller)
+    # Import doctor flow module (safe — does not start server/tunnel/poller)
     from flows import doctor as doctor_flow  # noqa: PLC0415
 
     try:

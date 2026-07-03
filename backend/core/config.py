@@ -24,11 +24,9 @@ BOT_SESSION_CONV_TTL_MIN = int(os.getenv("BOT_SESSION_CONV_TTL_MIN", 30))
 
 # Server
 SERVER_PORT = int(os.getenv("SERVER_PORT", 8000))
-# Public URL of this bridge. Currently a Cloudflare Tunnel
-# (https://bridge.bbh-hospital.com); was ngrok in earlier deploys. Fall
-# back to the legacy NGROK_PUBLIC_URL env var so old .env files keep
-# working until they're migrated.
-PUBLIC_URL  = os.getenv("PUBLIC_URL") or os.getenv("NGROK_PUBLIC_URL", "")
+# Public URL of this bridge — a Cloudflare Tunnel
+# (https://bridge.bbh-hospital.com).
+PUBLIC_URL  = os.getenv("PUBLIC_URL", "")
 BRIDGE_INTERNAL_TOKEN = os.getenv("BRIDGE_INTERNAL_TOKEN", "")
 N8N_INTERNAL_BASE_URL = os.getenv("N8N_INTERNAL_BASE_URL", "")
 

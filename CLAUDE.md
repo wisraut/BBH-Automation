@@ -196,7 +196,7 @@ LINE push สรุปกลับให้แพทย์ + reset status=NULL (
 ```
 Gmail IMAP                                   LINE API
    ↓                                            ↕
-email_poller.py  ─────────┐         ┌──── main.py (FastAPI + ngrok)
+email_poller.py  ─────────┐         ┌──── main.py (FastAPI + Cloudflare Tunnel)
 (PDF/text → report row)   │         │     ├── Doctor register / logout
                           ▼         ▼     ├── Patient name search → analyze
                        PostgreSQL hospital_db
@@ -218,8 +218,8 @@ email_poller.py  ─────────┐         ┌──── main.py 
 | AI หลัก | Dify advanced-chat + Gemini Flash via OpenRouter |
 | Knowledge Base | Dify KB (หนังสือแพทย์ PDF) |
 | Database | PostgreSQL 5433 (Docker — `docker-db_postgres-1`) |
-| Tunnel | ngrok (domain hardcode ใน main.py — ดู P1) |
-| Monitor | Textual TUI (`monitor.py`) — refresh ทุก 5 วิ |
+| Tunnel | Cloudflare Tunnel (`bridge.bbh-hospital.com`); URL อ่านจาก `PUBLIC_URL` ใน .env |
+| Monitor | Web Dashboard หน้า System Health (`frontend/.../SystemHealth.tsx`) |
 
 ---
 
@@ -326,7 +326,6 @@ PostgreSQL (hospital_db):
 ```
 
 > ⚠️ `OLLAMA_API_URL` / `OLLAMA_MODEL` ใน .env เป็น dead config — code ไม่อ่านแล้ว
-> ngrok domain ยัง hardcode ใน main.py:541 (P1 — ควรย้ายไป .env)
 
 ---
 
@@ -388,6 +387,8 @@ PostgreSQL (hospital_db):
 
 | วันที่ | ไฟล์ | สิ่งที่ทำ |
 |--------|------|-----------|
+| 2026-07-03 | backend/ops/ (DELETED) | **ลบ `ops/monitor.py` (Textual TUI monitor) ทิ้งทั้งโฟลเดอร์** — dead: launcher เดียวอยู่ใน `_legacy/start.bat` (archive), ไม่มี Python ที่ไหน import `ops`, และยัง probe Dify (ตายหลัง cutover) + hospital_db PostgreSQL (legacy) + ngrok (เพิ่งถอด); System Monitor ย้ายไปหน้า Web Dashboard `SystemHealth.tsx` แทนแล้ว; ลบ `ops/monitor.py` + `ops/__init__.py`; verify: `grep -r "from ops\|import ops"` = 0 |
+| 2026-07-03 | core/config.py, docker-compose.bridge.yaml, .env.example, ops/monitor.py, tests/test_full_flow.py | **ลบ ngrok remnants ออกหมด (ใช้ Cloudflare Tunnel อย่างเดียวแล้ว)** — หมายเหตุเดิม "main.py:541 hardcode ngrok domain" outdated (main.py refactor เป็น backend/ modules ไปแล้ว ไม่มี hardcode domain); จุดจริงที่แก้: (1) `config.py` เลิก fallback `os.getenv("NGROK_PUBLIC_URL")` เหลือ `PUBLIC_URL` อย่างเดียว + แก้ comment; (2) `docker-compose.bridge.yaml` เปลี่ยน env key `NGROK_PUBLIC_URL` → `PUBLIC_URL` (default ยัง `https://bridge.bbh-hospital.com`); (3) `.env.example` ลบ legacy ngrok note (`.env` จริงใช้ `PUBLIC_URL` อยู่แล้ว); (4) `monitor.py` แก้ bug: root endpoint คืน key `public_url` แต่โค้ดอ่าน `ngrok_url` (ได้ "" เสมอ → โชว์ tunnel active ตลอด) + ลบ block probe ngrok :4040/:4041 (dead); (5) test comment ngrok→tunnel; verify: 3 ไฟล์ py parse OK, grep ngrok เหลือ 0 ใน code จริง |
 | 2026-07-03 | flows/{cro,doctor,patient}.py, flows/routing.py (NEW), integrations/dify_client.py (DELETED), core/config.py | **Migrate LINE fallback flows → own RAG + ลบ dify_client (Dify ออกจาก runtime 100%)** — `dify_client.py` ไม่ใช่ dead จริง (audit ก่อนผมพลาด) ยังถูก legacy flows ใช้เป็น LINE fallback ตอน n8n ล่ม; (A) `flows/cro.handle_public_inquiry` (live fallback ผ่าน line_webhook/cro_webhook) เปลี่ยน `dify_client.ask_with_meta`+`parse_decision` → `rag.service.answer("line_main",uid,text)` + `routing.parse_decision` (ย้าย parser ออกมาเป็น `flows/routing.py` module อิสระ); ลบ `_update_dify_conv_id` (dead); (B) `flows/doctor.py` analyze (dead runtime—lifespan import แต่ไม่เรียก, email_poller ปิด) → `llm.chat` + `_DOCTOR_SYSTEM` + redact; (C) `flows/patient.py` advisor (tests เท่านั้น) → `rag.service.answer` + คง audit `advice_requested`; ลบ `dify_client.py` + `DIFY_*` vars จาก config.py (ไม่มี importer เหลือ นอกจาก ops/monitor+tests ที่ใช้ os.getenv ตรง); **ลบ emoji ใน LINE reply ของ 3 ฟังก์ชันที่แก้** (🤔📝✅⚠️💬 ใน cro, ❌🔍📊 ใน doctor, 🤔❌ ใน patient) ตาม no-emoji policy; verify: app boot ได้ไม่พัง, flows import clean, routing parser 4/4 format, dify_client = ModuleNotFoundError; **เหลือ emoji ใน handler อื่นของ flows (CRO team/booking notify) ที่ยังไม่แตะ** |
 | 2026-07-03 | services/report_service.py, repositories/ai_message_repo.py (NEW), services/ai_service.py | **Web AI multi-turn memory + migrate report analysis ออกจาก Dify** — (A) **พบ Dify dependency ที่ audit แรกพลาด**: `report_service.analyze_report` (ปุ่มวิเคราะห์ lab report ของแพทย์) ยังเรียก `dify.ask_with_meta` (ใช้ default `DIFY_API_KEY` role=doctor เลยไม่โดน grep DIFY_STAFF) → พังตั้งแต่หยุด Dify; migrate เป็น `llm.chat` + `_DOCTOR_SYSTEM` prompt + **เพิ่ม PII redact** (เดิมส่ง context ดิบเข้า Dify→OpenRouter ไม่ได้ redact) + `_build_context` เลิกอ้าง Knowledge Base (KB หนังสือแพทย์อยู่ใน Dify หายไปแล้ว) → verify: มี Triage line, parse=review, HN redact เป็น [HN]; (B) **Web AI จำบทสนทนาได้** — reuse ตาราง `ai_conversations`+`ai_messages` เดิม (dead schema จาก migration 0018/0019 ไม่เคย wire) แทนสร้างใหม่; repo `ai_message_repo` (get_or_create ผ่าน string token เก็บใน `dify_conversation_id` = provider-agnostic id, frontend contract ไม่เปลี่ยน / load_history / save_turn best-effort); ai_service load history ก่อน + persist ทั้ง 2 ฝั่ง (user redact ก่อนเก็บ) หลังตอบ; verify E2E: turn1 บอก "ZEBRA-7" → turn2 จำได้ตอบ "ZEBRA-7", history 4 turns; **เหลือ**: `dify_client.py` ยังถูก legacy flows (cro/doctor/patient = LINE fallback ตอน n8n ล่ม) ใช้ → ลบ dify_client ไม่ได้จนกว่าจะตัดสินใจเรื่อง fallback (รอ user เลือก migrate→RAG / ตัดทิ้ง / คงไว้) |
 | 2026-07-03 | backend/rag/llm.py, services/ai_service.py, services/patient_summary_service.py, core/config.py, api/health.py, api/admin_system.py, jobs/admin_alert_evaluator.py, migrations/0046 (NEW), frontend/pages/SystemHealth.tsx | **ถอด Dify ออกจาก runtime ที่เหลือ (Web AI + monitoring) — cutover สมบูรณ์** — cutover เมื่อวานถอด Dify เฉพาะเส้น LINE ลูกค้า แต่ **Web Dashboard AI (`/api/ai/chat` CRO chat + pre-visit patient summary) ยังผูก Dify Staff Assistant** พอหยุด container จึงพังเงียบ (502); แก้: (1) `rag/llm.py` เพิ่ม `chat_stream()` (OpenRouter SSE); (2) `ai_service.py` เลิก dify_client/DIFY_STAFF_API_KEY → เรียก `llm.chat/chat_stream` ตรง + เพิ่ม `_SYSTEM_PROMPT` staff (free-form ไม่มี routing prefix), conv_id gen เอง (uuid); (3) `patient_summary_service.py` เลิก dify → `llm.chat` (system=instruction, user=data); (4) **monitoring**: เอา Dify probe ออกจาก `health.py`/`admin_system.py`/`admin_alert_evaluator.py` (ลบ evaluator `eval_bridge_dify_disconnected` + globals) + migration 0046 ปิด rule `bridge_dify_disconnected` (enabled=0) + resolve alert ค้าง + `config._REQUIRED` เอา `DIFY_API_KEY` ออก (bridge boot ได้โดยไม่ต้องมี Dify key) + `SystemHealth.tsx` ลบ service card Dify; verify บนภาพใหม่ (rebuild+recreate): Web AI ตอบจริงผ่าน OpenRouter, stream มี delta+conv_id+done, health เหลือ bridge/db/tunnel, alert rule enabled=0; **หมายเหตุ**: dify_client.py + n8n else-branch (fallback Dify) ยังเหลือเป็น dead code ปลอดภัย (USE_OWN_RAG=true เสมอ ไม่มีทางวิ่งเข้า) — rollback ไป Dify ต้อง start container กลับก่อน |

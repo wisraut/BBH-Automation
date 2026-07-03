@@ -3,7 +3,6 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  Cpu,
   Database,
   Loader2,
   RefreshCw,
@@ -17,7 +16,6 @@ import { useSystemHealth, type ServiceCheck, type ServiceStatus } from '../hooks
 const SERVICE_ICONS: Record<string, LucideIcon> = {
   bridge: Server,
   mysql_bot_ops: Database,
-  dify_api: Cpu,
   n8n: Activity,
   line_main_webhook: Webhook,
   line_cro_webhook: Webhook,
@@ -26,7 +24,6 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
 const SERVICE_LABELS: Record<string, string> = {
   bridge: 'Bridge (FastAPI)',
   mysql_bot_ops: 'MySQL bot_ops',
-  dify_api: 'Dify API',
   n8n: 'n8n Workflow',
   line_main_webhook: 'LINE Main Bot',
   line_cro_webhook: 'LINE CRO Bot',
@@ -129,7 +126,7 @@ export function SystemHealth() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-green">System Monitor</p>
           <h1 className="mt-2 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">สถานะระบบโรงพยาบาล</h1>
           <p className="mt-1 text-sm text-bbh-muted">
-            ตรวจสถานะของ Bridge, Dify, n8n, MySQL, LINE webhooks และข้อมูลล่าสุดในระบบ — รีเฟรชอัตโนมัติทุก 5 วินาที
+            ตรวจสถานะของ Bridge, n8n, MySQL, LINE webhooks และข้อมูลล่าสุดในระบบ — รีเฟรชอัตโนมัติทุก 5 วินาที
           </p>
         </div>
         <div className="flex items-center gap-3">

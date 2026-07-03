@@ -1,4 +1,4 @@
-"""Patient report upload + storage + text extraction + Dify analysis."""
+"""Patient report upload + storage + text extraction + AI analysis (own LLM)."""
 import io
 import json
 import os
@@ -9,7 +9,8 @@ from typing import Any
 
 from fastapi import HTTPException, UploadFile
 
-import integrations.dify_client as dify
+from rag import llm
+from services.pii_redactor import redact_text
 from core.config import log
 from core.email_service import REPORT_NOTIFY_EMAIL, send_email
 from core.email_templates import (
@@ -34,6 +35,17 @@ ALLOWED_MIMES = {
 }
 _DIFY_TRIAGE_PATTERN = re.compile(
     r"(accept|reject|review)", re.IGNORECASE
+)
+
+# System persona for lab-report analysis. Replaces the old Dify "doctor" app.
+# There is no medical-book Knowledge Base anymore (that lived in Dify), so the
+# model reasons from the report data + general medical knowledge and must NOT
+# invent citations. Always ends with a machine-parseable Triage line.
+_DOCTOR_SYSTEM = (
+    "คุณเป็นผู้ช่วยแพทย์ในโรงพยาบาล Better Being วิเคราะห์ผลแล็บ/รายงานให้แพทย์อ่าน "
+    "เป็นภาษาไทย กระชับ เป็นระบบ อ้างอิงจากข้อมูลในรายงานและความรู้ทางการแพทย์ทั่วไป "
+    "ห้ามแต่งค่าตัวเลข ผลแล็บ หรือการอ้างอิงหนังสือที่ไม่มีในข้อมูล "
+    "ตอบตามหัวข้อที่แพทย์ขอ และปิดท้ายด้วยบรรทัด Triage ตามรูปแบบที่กำหนดเสมอ"
 )
 
 
@@ -241,20 +253,23 @@ def analyze_report(*, report_id: int, user: dict[str, Any]) -> dict[str, Any]:
             detail={"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้ของ Report นี้"},
         )
 
-    context = _build_context(patient=patient, report=report)
+    # PII-redact before the report text leaves the bridge for OpenRouter.
+    context = redact_text(
+        _build_context(patient=patient, report=report),
+        known_names=[patient.get("display_name")] if patient.get("display_name") else [],
+    )
+    messages = [
+        {"role": "system", "content": _DOCTOR_SYSTEM},
+        {"role": "user", "content": context},
+    ]
     try:
-        answer, conv_id, _meta = dify.ask_with_meta(
-            user_id=str(user.get("id") or "doctor"),
-            message=context,
-            role="doctor",
-            conv_id="",
-        )
+        answer = llm.chat(messages, max_tokens=1536)
     except Exception:
-        log.exception("Dify analyze failed for report id=%s", report_id)
+        log.exception("AI analyze failed for report id=%s", report_id)
         raise HTTPException(
             status_code=502,
             detail={
-                "code": "DIFY_ANALYZE_FAILED",
+                "code": "AI_ANALYZE_FAILED",
                 "message": "ระบบ AI ตอบไม่สำเร็จ ลองใหม่อีกครั้ง",
             },
         )
@@ -263,9 +278,9 @@ def analyze_report(*, report_id: int, user: dict[str, Any]) -> dict[str, Any]:
     analysis_id = report_repo.create_analysis(
         report_id=report_id,
         requested_by=user.get("id"),
-        dify_conversation_id=conv_id or None,
+        dify_conversation_id=None,
         summary_text=answer,
-        raw_response=json.dumps({"answer": answer, "conv_id": conv_id}, ensure_ascii=False),
+        raw_response=json.dumps({"answer": answer}, ensure_ascii=False),
         triage_decision=triage,
     )
     analyses = report_repo.list_analyses(report_id)
@@ -447,7 +462,7 @@ def _extract_text(raw: bytes, mime: str) -> str | None:
 
 def _build_context(*, patient: dict[str, Any], report: dict[str, Any]) -> str:
     parts = [
-        "กรุณาวิเคราะห์ Report ของคนไข้ตามข้อมูลด้านล่าง โดยใช้ความรู้จาก Knowledge Base ของหนังสือแพทย์เป็นแหล่งอ้างอิงหลัก",
+        "กรุณาวิเคราะห์ Report ของคนไข้ตามข้อมูลด้านล่าง โดยใช้ความรู้ทางการแพทย์ทั่วไปเป็นแหล่งอ้างอิง",
         "",
         "=== ข้อมูลคนไข้ ===",
         f"HN: {patient.get('hn') or '-'}",
@@ -462,7 +477,7 @@ def _build_context(*, patient: dict[str, Any], report: dict[str, Any]) -> str:
         "=== สิ่งที่ต้องตอบ ===",
         "1) สรุปอาการ/ผลแล็บที่สำคัญ",
         "2) ความเสี่ยง / สิ่งที่ต้องสังเกต",
-        "3) อ้างอิงจากหนังสือใน Knowledge Base ถ้ามี",
+        "3) คำแนะนำเบื้องต้นสำหรับแพทย์",
         "4) Triage suggestion: ลงท้ายด้วย 1 บรรทัด `Triage: accept` หรือ `Triage: reject` หรือ `Triage: review` (review = ไม่แน่ใจ ขอให้แพทย์ตรวจซ้ำ)",
     ]
     return "\n".join(parts)

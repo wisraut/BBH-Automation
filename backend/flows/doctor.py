@@ -6,7 +6,16 @@ from psycopg2.extras import RealDictCursor
 
 from core.config import RPT_PATTERN, log
 from core.db import get_db
-from integrations import dify_client, line_client
+from integrations import line_client
+from rag import llm
+from services.pii_redactor import redact_text
+
+# Doctor report-analysis persona (own LLM; replaces the old Dify "doctor" app).
+_DOCTOR_SYSTEM = (
+    "คุณเป็นผู้ช่วยแพทย์ในโรงพยาบาล Better Being วิเคราะห์ผลแล็บ/รายงานให้แพทย์อ่าน "
+    "เป็นภาษาไทย กระชับ อ้างอิงจากข้อมูลในรายงานและความรู้ทางการแพทย์ทั่วไป "
+    "ห้ามแต่งค่าตัวเลขหรือผลแล็บที่ไม่มีในข้อมูล"
+)
 
 
 def is_doctor(user_id: str) -> bool:
@@ -93,11 +102,11 @@ def _build_patient_context(report_id: str) -> tuple:
         "",
     ]
     if allergies:
-        lines.append("⚠️ ยาแพ้ / สิ่งที่แพ้ (ห้ามสั่งยาเหล่านี้):")
+        lines.append("ยาแพ้ / สิ่งที่แพ้ (ห้ามสั่งยาเหล่านี้):")
         for a in allergies:
             lines.append(f"  - {a['allergen']} → {a['reaction']} ({a['severity']})")
     else:
-        lines.append("⚠️ ยาแพ้: ไม่มีประวัติแพ้ยา")
+        lines.append("ยาแพ้: ไม่มีประวัติแพ้ยา")
     lines.append("")
     if conditions:
         lines.append("โรคประจำตัว:")
@@ -157,11 +166,11 @@ def notify_new_report(doctor_id: str, patient_name: str, report_id: str) -> None
         return
     line_uid, doctor_name = row
     text = (
-        f"📋 มี Report ใหม่\n"
+        f"มี Report ใหม่\n"
         f"ผู้ป่วย: {patient_name}\n"
         f"Report: {report_id}\n"
         f"เวลา: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
-        f"กด [🔍 วิเคราะห์] เพื่อเริ่มวิเคราะห์ทันที"
+        f"กด [วิเคราะห์] เพื่อเริ่มวิเคราะห์ทันที"
     )
     line_client.push_with_quick_reply(line_uid, text, report_id)
     log.info("แจ้งแพทย์ %s (%s) สำหรับ %s", doctor_name, line_uid[:12], report_id)
@@ -183,22 +192,29 @@ def analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> No
                 cur.execute("SELECT status FROM reports WHERE report_id = %s", (report_id,))
                 row = cur.fetchone()
         if not row:
-            line_client.reply(reply_token, f"❌ ไม่พบ Report #{report_id}")
+            line_client.reply(reply_token, f"ไม่พบ Report #{report_id}")
         else:
             line_client.reply(reply_token, f"⏳ Report #{report_id} กำลังวิเคราะห์อยู่แล้ว\nกรุณารอสักครู่")
         return
 
     report_row, context = _build_patient_context(report_id)
     if not report_row:
-        line_client.reply(reply_token, f"❌ ไม่พบ Report #{report_id}")
+        line_client.reply(reply_token, f"ไม่พบ Report #{report_id}")
         return
 
     try:
-        line_client.reply(reply_token, f"🔍 กำลังวิเคราะห์ #{report_id}…\nกรุณารอสักครู่")
+        line_client.reply(reply_token, f"กำลังวิเคราะห์ #{report_id}…\nกรุณารอสักครู่")
     except Exception:
         log.warning("LINE reply failed for %s — วิเคราะห์ต่อ", report_id)
 
-    summary, conv_id = dify_client.ask(doctor_line_uid, context)
+    summary = llm.chat(
+        [
+            {"role": "system", "content": _DOCTOR_SYSTEM},
+            {"role": "user", "content": redact_text(context)},
+        ],
+        max_tokens=1536,
+    )
+    conv_id = None
     doctor_id = _get_doctor_id(doctor_line_uid)
     try:
         _save_analysis(report_id, doctor_id, conv_id, summary)
@@ -210,7 +226,7 @@ def analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> No
                 conn.commit()
         return
     try:
-        line_client.push(doctor_line_uid, f"📊 ผลวิเคราะห์ #{report_id}\n\n{summary}")
+        line_client.push(doctor_line_uid, f"ผลวิเคราะห์ #{report_id}\n\n{summary}")
     except Exception:
         log.error("LINE push failed for %s", report_id)
     log.info("Analysis done — %s by %s", report_id, doctor_id)
@@ -250,7 +266,7 @@ def handle_message(reply_token: str, doctor_line_uid: str, text: str) -> None:
                 row = cur.fetchone()
                 conn.commit()
         name = row[0] if row else "แพทย์"
-        line_client.reply(reply_token, f"👋 ออกจากระบบแล้ว ({name})\nส่งรหัสแพทย์เพื่อเข้าใช้งานอีกครั้ง")
+        line_client.reply(reply_token, f"ออกจากระบบแล้ว ({name})\nส่งรหัสแพทย์เพื่อเข้าใช้งานอีกครั้ง")
         log.info("Doctor logged out: %s (%s)", name, doctor_line_uid[:12])
         return
 
@@ -263,7 +279,7 @@ def handle_message(reply_token: str, doctor_line_uid: str, text: str) -> None:
     if not patients:
         line_client.reply(
             reply_token,
-            f"❌ ไม่พบคนไข้ที่ชื่อ \"{text_stripped}\"\n"
+            f"ไม่พบคนไข้ที่ชื่อ \"{text_stripped}\"\n"
             "ลองพิมพ์ชื่อให้ครบขึ้น หรือระบุ Report ID (RPT-XXXXXXXX-XXXX)",
         )
         return
@@ -274,12 +290,12 @@ def handle_message(reply_token: str, doctor_line_uid: str, text: str) -> None:
             line_client.reply(reply_token, f"⏳ {p['name']} — กำลังวิเคราะห์อยู่แล้ว กรุณารอสักครู่")
             return
         if not p["latest_report_id"]:
-            line_client.reply(reply_token, f"ℹ️ {p['name']} ยังไม่มี Report ในระบบ")
+            line_client.reply(reply_token, f"{p['name']} ยังไม่มี Report ในระบบ")
             return
         analyze_report(reply_token, doctor_line_uid, p["latest_report_id"])
         return
 
-    lines = [f"🔍 พบคนไข้ {len(patients)} คนที่ชื่อคล้ายกัน:\n"]
+    lines = [f"พบคนไข้ {len(patients)} คนที่ชื่อคล้ายกัน:\n"]
     for p in patients:
         if p["latest_status"] == "analyzing":
             tag = "⏳ กำลังวิเคราะห์"

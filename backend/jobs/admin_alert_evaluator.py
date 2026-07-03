@@ -17,9 +17,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-import httpx
-
-from core.config import DIFY_API_KEY, DIFY_API_URL
 from core.mysql import mysql_db
 from repositories import alert_repo
 
@@ -221,75 +218,12 @@ def eval_disabled_user_sessions(rule: dict[str, Any]) -> list[Candidate]:
     ]
 
 
-# Module-level counter for consecutive Dify health-check failures.
-# Resets to 0 on every successful probe. Alert fires only when the count
-# reaches the rule's `consecutive_fails` threshold to avoid flapping on
-# transient network hiccups.
-_dify_fail_count = 0
-_dify_last_error: str | None = None
-
-
-def eval_bridge_dify_disconnected(rule: dict[str, Any]) -> list[Candidate]:
-    """Probe GET /v1/info — alert when probe fails N runs in a row.
-
-    HTTP 200 (key OK) and 401 (Dify alive, just unauthorized) both count as
-    "Dify reachable" — we only want to detect Dify being DOWN, not auth issues.
-    """
-    global _dify_fail_count, _dify_last_error
-
-    threshold = int(rule["threshold_json"].get("consecutive_fails", 2))
-    timeout = float(rule["threshold_json"].get("timeout_seconds", 5))
-
-    probe_failed: bool
-    error_msg: str | None = None
-    http_status: int | None = None
-    try:
-        headers = {"Authorization": f"Bearer {DIFY_API_KEY}"} if DIFY_API_KEY else {}
-        resp = httpx.get(f"{DIFY_API_URL}/info", headers=headers, timeout=timeout)
-        http_status = resp.status_code
-        probe_failed = resp.status_code not in (200, 401)
-        if probe_failed:
-            error_msg = f"HTTP {resp.status_code}"
-    except httpx.HTTPError as exc:
-        probe_failed = True
-        error_msg = f"{type(exc).__name__}: {exc}"
-
-    if probe_failed:
-        _dify_fail_count += 1
-        _dify_last_error = error_msg
-    else:
-        _dify_fail_count = 0
-        _dify_last_error = None
-        return []
-
-    if _dify_fail_count < threshold:
-        return []
-
-    return [
-        Candidate(
-            subject_type="integration",
-            subject_id="dify",
-            title=(
-                f"Bridge ติดต่อ Dify ไม่ได้ {_dify_fail_count} ครั้งติดต่อกัน "
-                f"({_dify_fail_count * int(rule.get('recheck_seconds') or 60)} วินาที)"
-            ),
-            detail={
-                "dify_api_url": DIFY_API_URL,
-                "consecutive_fails": _dify_fail_count,
-                "last_error": _dify_last_error,
-                "http_status": http_status,
-            },
-        )
-    ]
-
-
 EVALUATORS: dict[str, EvaluatorFn] = {
     "eval_stuck_reports": eval_stuck_reports,
     "eval_stale_cro_approvals": eval_stale_cro_approvals,
     "eval_failed_line_pushes": eval_failed_line_pushes,
     "eval_unassigned_patients": eval_unassigned_patients,
     "eval_disabled_user_sessions": eval_disabled_user_sessions,
-    "eval_bridge_dify_disconnected": eval_bridge_dify_disconnected,
 }
 
 

@@ -1,15 +1,14 @@
 """Pre-visit AI summary — short Thai brief for a doctor about to see a patient.
 
-Reuses the staff Dify app via dify_client. Patient name + identifiers are
-masked before the prompt leaves the bridge (PDPA) — the model answers in
+Uses our own LLM (Gemini via OpenRouter) — no Dify. Patient name + identifiers
+are masked before the prompt leaves the bridge (PDPA) — the model answers in
 general terms about the case.
 """
 from typing import Any
 
 from fastapi import HTTPException
 
-import integrations.dify_client as dify
-from core.config import DIFY_STAFF_API_KEY
+from rag import llm
 from repositories import medical_records_repo, patient_repo
 from services.pii_redactor import redact_text
 
@@ -78,10 +77,6 @@ def _compose_brief(patient_id: int) -> tuple[str, list[str]]:
                 + (f" @ {t['hospital']}" if t.get("hospital") else "")
             )
 
-    parts.append("")
-    parts.append("=== คำสั่ง ===")
-    parts.append(_SYSTEM_INSTRUCTION)
-
     name = p.get("display_name") or ""
     composed = "\n".join(parts)
     return redact_text(composed, known_names=[name] if name else []), [name]
@@ -89,18 +84,15 @@ def _compose_brief(patient_id: int) -> tuple[str, list[str]]:
 
 def generate_summary(patient_id: int, *, user: dict[str, Any]) -> dict[str, str]:
     prompt, _ = _compose_brief(patient_id)
+    messages = [
+        {"role": "system", "content": _SYSTEM_INSTRUCTION},
+        {"role": "user", "content": prompt},
+    ]
     try:
-        answer, conv_id = dify.ask(
-            user_id=f"presummary:{user['id']}",
-            message=prompt,
-            role="staff",
-            conv_id="",
-            api_key=DIFY_STAFF_API_KEY or None,
-            inputs={},
-        )
+        answer = llm.chat(messages)
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail={"code": "DIFY_ERROR", "message": "สรุปไม่สำเร็จ ลองอีกครั้ง"},
+            detail={"code": "AI_ERROR", "message": "สรุปไม่สำเร็จ ลองอีกครั้ง"},
         ) from exc
-    return {"summary": answer, "conversation_id": conv_id}
+    return {"summary": answer, "conversation_id": ""}

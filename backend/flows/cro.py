@@ -16,7 +16,9 @@ from psycopg2.extras import RealDictCursor
 
 from core.config import log
 from core.db import get_db
-from integrations import calendar_client, dify_client, line_client
+from integrations import calendar_client, line_client
+from flows import routing
+from rag import service as rag_service
 
 
 # ─── DB ops ────────────────────────────────────────────────────────────────────
@@ -86,18 +88,6 @@ def _get_or_create_conversation(patient_uid: str) -> dict:
             new = cur.fetchone()
             conn.commit()
             return dict(new)
-
-
-def _update_dify_conv_id(conv_id: int, dify_conv_id: str) -> None:
-    if not dify_conv_id:
-        return
-    with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE conversations SET dify_conversation_id = %s WHERE conv_id = %s",
-                (dify_conv_id, conv_id),
-            )
-            conn.commit()
 
 
 def _save_booking(conv_id: int, patient_uid: str, data: dict,
@@ -295,8 +285,8 @@ def _patient_uid_for(conv_id: int) -> str:
 
 
 def _notify_team(conv_id: int, patient_uid: str, first_msg: str, escalated: bool = False) -> None:
-    icon = "🔔 URGENT" if escalated else "📬 New"
-    label = "🚨 ตอบไม่ได้" if escalated else "AI ตอบอยู่"
+    icon = "URGENT" if escalated else "New"
+    label = "ตอบไม่ได้" if escalated else "AI ตอบอยู่"
     text = (
         f"{icon} #{conv_id} ({label})\n"
         f"━━━━━━━━━━━━━━━━\n"
@@ -342,7 +332,7 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
                 cro = cur.fetchone()
         if cro and cro["line_uid"]:
             try:
-                line_client.push(cro["line_uid"], f"💬 #{conv_id}:\n{text}", ch=line_client.CRO)
+                line_client.push(cro["line_uid"], f"#{conv_id}:\n{text}", ch=line_client.CRO)
             except Exception:
                 log.exception("Failed forward customer→CRO conv %s", conv_id)
             return
@@ -357,20 +347,18 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
                 )
                 conn.commit()
 
-    line_client.reply(reply_token, "🤔 กำลังตรวจสอบให้ครับ/ค่ะ…")
-    dify_conv = convo.get("dify_conversation_id") or ""
-    answer, new_dify_conv, _meta = dify_client.ask_with_meta(
-        user_id=patient_uid, message=text, role="public_inquiry", conv_id=dify_conv
-    )
-    if new_dify_conv and new_dify_conv != dify_conv:
-        _update_dify_conv_id(conv_id, new_dify_conv)
+    line_client.reply(reply_token, "กำลังตรวจสอบให้ครับ/ค่ะ…")
+    # Own RAG replaces Dify here. It keeps its own short-term memory keyed by
+    # external_user_id (rag.memory), so no conversation_id round-trip is needed.
+    result = rag_service.answer("line_main", patient_uid, text)
+    answer = result.get("raw") or result.get("answer") or ""
 
-    decision, classifier, body = dify_client.parse_decision(answer)
+    decision, classifier, body = routing.parse_decision(answer)
 
     if decision == "escalate":
         _save_message(conv_id, "bot", body or text, classifier=classifier, confidence=0)
         try:
-            line_client.push(patient_uid, "📝 รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด")
+            line_client.push(patient_uid, "รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด")
         except Exception:
             log.exception("Failed escalate notice to customer %s", patient_uid)
         _notify_team(conv_id, patient_uid, text, escalated=True)
@@ -393,7 +381,7 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
             log.exception("Failed parse booking_done JSON: %s", body[:200])
             _save_message(conv_id, "bot", "ขออภัย ระบบประมวลผลข้อมูลไม่สำเร็จ จะให้เจ้าหน้าที่ติดต่อกลับนะคะ",
                           classifier="booking_error", confidence=0)
-            line_client.push(patient_uid, "📝 รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับ")
+            line_client.push(patient_uid, "รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับ")
             _notify_team(conv_id, patient_uid, text, escalated=True)
             return
 
@@ -405,7 +393,7 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
                                         google_event_id=event_id, calendar_link=cal_link,
                                         status="booked")
             confirm_msg = (
-                f"✅ จองคิวสำเร็จ #{booking_id}\n"
+                f"จองคิวสำเร็จ #{booking_id}\n"
                 f"━━━━━━━━━━━━━━━━\n"
                 f"ชื่อ: {data.get('name','-')}\n"
                 f"เบอร์: {data.get('phone','-')}\n"
@@ -424,7 +412,7 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
 
         if book_status == "slot_busy":
             busy_msg = (
-                f"⚠️ ขออภัย เวลา {data.get('date','-')} {data.get('time','-')} ไม่ว่างค่ะ\n"
+                f"ขออภัย เวลา {data.get('date','-')} {data.get('time','-')} ไม่ว่างค่ะ\n"
                 f"กรุณาเลือกวัน-เวลาอื่น หรือพิมพ์ \"จองคิว\" เพื่อเริ่มใหม่"
             )
             _save_message(conv_id, "bot", busy_msg, classifier="booking_busy", confidence=100)
@@ -435,7 +423,7 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
         # parse_failed / not_configured / api_error → save as pending + notify CRO
         booking_id = _save_booking(conv_id, patient_uid, data, status="pending")
         confirm_msg = (
-            f"📝 รับเรื่องจองคิว #{booking_id} แล้วค่ะ\n"
+            f"รับเรื่องจองคิว #{booking_id} แล้วค่ะ\n"
             f"━━━━━━━━━━━━━━━━\n"
             f"ชื่อ: {data.get('name','-')}\n"
             f"เบอร์: {data.get('phone','-')}\n"
@@ -466,9 +454,9 @@ def _notify_booking(booking_id: int, data: dict, conv_id: int, patient_uid: str,
                     status: str = "pending", start_at=None, cal_link: str = None) -> None:
     """แจ้ง CRO team — auto-booked หรือ pending (รอ confirm)"""
     if status == "booked":
-        header = f"✅ จองคิวสำเร็จ #BK-{booking_id}"
+        header = f"จองคิวสำเร็จ #BK-{booking_id}"
         when = f"วัน: {start_at.strftime('%d/%m/%Y (%a) %H:%M')}" if start_at else ""
-        footer = f"📅 Calendar: {cal_link}\nพิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ" if cal_link \
+        footer = f"Calendar: {cal_link}\nพิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ" if cal_link \
                  else f"พิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้าต่อ"
     else:
         reason = {
@@ -476,7 +464,7 @@ def _notify_booking(booking_id: int, data: dict, conv_id: int, patient_uid: str,
             "not_configured": "(Calendar ยังไม่ตั้ง)",
             "api_error":      "(Calendar API error)",
         }.get(status, "")
-        header = f"📅 จองคิวใหม่ #BK-{booking_id} — รอ confirm {reason}"
+        header = f"จองคิวใหม่ #BK-{booking_id} — รอ confirm {reason}"
         when = f"วัน: {data.get('date','-')}  เวลา: {data.get('time','-')}"
         footer = f"กรุณาเปิด Calendar จองเอง\nพิมพ์ \"take {conv_id}\" เพื่อคุยกับลูกค้า"
 
@@ -511,24 +499,24 @@ def handle_team_command(reply_token: str, cro_line_uid: str, text: str) -> None:
     if text_lower in ("/end", "end"):
         count, uids = _end_take_over(cro_line_uid)
         if count == 0:
-            line_client.reply(reply_token, "ℹ️ ไม่มี session ที่กำลังคุยอยู่", ch=line_client.CRO)
+            line_client.reply(reply_token, "ไม่มี session ที่กำลังคุยอยู่", ch=line_client.CRO)
         else:
             for uid in uids:
                 try:
                     line_client.push(uid, "ขอบคุณที่ติดต่อค่ะ AI กำลังดูแลต่อ — มีอะไรถามต่อได้นะคะ")
                 except Exception:
                     log.exception("Failed end-of-takeover notice to %s", uid)
-            line_client.reply(reply_token, f"✅ จบ take-over {count} session — AI กลับมาดูแลต่อ", ch=line_client.CRO)
+            line_client.reply(reply_token, f"จบ take-over {count} session — AI กลับมาดูแลต่อ", ch=line_client.CRO)
         return
 
     if text_lower in ("active", "list"):
         rows = _list_active(limit=10)
         if not rows:
-            line_client.reply(reply_token, "✨ ไม่มี conversation active", ch=line_client.CRO)
+            line_client.reply(reply_token, "ไม่มี conversation active", ch=line_client.CRO)
             return
-        lines = ["📋 Active sessions:"]
+        lines = ["Active sessions:"]
         for r in rows:
-            tag = "🔴 LIVE" if r["status"] == "taken_over" else "🤖 AI"
+            tag = "LIVE" if r["status"] == "taken_over" else "AI"
             owner = f" ({r['taken_by_name']})" if r["taken_by_name"] else ""
             last = (r["last_msg"] or "")[:40]
             lines.append(f"{tag}{owner} #{r['conv_id']}: {last}")
@@ -539,9 +527,9 @@ def handle_team_command(reply_token: str, cro_line_uid: str, text: str) -> None:
     if text_lower == "queue":
         rows = [r for r in _list_active(limit=20) if not r["taken_by_name"]]
         if not rows:
-            line_client.reply(reply_token, "✨ ไม่มี conversation ที่ AI escalate", ch=line_client.CRO)
+            line_client.reply(reply_token, "ไม่มี conversation ที่ AI escalate", ch=line_client.CRO)
             return
-        lines = ["🔔 Escalated / AI ตอบอยู่:"]
+        lines = ["Escalated / AI ตอบอยู่:"]
         for r in rows:
             last = (r["last_msg"] or "")[:50]
             lines.append(f"#{r['conv_id']}: {last}")
@@ -553,20 +541,20 @@ def handle_team_command(reply_token: str, cro_line_uid: str, text: str) -> None:
         conv_id = int(m.group(1))
         hist = _get_history(conv_id, limit=15)
         if not hist:
-            line_client.reply(reply_token, f"❌ ไม่พบ #{conv_id}", ch=line_client.CRO)
+            line_client.reply(reply_token, f"ไม่พบ #{conv_id}", ch=line_client.CRO)
             return
-        lines = [f"💬 #{conv_id} (10 ข้อความล่าสุด)"]
+        lines = [f"#{conv_id} (10 ข้อความล่าสุด)"]
         for h in hist:
             if h["sender"] == "customer":
                 lines.append(f"L: {h['text'][:200]}")
             elif h["sender"] == "bot":
                 conf = f" [{h['confidence']}%]" if h["confidence"] is not None else ""
                 cls = f" ({h['classifier']})" if h["classifier"] else ""
-                lines.append(f"🤖{conf}{cls}: {h['text'][:200]}")
+                lines.append(f"{conf}{cls}: {h['text'][:200]}")
             elif h["sender"] == "cro":
-                lines.append(f"👤{h['cro_name']}: {h['text'][:200]}")
+                lines.append(f"{h['cro_name']}: {h['text'][:200]}")
             else:
-                lines.append(f"⚙️ {h['text'][:200]}")
+                lines.append(f"{h['text'][:200]}")
         lines.append(f"\nพิมพ์ \"take {conv_id}\" เพื่อรับคุยเอง")
         line_client.reply(reply_token, "\n".join(lines), ch=line_client.CRO)
         return
@@ -578,31 +566,31 @@ def handle_team_command(reply_token: str, cro_line_uid: str, text: str) -> None:
         if status == "taken":
             line_client.reply(
                 reply_token,
-                f"🔴🔴🔴 LIVE — #{conv_id} 🔴🔴🔴\n"
+                f"LIVE — #{conv_id} \n"
                 f"คุณรับคุยกับลูกค้าแล้ว\n"
                 f"━━━━━━━━━━━━━━━━\n"
-                f"📤 ทุกข้อความที่พิมพ์ → ส่งลูกค้า\n"
-                f"⛔ พิมพ์ /end เพื่อจบ (AI กลับมาดูแล)\n"
+                f"ทุกข้อความที่พิมพ์ → ส่งลูกค้า\n"
+                f"พิมพ์ /end เพื่อจบ (AI กลับมาดูแล)\n"
                 f"━━━━━━━━━━━━━━━━",
                 ch=line_client.CRO,
             )
             try:
-                line_client.push(info, "👤 เจ้าหน้าที่เข้ามาดูแลแล้วค่ะ — สอบถามได้เลย")
+                line_client.push(info, "เจ้าหน้าที่เข้ามาดูแลแล้วค่ะ — สอบถามได้เลย")
             except Exception:
                 log.exception("Failed take-over notice to %s", info)
         elif status == "already_yours":
-            line_client.reply(reply_token, f"ℹ️ คุณรับ #{conv_id} อยู่แล้ว", ch=line_client.CRO)
+            line_client.reply(reply_token, f"คุณรับ #{conv_id} อยู่แล้ว", ch=line_client.CRO)
         elif status == "taken_by_other":
-            line_client.reply(reply_token, f"❌ #{conv_id} ถูก {info} รับไปแล้ว", ch=line_client.CRO)
+            line_client.reply(reply_token, f"#{conv_id} ถูก {info} รับไปแล้ว", ch=line_client.CRO)
         elif status == "not_found":
-            line_client.reply(reply_token, f"❌ ไม่พบ #{conv_id}", ch=line_client.CRO)
+            line_client.reply(reply_token, f"ไม่พบ #{conv_id}", ch=line_client.CRO)
         return
 
     active_conv = _conv_owned_by(cro_line_uid)
     if active_conv:
         patient_uid = _patient_uid_for(active_conv)
         if not patient_uid:
-            line_client.reply(reply_token, "❌ session หาย", ch=line_client.CRO)
+            line_client.reply(reply_token, "session หาย", ch=line_client.CRO)
             return
         with get_db() as conn:
             with conn.cursor() as cur:
@@ -613,9 +601,9 @@ def handle_team_command(reply_token: str, cro_line_uid: str, text: str) -> None:
             line_client.push(patient_uid, text_stripped)
         except Exception:
             log.exception("Failed CRO→customer forward conv %s", active_conv)
-            line_client.reply(reply_token, "❌ ส่งข้อความไม่สำเร็จ", ch=line_client.CRO)
+            line_client.reply(reply_token, "ส่งข้อความไม่สำเร็จ", ch=line_client.CRO)
             return
-        line_client.reply(reply_token, f"📤 ส่งให้ #{active_conv}: \"{text_stripped[:60]}\"", ch=line_client.CRO)
+        line_client.reply(reply_token, f"ส่งให้ #{active_conv}: \"{text_stripped[:60]}\"", ch=line_client.CRO)
         return
 
     line_client.reply(

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_REQUIRED = ["LINE_CHANNEL_SECRET", "LINE_CHANNEL_ID", "DIFY_API_KEY", "DB_PASSWORD"]
+_REQUIRED = ["LINE_CHANNEL_SECRET", "LINE_CHANNEL_ID", "DB_PASSWORD"]
 _missing = [v for v in _REQUIRED if not os.getenv(v)]
 if _missing:
     raise RuntimeError(f"Missing required env vars: {', '.join(_missing)}")
@@ -16,11 +16,6 @@ LINE_CHANNEL_ID         = os.getenv("LINE_CHANNEL_ID")
 LINE_CHANNEL_SECRET     = os.getenv("LINE_CHANNEL_SECRET")
 LINE_CRO_CHANNEL_ID     = os.getenv("LINE_CRO_CHANNEL_ID", "")
 LINE_CRO_CHANNEL_SECRET = os.getenv("LINE_CRO_CHANNEL_SECRET", "")
-
-# Dify
-DIFY_API_URL       = os.getenv("DIFY_API_URL", "http://localhost/v1")
-DIFY_API_KEY       = os.getenv("DIFY_API_KEY")
-DIFY_STAFF_API_KEY = os.getenv("DIFY_STAFF_API_KEY", "")
 
 # Bot session TTL — drop the cached Dify conversation_id when a user has been
 # idle longer than this. Prevents one ESCALATE/BOOKING turn from polluting

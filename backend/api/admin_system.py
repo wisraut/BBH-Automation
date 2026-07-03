@@ -12,8 +12,6 @@ from fastapi import APIRouter, Depends
 
 from core.config import (
     CRO_CHANNEL_ENABLED,
-    DIFY_API_KEY,
-    DIFY_API_URL,
     LINE_CHANNEL_ID,
 )
 from core.mysql import mysql_db
@@ -48,42 +46,6 @@ def _probe_mysql() -> dict[str, Any]:
     except Exception as exc:
         return {
             "name": "mysql_bot_ops",
-            "status": "error",
-            "detail": f"{type(exc).__name__}: {exc}",
-        }
-
-
-def _probe_dify() -> dict[str, Any]:
-    start = time.perf_counter()
-    try:
-        headers = {"Authorization": f"Bearer {DIFY_API_KEY}"} if DIFY_API_KEY else {}
-        r = httpx.get(f"{DIFY_API_URL}/info", headers=headers, timeout=5)
-        latency = round((time.perf_counter() - start) * 1000)
-        if r.status_code in (200, 401):
-            info: dict[str, Any] = {}
-            if r.status_code == 200:
-                try:
-                    info = r.json()
-                except Exception:
-                    info = {}
-            return {
-                "name": "dify_api",
-                "status": "ok",
-                "latency_ms": latency,
-                "detail": (
-                    f"{info.get('name', 'Dify')}"
-                    + (f" · {info.get('mode')}" if info.get("mode") else "")
-                ),
-            }
-        return {
-            "name": "dify_api",
-            "status": "error",
-            "latency_ms": latency,
-            "detail": f"HTTP {r.status_code}",
-        }
-    except Exception as exc:
-        return {
-            "name": "dify_api",
             "status": "error",
             "detail": f"{type(exc).__name__}: {exc}",
         }
@@ -239,7 +201,6 @@ def system_health(_user=Depends(_admin_only)):
             "detail": f"uptime {_format_uptime(time.time() - _PROCESS_START)}",
         },
         _probe_mysql(),
-        _probe_dify(),
         _probe_n8n(),
         {
             "name": "line_main_webhook",

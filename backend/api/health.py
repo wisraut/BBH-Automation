@@ -1,14 +1,11 @@
 """Health and service metadata endpoints."""
 import time
 
-import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from core.config import (
     BRIDGE_INTERNAL_TOKEN,
     CRO_CHANNEL_ENABLED,
-    DIFY_API_KEY,
-    DIFY_API_URL,
 )
 from core.db import get_db
 from core.lifespan import is_draining
@@ -55,7 +52,6 @@ def internal_health_full(
     checks = {
         "bridge": {"status": "ok"},
         "db": {"status": "unknown"},
-        "dify": {"status": "unknown"},
         "tunnel": {"status": "unknown"},
     }
 
@@ -87,29 +83,6 @@ def internal_health_full(
         }
     except Exception as exc:
         checks["db"] = {"status": "error", "error": str(exc)}
-
-    start = time.perf_counter()
-    try:
-        r = httpx.get(
-            f"{DIFY_API_URL}/info",
-            headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
-            timeout=8,
-        )
-        checks["dify"] = {
-            "status": "ok" if r.status_code == 200 else "error",
-            "status_code": r.status_code,
-            "latency_ms": round((time.perf_counter() - start) * 1000),
-        }
-        if r.status_code == 200:
-            info = r.json()
-            checks["dify"].update(
-                {
-                    "name": info.get("name"),
-                    "mode": info.get("mode"),
-                }
-            )
-    except Exception as exc:
-        checks["dify"] = {"status": "error", "error": str(exc)}
 
     public_url = getattr(request.app.state, "public_url", "") or ""
     checks["tunnel"] = {

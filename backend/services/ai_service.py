@@ -1,4 +1,5 @@
-"""AI assistant service logic — BBH Staff Assistant Dify proxy with context injection."""
+"""AI assistant service logic — BBH Staff Assistant, backed by our own LLM
+(Gemini via OpenRouter) with context injection. No Dify dependency."""
 import json
 import time
 from collections.abc import Iterator
@@ -7,14 +8,22 @@ from typing import Any
 
 from fastapi import HTTPException
 
-import integrations.dify_client as dify
+from rag import llm
 from services.pii_redactor import redact_text
 import integrations.calendar_client as cal
-from core.config import DIFY_STAFF_API_KEY
 from core.mysql import mysql_db
-from repositories import booking_repo, patient_repo, report_repo
+from repositories import ai_message_repo, booking_repo, patient_repo, report_repo
 
 _TZ_BKK = timezone(timedelta(hours=7))
+
+# Free-form staff assistant persona. Unlike the LINE customer bot this app has
+# NO routing prefix (AUTO/ESCALATE/...) — it answers CRO/staff questions plainly.
+_SYSTEM_PROMPT = (
+    "คุณเป็นผู้ช่วย AI ภายในของโรงพยาบาล Better Being สำหรับเจ้าหน้าที่ (CRO/แพทย์/พยาบาล) "
+    "ตอบเป็นภาษาไทย สุภาพ กระชับ ตรงประเด็น อ้างอิงเฉพาะข้อมูลใน context ที่ระบบให้มา "
+    "ถ้าไม่มีข้อมูลให้บอกตรงๆ ว่าไม่มีข้อมูล ห้ามแต่งตัวเลข/ชื่อ/เบอร์/วันเวลาขึ้นเอง "
+    "ห้ามใส่ prefix จำแนกประเภทใดๆ นำหน้าคำตอบ ตอบเหมือนคุยกับเพื่อนร่วมงาน"
+)
 
 # Schedule context is identical for every chat message within a short window,
 # but building it costs 2 DB queries + 2 Google Calendar API calls (~1-4s).
@@ -30,22 +39,26 @@ def chat(
     patient_id: int | None,
     user: dict[str, Any],
 ) -> dict[str, str]:
+    conv_pk, conv_token = ai_message_repo.get_or_create(
+        conversation_id, user_id=int(user["id"]), patient_id=patient_id
+    )
     final_message = _compose_message(message=message, patient_id=patient_id)
+    # Prior turns (short-term memory) sit between the persona and the current,
+    # context-injected message. History is fetched before we save this turn.
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        *ai_message_repo.load_history(conv_pk),
+        {"role": "user", "content": final_message},
+    ]
     try:
-        answer, conv_id = dify.ask(
-            user_id=str(user["id"]),
-            message=final_message,
-            role="staff",
-            conv_id=conversation_id,
-            api_key=DIFY_STAFF_API_KEY or None,
-            inputs={},
-        )
+        answer = llm.chat(messages)
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail={"code": "DIFY_ERROR", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"},
+            detail={"code": "AI_ERROR", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"},
         ) from exc
-    return {"answer": answer, "conversation_id": conv_id}
+    _persist_turn(conv_pk, message, answer)
+    return {"answer": answer, "conversation_id": conv_token}
 
 
 def chat_stream(
@@ -63,30 +76,43 @@ def chat_stream(
       { "type": "done" }
       { "type": "error", "message": "..." }
     """
+    conv_pk, conv_token = ai_message_repo.get_or_create(
+        conversation_id, user_id=int(user["id"]), patient_id=patient_id
+    )
     final_message = _compose_message(message=message, patient_id=patient_id)
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        *ai_message_repo.load_history(conv_pk),
+        {"role": "user", "content": final_message},
+    ]
 
     def _sse(payload: dict[str, Any]) -> str:
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
+    chunks: list[str] = []
     try:
-        for etype, value in dify.stream(
-            user_id=str(user["id"]),
-            message=final_message,
-            role="staff",
-            conv_id=conversation_id,
-            api_key=DIFY_STAFF_API_KEY or None,
-            inputs={},
-        ):
-            if etype == "delta":
-                if value:
-                    yield _sse({"type": "delta", "text": value})
-            elif etype == "conv_id":
-                yield _sse({"type": "conv_id", "value": value})
-            elif etype == "done":
-                yield _sse({"type": "done"})
+        for delta in llm.chat_stream(messages):
+            if delta:
+                chunks.append(delta)
+                yield _sse({"type": "delta", "text": delta})
+        _persist_turn(conv_pk, message, "".join(chunks))
+        yield _sse({"type": "conv_id", "value": conv_token})
+        yield _sse({"type": "done"})
     except Exception:  # noqa: BLE001
         yield _sse({"type": "error", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"})
         raise
+
+
+def _persist_turn(conversation_pk: int, message: str, answer: str) -> None:
+    """Save both sides of a turn as short-term memory. The user message is
+    PII-redacted before storage (same posture as what we send to OpenRouter);
+    the assistant answer is already phrased in general terms."""
+    ai_message_repo.save_turn(
+        conversation_pk=conversation_pk, role="user", content=redact_text(message),
+    )
+    ai_message_repo.save_turn(
+        conversation_pk=conversation_pk, role="assistant", content=answer,
+    )
 
 
 def _compose_message(*, message: str, patient_id: int | None) -> str:

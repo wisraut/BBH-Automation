@@ -1,9 +1,10 @@
-"""Patient flow — login PT* + advisor (Dify role=patient + KB)."""
+"""Patient flow — login PT* + advisor (own RAG, role=patient)."""
 from psycopg2.extras import RealDictCursor
 
 from core.config import log
 from core.db import get_db
-from integrations import dify_client, line_client
+from integrations import line_client
+from rag import service as rag_service
 
 
 def is_patient(user_id: str) -> bool:
@@ -55,7 +56,7 @@ def handle_message(reply_token: str, line_uid: str, text: str) -> None:
                 row = cur.fetchone()
                 conn.commit()
         name = row[0] if row else "คนไข้"
-        line_client.reply(reply_token, f"👋 ออกจากระบบแล้ว ({name})\nส่งรหัสคนไข้ (PT001-005) เพื่อใช้งานอีกครั้ง")
+        line_client.reply(reply_token, f"ออกจากระบบแล้ว ({name})\nส่งรหัสคนไข้ (PT001-005) เพื่อใช้งานอีกครั้ง")
         log.info("Patient logged out: %s (%s)", name, line_uid[:12])
         return
 
@@ -67,30 +68,28 @@ def handle_message(reply_token: str, line_uid: str, text: str) -> None:
             )
             row = cur.fetchone()
     if not row:
-        line_client.reply(reply_token, "❌ ไม่พบข้อมูลคนไข้")
+        line_client.reply(reply_token, "ไม่พบข้อมูลคนไข้")
         return
-    patient_id, _name, conv_id = row
+    patient_id, _name, _conv_id = row
 
     try:
-        line_client.reply(reply_token, "🤔 กำลังค้นข้อมูลให้ครับ/ค่ะ…")
+        line_client.reply(reply_token, "กำลังค้นข้อมูลให้ครับ/ค่ะ…")
     except Exception:
         log.warning("LINE reply failed for patient %s — ดำเนินการต่อ", patient_id)
 
-    answer, new_conv_id = dify_client.ask(line_uid, text, role="patient", conv_id=conv_id or "")
+    answer = rag_service.answer("line_main", line_uid, text).get("answer", "")
 
-    if new_conv_id and new_conv_id != conv_id:
+    try:
         with get_db() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE patients SET dify_conversation_id = %s WHERE line_uid = %s",
-                    (new_conv_id, line_uid),
-                )
                 cur.execute(
                     """INSERT INTO audit_logs (actor_id, actor_type, action, report_id)
                        VALUES (%s, 'patient', 'advice_requested', NULL)""",
                     (patient_id,),
                 )
                 conn.commit()
+    except Exception:
+        log.exception("audit log failed for patient %s", patient_id)
 
     try:
         line_client.push(line_uid, answer)

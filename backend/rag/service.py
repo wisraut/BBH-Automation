@@ -10,10 +10,15 @@
 Returns {answer, route_prefix, sources} — n8n reads route_prefix and acts
 exactly like it does with Dify today.
 """
-from rag import embedder, llm, memory, prompts, vector_store
+from rag import embedder, llm, memory, prompts, safety, vector_store
 
 
 def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> dict:
+    # Safety gate first: a hard emergency keyword forces ESCALATE:emergency
+    # regardless of the LLM. Replaces Dify's if_else_emergency node.
+    if safety.is_emergency(text):
+        return safety.emergency_result(text)
+
     query_vec = embedder.embed_one(text, kind="query")
     hits = vector_store.search(query_vec, top_k=top_k)
     history = memory.load_history(external_user_id)

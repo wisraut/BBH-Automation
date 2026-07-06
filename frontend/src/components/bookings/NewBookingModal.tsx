@@ -15,6 +15,12 @@ interface NewBookingModalProps {
   onCreated: (requestUid: string) => void
 }
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
+const FIELD_CLASS =
+  'w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
+
 const SOURCE_OPTIONS: { value: BookingSource; label: string }[] = [
   { value: 'phone', label: 'โทรศัพท์' },
   { value: 'line', label: 'LINE' },
@@ -87,7 +93,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             <input
               value={patientName}
               onChange={(event) => setPatientName(event.target.value)}
-              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className={`mt-1.5 ${FIELD_CLASS}`}
               required
             />
           </label>
@@ -97,7 +103,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             <input
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className={`mt-1.5 ${FIELD_CLASS}`}
               required
             />
           </label>
@@ -108,7 +114,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
               type="datetime-local"
               value={dateTime}
               onChange={(event) => setDateTime(event.target.value)}
-              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className={`mt-1.5 ${FIELD_CLASS}`}
               required
             />
           </label>
@@ -118,7 +124,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             <select
               value={source}
               onChange={(event) => setSource(event.target.value as BookingSource)}
-              className="mt-1.5 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+              className={`mt-1.5 ${FIELD_CLASS}`}
             >
               {SOURCE_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -136,7 +142,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             onChange={(event) => setSymptom(event.target.value)}
             rows={3}
             maxLength={1000}
-            className="mt-1.5 w-full rounded-2xl border border-bbh-line bg-white px-4 py-3 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className={`mt-1.5 ${FIELD_CLASS}`}
           />
         </label>
 
@@ -145,14 +151,14 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             type="button"
             onClick={onClose}
             disabled={createBooking.isPending}
-            className="h-11 rounded-xl border border-bbh-line px-4 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-60 sm:h-auto sm:py-2"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             ยกเลิก
           </button>
           <button
             type="submit"
             disabled={createBooking.isPending}
-            className="h-11 rounded-xl bg-bbh-green px-5 text-sm font-semibold text-white transition hover:bg-bbh-green-dark disabled:opacity-60 sm:h-auto sm:py-2"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             {createBooking.isPending ? 'กำลังสร้าง...' : 'สร้างคำขอจอง'}
           </button>

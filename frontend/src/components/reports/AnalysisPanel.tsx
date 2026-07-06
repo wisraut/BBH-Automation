@@ -14,11 +14,16 @@ interface AnalysisPanelProps {
   analyzing?: boolean
 }
 
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
 const DECISION_STYLES: Record<Decision, string> = {
-  accept: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  reject: 'bg-red-50 text-red-700 border-red-200',
-  review: 'bg-amber-50 text-amber-700 border-amber-200',
-  pending: 'bg-bbh-surface text-bbh-muted border-bbh-line',
+  accept: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
+  reject: 'border-red-200 bg-red-50 text-red-700',
+  review: 'border-amber-200 bg-amber-50 text-amber-700',
+  pending: 'border-bbh-line bg-bbh-surface text-bbh-muted',
 }
 
 function decisionIcon(decision: Decision) {
@@ -46,7 +51,7 @@ export function AnalysisPanel({
             type="button"
             onClick={onAnalyze}
             disabled={analyzing}
-            className="inline-flex items-center gap-2 rounded-xl border border-bbh-green px-3 py-1.5 text-xs font-semibold text-bbh-green hover:bg-bbh-green-soft disabled:cursor-not-allowed disabled:opacity-60"
+            className={`inline-flex items-center gap-2 rounded-lg border border-bbh-green px-3 py-1.5 text-xs font-semibold text-bbh-green transition-colors duration-200 hover:bg-bbh-green-soft disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
           >
             <Brain size={15} />
             วิเคราะห์
@@ -68,7 +73,7 @@ export function AnalysisPanel({
                 {decisionIcon(analysis.triage_decision)}
                 {analysis.triage_decision}
               </span>
-              <span className="text-xs text-bbh-muted">
+              <span className="font-mono text-xs tabular-nums text-bbh-muted">
                 {new Date(analysis.created_at).toLocaleString('th-TH')}
               </span>
             </div>
@@ -83,7 +88,7 @@ export function AnalysisPanel({
                     type="button"
                     onClick={() => onDecide?.(analysis.id, decision)}
                     disabled={decidingId === analysis.id}
-                    className="rounded-lg border border-bbh-line px-3 py-1.5 text-xs font-semibold text-bbh-muted hover:border-bbh-green hover:text-bbh-green disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`rounded-lg border border-bbh-line bg-white px-3 py-1.5 text-xs font-semibold text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
                   >
                     ยืนยัน {decision}
                   </button>

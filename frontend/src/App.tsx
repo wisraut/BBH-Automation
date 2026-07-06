@@ -118,7 +118,7 @@ function DashboardLayout() {
   const effectiveRole: Role = viewAs ?? user.role
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
+    <div className="flex h-screen overflow-hidden bg-white text-bbh-ink">
       <Sidebar
         role={effectiveRole}
         actualRole={user.role}
@@ -130,7 +130,11 @@ function DashboardLayout() {
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
-        <main className="flex-1 overflow-hidden p-4 md:p-7 lg:p-8">
+        {/* Open, edge-to-edge work surface for every route: pages are full-bleed
+            to the sidebar/topbar (which carry their own hairline borders), so no
+            page reads as a floating card on a gradient. Each page owns its own
+            internal scroll and hairline-ruled panels — see AdminDashboard. */}
+        <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>

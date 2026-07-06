@@ -5,6 +5,17 @@ import { Modal } from '../Modal'
 import { AllergyBanner } from '../patients/AllergyBanner'
 import { useDoctors } from '../../hooks/useDoctors'
 
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+// Locked input vocabulary — hairline border, rounded-lg, soft green focus ring.
+const FIELD =
+  'mt-1 h-12 w-full rounded-lg border border-bbh-line bg-white px-3 text-sm text-bbh-ink transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
+// Textarea shares the field vocabulary but grows by rows instead of a fixed height.
+const TEXTAREA =
+  'mt-1 w-full resize-none rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
+
 type ReportType = 'lab' | 'imaging' | 'history' | 'prescription' | 'referral' | 'other'
 type ReportSource = 'web' | 'line' | 'email' | 'whatsapp' | 'walkin'
 
@@ -62,7 +73,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
             type="file"
             accept="application/pdf,image/png,image/jpeg,text/plain"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 py-2 text-sm"
+            className={`${FIELD} py-2 ${FOCUS_RING}`}
           />
         </label>
         <label className="block text-sm font-medium text-bbh-ink">
@@ -71,13 +82,13 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
+            className={FIELD}
           />
         </label>
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
             ประเภท
-            <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm">
+            <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={FIELD}>
               <option value="lab">Lab</option>
               <option value="imaging">Imaging</option>
               <option value="history">History</option>
@@ -88,7 +99,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
           </label>
           <label className="block text-sm font-medium text-bbh-ink">
             แหล่งที่มา
-            <select value={source} onChange={(e) => setSource(e.target.value as ReportSource)} className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm">
+            <select value={source} onChange={(e) => setSource(e.target.value as ReportSource)} className={FIELD}>
               <option value="web">Web</option>
               <option value="line">LINE</option>
               <option value="email">Email</option>
@@ -99,7 +110,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
         </div>
         <label className="block text-sm font-medium text-bbh-ink">
           หมอที่รับผิดชอบ
-          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm">
+          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={FIELD}>
             <option value="">— ไม่ระบุ —</option>
             {doctors.map((doctor) => (
               <option key={doctor.id} value={doctor.id}>
@@ -111,13 +122,13 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
         </label>
         <label className="block text-sm font-medium text-bbh-ink">
           Notes
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 w-full resize-none rounded-xl border border-bbh-line px-3 py-3 text-sm" />
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className={TEXTAREA} />
         </label>
         <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="h-11 rounded-xl border border-bbh-line px-4 text-sm text-bbh-muted hover:text-bbh-ink sm:h-auto sm:py-2">
+          <button type="button" onClick={onClose} className={`inline-flex h-11 items-center justify-center rounded-lg border border-bbh-line bg-white px-4 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:h-auto sm:py-2 ${FOCUS_RING}`}>
             ยกเลิก
           </button>
-          <button type="submit" disabled={saving || !file || !title.trim()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-bbh-green px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:py-2">
+          <button type="submit" disabled={saving || !file || !title.trim()} className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:py-2 ${FOCUS_RING}`}>
             <Upload size={16} />
             Upload
           </button>

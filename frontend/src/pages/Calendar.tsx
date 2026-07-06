@@ -118,6 +118,11 @@ function formatThaiDate(dateKey: string): string {
   return `วัน${THAI_WEEKDAYS[weekday]}ที่ ${d} ${THAI_MONTHS[m - 1]} ${y}`
 }
 
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
 function mapByDate<T>(items: T[], getDate: (item: T) => string | null): Record<string, T[]> {
   const map: Record<string, T[]> = {}
   for (const item of items) {
@@ -251,83 +256,104 @@ export function Calendar() {
   }
 
   return (
-    <div className="relative flex h-full min-w-0 overflow-hidden lg:static">
-      <section className="min-w-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={prevMonth} className="grid h-10 w-10 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green" aria-label="เดือนก่อนหน้า">
-            <ChevronLeft size={18} />
-          </button>
-          <h2 className="min-w-[160px] flex-1 text-center font-serif text-xl font-semibold text-bbh-ink md:text-2xl sm:flex-none md:text-xl">
-            {THAI_MONTHS[month]} {year}
-          </h2>
-          <button type="button" onClick={nextMonth} className="grid h-10 w-10 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green" aria-label="เดือนถัดไป">
-            <ChevronRight size={18} />
-          </button>
-          <button type="button" onClick={goToday} className="rounded-xl border border-bbh-line px-3 py-2 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green">
-            วันนี้
-          </button>
-          <span className="ml-0 w-full text-xs text-bbh-muted sm:ml-auto sm:w-auto">
-            {isLoading ? <span className="animate-pulse">กำลังโหลด...</span> : `${totalCount} นัดทั้งหมด`}
-          </span>
-        </div>
-
-        <div className="overflow-x-auto pb-2">
-          <div className="min-w-[640px] md:min-w-0">
-        <div className="mb-1 grid grid-cols-7 gap-1">
-          {WEEKDAY_SHORT.map((d) => (
-            <div key={d} className="py-1 text-center text-xs font-semibold tracking-wide text-bbh-muted">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1">
-          {cells.map((day, i) => {
-            if (day === null) return <div key={`e-${i}`} className="h-16 rounded-xl" />
-
-            const dk = toDateKey(year, month, day)
-            const isToday = dk === todayKey
-            const isSelected = dk === selectedDate
-            const items = bookingsByDate[dk] ?? []
-            const googleItems = googleByDate[dk] ?? []
-            const rescheduledItems = rescheduledByDate[dk] ?? []
-            const approvedCnt = items.filter((b) => b.status === 'approved').length
-            const pendingCnt = items.filter((b) => b.status === 'pending_approval').length
-            const cancelledCnt = items.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
-            const rescheduledCnt = rescheduledItems.length
-
-            return (
-              <button
-                key={dk}
-                type="button"
-                onClick={() => setSelectedDate(isSelected ? null : dk)}
-                className={`flex h-16 flex-col items-start rounded-xl border p-1.5 transition ${
-                  isSelected
-                    ? 'border-bbh-green bg-bbh-green-soft ring-2 ring-bbh-green/20'
-                    : isToday
-                    ? 'border-bbh-green/50 bg-white'
-                    : 'border-bbh-line bg-white hover:border-bbh-green/40 hover:bg-bbh-surface'
-                }`}
-              >
-                <span className={`text-sm font-semibold leading-none ${isSelected ? 'text-bbh-green-dark' : isToday ? 'text-bbh-green' : 'text-bbh-ink'}`}>
-                  {day}
-                </span>
-                <div className="mt-auto flex w-full flex-col gap-0.5">
-                  {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark">{approvedCnt} ยืนยัน</span>}
-                  {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700">{pendingCnt} รอ</span>}
-                  {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700">{rescheduledCnt} เลื่อนนัด</span>}
-                  {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500">{cancelledCnt} ยกเลิก</span>}
-                  {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700">{googleItems.length} นัด</span>}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
+    <div className="relative flex h-full min-w-0 overflow-hidden bg-white lg:static">
+      <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
+        {/* Masthead — instrument label + month readout with inline navigation */}
+        <div className="animate-rise mb-8">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+            CRO Calendar
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={prevMonth}
+              className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+              aria-label="เดือนก่อนหน้า"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <h1 className="min-w-[180px] flex-1 text-center font-serif text-2xl font-semibold text-bbh-ink sm:flex-none md:text-3xl">
+              {THAI_MONTHS[month]} <span className="font-mono tabular-nums">{year}</span>
+            </h1>
+            <button
+              type="button"
+              onClick={nextMonth}
+              className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+              aria-label="เดือนถัดไป"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={goToday}
+              className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              วันนี้
+            </button>
+            <span className="ml-0 w-full font-mono text-xs tabular-nums text-bbh-muted sm:ml-auto sm:w-auto">
+              {isLoading ? <span className="animate-pulse">กำลังโหลด…</span> : `${totalCount} นัดทั้งหมด`}
+            </span>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-bbh-muted">
+        <div className="animate-rise overflow-x-auto pb-2" style={{ animationDelay: '70ms' }}>
+          <div className="min-w-[640px] md:min-w-0">
+            {/* Weekday rail — instrument column labels */}
+            <div className="mb-2 grid grid-cols-7 gap-px">
+              {WEEKDAY_SHORT.map((d) => (
+                <div key={d} className="py-2 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Month grid — one hairline-ruled cluster (gap-px reveals bbh-line as
+                rules) so each day reads as a cell in an instrument, not a card */}
+            <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line">
+              {cells.map((day, i) => {
+                if (day === null) return <div key={`e-${i}`} className="h-16 bg-white" />
+
+                const dk = toDateKey(year, month, day)
+                const isToday = dk === todayKey
+                const isSelected = dk === selectedDate
+                const items = bookingsByDate[dk] ?? []
+                const googleItems = googleByDate[dk] ?? []
+                const rescheduledItems = rescheduledByDate[dk] ?? []
+                const approvedCnt = items.filter((b) => b.status === 'approved').length
+                const pendingCnt = items.filter((b) => b.status === 'pending_approval').length
+                const cancelledCnt = items.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
+                const rescheduledCnt = rescheduledItems.length
+
+                return (
+                  <button
+                    key={dk}
+                    type="button"
+                    onClick={() => setSelectedDate(isSelected ? null : dk)}
+                    aria-pressed={isSelected}
+                    className={`relative flex h-16 flex-col items-start p-1.5 text-left transition-colors duration-200 ${FOCUS_RING} ${
+                      isSelected ? 'bg-bbh-green-soft' : 'bg-white hover:bg-bbh-surface'
+                    }`}
+                  >
+                    {/* today lead rail — green reserved for today */}
+                    {isToday ? <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-bbh-green" /> : null}
+                    <span className={`font-mono text-sm font-semibold leading-none tabular-nums ${isSelected ? 'text-bbh-green-dark' : isToday ? 'text-bbh-green' : 'text-bbh-ink'}`}>
+                      {day}
+                    </span>
+                    <div className="mt-auto flex w-full flex-col gap-0.5">
+                      {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> ยืนยัน</span>}
+                      {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> รอ</span>}
+                      {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{rescheduledCnt}</span> เลื่อนนัด</span>}
+                      {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500"><span className="font-mono tabular-nums">{cancelledCnt}</span> ยกเลิก</span>}
+                      {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700"><span className="font-mono tabular-nums">{googleItems.length}</span> นัด</span>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="animate-rise mt-6 flex flex-wrap items-center gap-4 text-xs text-bbh-muted" style={{ animationDelay: '140ms' }}>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />ยืนยันแล้ว</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />รอยืนยัน</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-slate-300 bg-slate-200" />เลื่อนนัด (รอเวลาใหม่)</span>
@@ -346,12 +372,12 @@ export function Calendar() {
         />
       ) : null}
 
-      <aside className={`${selectedDate ? 'fixed inset-x-0 bottom-0 z-40 block max-h-[82vh] rounded-t-[28px] shadow-2xl shadow-bbh-ink/20' : 'hidden'} overflow-y-auto border-bbh-line bg-white p-4 md:p-6 lg:static lg:block lg:h-full lg:w-[400px] lg:rounded-none lg:border-l lg:shadow-none`}>
+      <aside className={`${selectedDate ? 'fixed inset-x-0 bottom-0 z-40 block max-h-[82vh] rounded-t-2xl shadow-2xl shadow-bbh-ink/20' : 'hidden'} animate-rise overflow-y-auto border-bbh-line bg-white p-6 md:p-8 lg:static lg:block lg:h-full lg:w-[400px] lg:rounded-none lg:border-l lg:shadow-none`} style={{ animationDelay: '120ms' }}>
         <div className="mb-4 flex items-center justify-end lg:hidden">
           <button
             type="button"
             onClick={() => setSelectedDate(null)}
-            className="grid h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted"
+            className={`grid h-9 w-9 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             aria-label="ปิดรายละเอียดนัดหมาย"
           >
             <X size={18} />
@@ -359,22 +385,24 @@ export function Calendar() {
         </div>
         {!selectedDate ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
-            เลือกวันเพื่อดูนัดหมาย
+            <div className="rounded-xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
+              เลือกวันเพื่อดูนัดหมาย
+            </div>
           </div>
         ) : (
           <>
-            <div className="mb-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-bbh-muted">นัดหมาย</p>
-              <p className="mt-1 font-serif text-xl font-semibold text-bbh-ink">
+            <div className="mb-6">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">นัดหมาย</p>
+              <p className="mt-2 font-serif text-xl font-semibold text-bbh-ink">
                 {formatThaiDate(selectedDate)}
               </p>
-              <p className="mt-0.5 text-sm text-bbh-muted">
+              <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">
                 {rawSelected.length + selectedGoogle.length === 0 ? 'ไม่มีนัดหมาย' : `${rawSelected.length + selectedGoogle.length} นัดหมาย`}
               </p>
             </div>
 
             {rawSelected.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-1.5">
+              <div className="mb-6 flex flex-wrap gap-1.5">
                 {STATUS_FILTER_ITEMS.map(({ key, label }) => {
                   const count = key === 'all' ? rawSelected.length : rawSelected.filter((b) => b.status === key).length
                   if (key !== 'all' && count === 0) return null
@@ -384,11 +412,14 @@ export function Calendar() {
                       key={key}
                       type="button"
                       onClick={() => setPanelFilter(key)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        active ? 'bg-bbh-green text-white' : 'border border-bbh-line text-bbh-muted hover:border-bbh-green hover:text-bbh-green'
+                      aria-pressed={active}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-200 ${FOCUS_RING} ${
+                        active
+                          ? 'border-bbh-green bg-bbh-green text-white'
+                          : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
                       }`}
                     >
-                      {label} {count > 0 && <span className="ml-0.5 opacity-70">({count})</span>}
+                      {label} {count > 0 && <span className="ml-0.5 font-mono tabular-nums opacity-70">({count})</span>}
                     </button>
                   )
                 })}
@@ -397,22 +428,22 @@ export function Calendar() {
 
             {isLoading ? (
               <div className="space-y-3">
-                {[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-bbh-surface" />)}
+                {[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-bbh-surface" />)}
               </div>
             ) : filteredSelected.length === 0 && selectedGoogle.length === 0 && tbdBookings.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-bbh-line p-10 text-center">
+              <div className="rounded-xl border border-dashed border-bbh-line bg-white p-10 text-center">
                 <p className="text-sm text-bbh-muted">ยังไม่มีนัดหมายในวันนี้</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {tbdBookings.map((b) => (
-                  <div key={`tbd-${b.request_uid}`} className="group rounded-2xl border border-slate-300 bg-slate-50 p-4 transition hover:border-slate-400 hover:bg-slate-100/70">
+                  <div key={`tbd-${b.request_uid}`} className="group rounded-xl border border-slate-300 bg-slate-50 p-4 transition-colors duration-200 hover:border-slate-400 hover:bg-slate-100/70">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-bbh-ink">{b.patient_name ?? '-'}</p>
-                        <p className="mt-0.5 text-xs text-bbh-muted">{b.phone ?? '-'}</p>
+                        <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">{b.phone ?? '-'}</p>
                       </div>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300">เลื่อนนัด · รอเวลาใหม่</span>
+                      <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">เลื่อนนัด · รอเวลาใหม่</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="rounded-full bg-white px-2 py-0.5 text-slate-600">คนไข้ยังไม่ยืนยันเวลา</span>
@@ -424,7 +455,7 @@ export function Calendar() {
                       <button
                         type="button"
                         onClick={() => setApproveTargetUid(b.request_uid)}
-                        className="w-full rounded-xl bg-bbh-green px-3 py-2 text-xs font-semibold text-white transition hover:bg-bbh-green-dark"
+                        className={`w-full rounded-lg bg-bbh-green px-3 py-2 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
                       >
                         กำหนดวัน-เวลาใหม่
                       </button>
@@ -436,16 +467,16 @@ export function Calendar() {
                   const time = parseBookingTime(b.requested_datetime_text)
                   const dimmed = b.status === 'cancelled' || b.status === 'rejected' || b.status === 'expired'
                   return (
-                    <div key={b.request_uid} className={`group rounded-2xl border p-4 transition ${dimmed ? 'border-bbh-line bg-bbh-surface opacity-60' : 'border-bbh-line bg-white hover:border-bbh-green/30 hover:shadow-sm'}`}>
+                    <div key={b.request_uid} className={`group rounded-xl border p-4 transition-colors duration-200 ${dimmed ? 'border-bbh-line bg-bbh-surface opacity-60' : 'border-bbh-line bg-white hover:border-bbh-green/40'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-bbh-ink">{b.patient_name ?? '-'}</p>
-                          <p className="mt-0.5 text-xs text-bbh-muted">{b.phone ?? '-'}</p>
+                          <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">{b.phone ?? '-'}</p>
                         </div>
                         <StatusBadge status={b.status} />
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                        {time && <span className="font-semibold text-bbh-ink">{time} น.</span>}
+                        {time && <span className="font-mono font-semibold tabular-nums text-bbh-ink">{time} น.</span>}
                         <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ?? b.appointment_type}</span>
                         <SourceBadge source={b.booking_source} />
                       </div>
@@ -455,7 +486,7 @@ export function Calendar() {
                           <button
                             type="button"
                             onClick={() => setRescheduleTarget({ uid: b.request_uid, currentText: b.requested_datetime_text })}
-                            className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-xs font-semibold text-bbh-ink transition hover:border-bbh-green hover:text-bbh-green-dark"
+                            className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-xs font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
                           >
                             เลื่อนนัด
                           </button>
@@ -463,7 +494,7 @@ export function Calendar() {
                             type="button"
                             disabled={cancelBooking.isPending}
                             onClick={() => void handleCancelBooking(b.request_uid, b.patient_name)}
-                            className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                            className={`rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
                           >
                             ยกเลิกนัด
                           </button>
@@ -478,26 +509,26 @@ export function Calendar() {
                   return (
                     <div
                       key={event.id}
-                      className="group rounded-2xl border border-sky-100 bg-sky-50 p-4 transition hover:border-sky-300 hover:bg-sky-100/70"
+                      className="group rounded-xl border border-sky-100 bg-sky-50 p-4 transition-colors duration-200 hover:border-sky-300 hover:bg-sky-100/70"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-bbh-ink">{info.patientName}</p>
-                          <p className="mt-0.5 text-xs font-semibold text-sky-700">{eventTimeLabel(event)} น.</p>
+                          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-sky-700">{eventTimeLabel(event)} น.</p>
                         </div>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">ปฏิทิน</span>
+                        <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">ปฏิทิน</span>
                       </div>
                       <div className="mt-3 space-y-1.5 text-xs text-bbh-muted">
-                        {info.phone ? <p><span className="font-semibold text-bbh-ink">เบอร์:</span> {info.phone}</p> : null}
+                        {info.phone ? <p><span className="font-semibold text-bbh-ink">เบอร์:</span> <span className="font-mono tabular-nums">{info.phone}</span></p> : null}
                         {info.symptom ? <p><span className="font-semibold text-bbh-ink">อาการ:</span> {info.symptom}</p> : null}
-                        {info.requestUid ? <p className="truncate text-[11px] text-bbh-muted/80">รหัสคำขอ: {info.requestUid}</p> : null}
+                        {info.requestUid ? <p className="truncate font-mono text-[11px] text-bbh-muted/80">รหัสคำขอ: {info.requestUid}</p> : null}
                       </div>
                       <div className="grid grid-cols-2 gap-2 overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
                         <a
                           href={event.html_link ?? undefined}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-center text-xs font-semibold text-sky-700 transition hover:bg-sky-50"
+                          className={`rounded-lg border border-sky-200 bg-white px-3 py-2 text-center text-xs font-semibold text-sky-700 transition-colors duration-200 hover:bg-sky-50 ${FOCUS_RING}`}
                         >
                           เปิดปฏิทิน
                         </a>
@@ -506,7 +537,7 @@ export function Calendar() {
                             type="button"
                             disabled={cancelBooking.isPending}
                             onClick={() => void handleCancelBooking(info.requestUid!, info.patientName)}
-                            className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                            className={`rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
                           >
                             ยกเลิกนัด
                           </button>

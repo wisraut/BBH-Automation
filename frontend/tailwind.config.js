@@ -17,6 +17,22 @@ export default {
       boxShadow: {
         'bbh-card': '0 22px 70px -36px rgba(0, 169, 110, 0.35)',
       },
+      keyframes: {
+        rise: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        beacon: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(0.85)', opacity: '0.55' },
+        },
+      },
+      animation: {
+        // ease-out-back-ish for a soft settle; `both` holds initial + final
+        // state so staggered entrances stay hidden until their delay elapses.
+        rise: 'rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both',
+        beacon: 'beacon 2.4s ease-in-out infinite',
+      },
       fontFamily: {
         sans: ['Noto Sans Thai', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         serif: ['Noto Serif Thai', 'Georgia', 'serif'],

@@ -15,6 +15,12 @@ interface ApproveModalProps {
   onApproved: () => void
 }
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
+const FIELD_CLASS =
+  'w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
+
 function defaultStart(): string {
   // Local datetime input (no TZ) — naive YYYY-MM-DDTHH:MM
   const d = new Date()
@@ -71,13 +77,13 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
     <Modal open={open} title="ยืนยันการจอง" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-bbh-muted">คนไข้</p>
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">คนไข้</p>
           <p className="mt-1 text-base font-semibold text-bbh-ink">
             {booking?.patient_name ?? '-'}
           </p>
           {booking?.requested_datetime_text ? (
             <p className="text-xs text-bbh-muted">
-              ลูกค้าขอ: {booking.requested_datetime_text}
+              ลูกค้าขอ: <span className="font-mono tabular-nums">{booking.requested_datetime_text}</span>
             </p>
           ) : null}
         </div>
@@ -88,7 +94,7 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
             type="datetime-local"
             value={startAt}
             onChange={(event) => setStartAt(event.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className={`mt-1.5 ${FIELD_CLASS}`}
             required
           />
         </label>
@@ -102,7 +108,7 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
             step={15}
             value={duration}
             onChange={(event) => setDuration(Number(event.target.value))}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className={`mt-1.5 ${FIELD_CLASS}`}
             required
           />
         </label>
@@ -112,7 +118,7 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
           <select
             value={doctorId}
             onChange={(event) => setDoctorId(event.target.value === '' ? '' : Number(event.target.value))}
-            className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className={`mt-1.5 ${FIELD_CLASS}`}
             required
           >
             <option value="">— เลือกแพทย์ —</option>
@@ -132,14 +138,14 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
             type="button"
             onClick={onClose}
             disabled={approve.isPending}
-            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             ยกเลิก
           </button>
           <button
             type="submit"
             disabled={approve.isPending}
-            className="rounded-xl bg-bbh-green px-5 py-2 text-sm font-semibold text-white transition hover:bg-bbh-green-dark disabled:opacity-60"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             {approve.isPending ? 'กำลังยืนยัน...' : 'ยืนยันนัด'}
           </button>

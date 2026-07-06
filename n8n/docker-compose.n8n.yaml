@@ -35,10 +35,28 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+07:00
     ports:
-      - "${BOT_OPS_DB_PORT_HOST:-3307}:3306"
+      # bind to loopback only — the bridge reaches MySQL over the docker network
+      # (BOT_OPS_DB_HOST=hospital-bot-ops-db), so the host port is for local
+      # tooling only and must never be reachable from the LAN/internet.
+      - "127.0.0.1:${BOT_OPS_DB_PORT_HOST:-3307}:3306"
     volumes:
       - hospital_bot_ops_mysql:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dify_default
+
+  adminer:
+    image: adminer:latest
+    container_name: bbh-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: hospital-bot-ops-db
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      # loopback only — Adminer is a web DB console into the real bot_ops data;
+      # it must never be reachable from the LAN/internet. Reaches MySQL over the
+      # docker network, so the host port is purely for the local browser.
+      - "127.0.0.1:8080:8080"
     networks:
       - dify_default
 

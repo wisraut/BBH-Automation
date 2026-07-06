@@ -97,7 +97,7 @@
 
     **เหตุผล:** design จากความรู้สึกตัวเอง = subjective + inconsistent; ก็อป template = สไตล์ไม่เข้ากับ BBH tokens + copyright issues; รับ philosophy → apply ในบริบทเรา = ได้ผลที่ทั้ง principled และ own brand
 
-11. **ก่อน `git commit` ทุกครั้ง → รัน `/code-review` แล้วตามด้วย `/security-review`** — code-review จับโค้ดซ้ำ/คุณภาพ/ประสิทธิภาพ (สำคัญเพราะมี Codex ทำขนานกัน); security-review จับ secret หลุด/ช่องโหว่ (สำคัญเพราะเป็น hospital + HIPAA-like + เคยมี token หลุดในแชท) แก้ issue ที่เจอก่อน commit
+11. **ก่อน `git commit` ทุกครั้ง → รัน `/code-review` แล้วตามด้วย `/security-review`** — code-review จับโค้ดซ้ำ/คุณภาพ/ประสิทธิภาพ; security-review จับ secret หลุด/ช่องโหว่ (สำคัญเพราะเป็น hospital + HIPAA-like + เคยมี token หลุดในแชท) แก้ issue ที่เจอก่อน commit
 
 12. **หลังสร้าง feature หรือแก้ bug ที่กระทบพฤติกรรมแอป → รัน `/verify` หรือ `/run`** ยืนยันว่า change ทำงานจริงในแอป ไม่ใช่แค่ build ผ่าน (โปรเจคนี้มี Docker/n8n/Dify หลายชั้น — build ผ่านไม่ได้แปลว่า runtime ถูก)
 

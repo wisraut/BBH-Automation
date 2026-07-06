@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where *)",
+      "Bash(docker stats *)",
+      "Bash(python work/build_workflow.py)",
+      "Bash(python work/build_workflow.py *)",
+      "Bash(python work/deploy_workflow.py)",
+      "Bash(python work/deploy_workflow.py *)",
+      "Bash(curl -s -o /dev/null -w * http://localhost:8000/internal/health*)"
+    ]
+  }
+}

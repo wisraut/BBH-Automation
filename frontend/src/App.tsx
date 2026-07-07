@@ -16,11 +16,15 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { AlertRules } from './pages/AlertRules'
 import { AuditLog } from './pages/AuditLog'
 import { AiAssistant } from './pages/AiAssistant'
+import { Availability } from './pages/Availability'
+import { Biomarker } from './pages/Biomarker'
+import { Book } from './pages/Book'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
 import { Patients } from './pages/Patients'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
+import { Today } from './pages/Today'
 import { SystemHealth } from './pages/SystemHealth'
 import { Users } from './pages/Users'
 import { Login } from './routes/Login'
@@ -28,7 +32,7 @@ import { Login } from './routes/Login'
 const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   cro: '/bookings',
   admin: '/admin',
-  doctor: '/schedule',
+  doctor: '/today',
   nurse: '/patients',
   lab_staff: '/reports',
 }
@@ -40,9 +44,13 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
   },
   '/calendar': { title: 'ปฏิทิน' },
-  '/schedule': { title: 'ตารางงานแพทย์' },
+  '/today': { title: 'วันนี้', subtitle: 'สรุปงานที่ต้องจัดการวันนี้' },
+  '/schedule': { title: 'ตารางนัด' },
+  '/book': { title: 'ลงนัดเอง', subtitle: 'ลงนัด → ส่งเข้าคิว CRO ยืนยัน' },
+  '/availability': { title: 'ตารางว่างของฉัน', subtitle: 'กำหนดเวลาว่างให้ระบบเสนอเวลาจอง' },
+  '/biomarker': { title: 'Biomarker', subtitle: 'แนวโน้มค่าตรวจเทียบ optimal range' },
   '/patients': { title: 'คนไข้' },
-  '/reports': { title: 'รายงานแพทย์' },
+  '/reports': { title: 'ผลแล็บ' },
   '/ai': { title: 'AI Assistant' },
   '/users': { title: 'ผู้ใช้ระบบ' },
   '/system-health': { title: 'สถานะระบบ' },
@@ -91,7 +99,11 @@ const ADMIN_PATHS = ['/admin', '/users', '/system-health', '/alert-rules', '/aud
 const ROLE_OF_PATH: Record<string, Role> = {
   '/bookings': 'cro',
   '/calendar': 'cro',
+  '/today': 'doctor',
   '/schedule': 'doctor',
+  '/book': 'doctor',
+  '/availability': 'doctor',
+  '/biomarker': 'doctor',
 }
 const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
 
@@ -149,6 +161,12 @@ function AppRoutes() {
           <Route element={<ProtectedRoute allow={['cro', 'admin']} />}>
             <Route path="bookings" element={<Bookings />} />
             <Route path="calendar" element={<Calendar />} />
+          </Route>
+          <Route element={<ProtectedRoute allow={['doctor', 'admin']} />}>
+            <Route path="today" element={<Today />} />
+            <Route path="book" element={<Book />} />
+            <Route path="availability" element={<Availability />} />
+            <Route path="biomarker" element={<Biomarker />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />

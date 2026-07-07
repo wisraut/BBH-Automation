@@ -3,11 +3,16 @@ import {
   Activity,
   ArrowLeft,
   BellRing,
+  Bot,
+  Calendar,
+  CalendarPlus,
+  FlaskConical,
   History,
   CalendarClock,
   CalendarDays,
   ClipboardList,
   FileText,
+  LayoutDashboard,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
@@ -56,6 +61,22 @@ const NAV: NavItem[] = [
   { to: '/account', label: 'บัญชี', icon: UserCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
 ]
 
+// Doctor Workspace has its own ordered nav (spec §2) with doctor-specific labels
+// ("คนไข้ของฉัน", "ผลแล็บ") that differ from the shared NAV. Kept separate so the
+// CRO/admin/nurse/lab nav above is untouched. Used when the effective role is doctor
+// (including admin viewing-as-doctor).
+const DOCTOR_NAV: NavItem[] = [
+  { to: '/today', label: 'วันนี้', icon: LayoutDashboard, roles: ['doctor'] },
+  { to: '/patients', label: 'คนไข้ของฉัน', icon: Users, roles: ['doctor'] },
+  { to: '/schedule', label: 'ตารางนัด', icon: Calendar, roles: ['doctor'] },
+  { to: '/book', label: 'ลงนัดเอง', icon: CalendarPlus, roles: ['doctor'] },
+  { to: '/availability', label: 'ตารางว่าง', icon: CalendarClock, roles: ['doctor'] },
+  { to: '/reports', label: 'ผลแล็บ', icon: FlaskConical, roles: ['doctor'] },
+  { to: '/biomarker', label: 'Biomarker', icon: Activity, roles: ['doctor'] },
+  { to: '/ai', label: 'AI ผู้ช่วย', icon: Bot, roles: ['doctor'] },
+  { to: '/account', label: 'บัญชี', icon: UserCog, roles: ['doctor'] },
+]
+
 interface SidebarProps {
   role: Role
   actualRole?: Role
@@ -67,7 +88,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ role, actualRole, viewAs, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
-  const items = NAV.filter((item) => item.roles.includes(role))
+  const items = role === 'doctor' ? DOCTOR_NAV : NAV.filter((item) => item.roles.includes(role))
   const showBackToAdmin = Boolean(viewAs && actualRole === 'admin')
   // Preserve view-as query so admin stays in the shadowed role while navigating
   const withViewAs = (path: string) => (viewAs ? `${path}?as=${viewAs}` : path)

@@ -21,6 +21,7 @@ import {
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
+import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { useAuth } from '../lib/auth'
 
 function todayIso(): string {
@@ -55,8 +56,9 @@ function StatCard({ label, value, icon: Icon, tone = 'green' }: {
   )
 }
 
-function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
+function AppointmentCard({ apt, onReschedule }: { apt: ScheduleAppointment; onReschedule?: (apt: ScheduleAppointment) => void }) {
   const isToday = apt.requested_date === todayIso()
+  const isPending = apt.status === 'pending_approval'
   const [briefOpen, setBriefOpen] = useState(false)
   const briefM = usePatientAiSummary()
   const canBrief = apt.patient_id !== null
@@ -78,6 +80,11 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
             {isToday ? (
               <span className="rounded-full bg-bbh-green-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark">
                 วันนี้
+              </span>
+            ) : null}
+            {isPending ? (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-200">
+                รอ CRO
               </span>
             ) : null}
           </div>
@@ -114,6 +121,16 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
               title="สรุปก่อนตรวจ"
             >
               <Brain size={13} /> AI brief
+            </button>
+          ) : null}
+          {!isPending && onReschedule ? (
+            <button
+              type="button"
+              onClick={() => onReschedule(apt)}
+              className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
+              title="เลื่อนนัด"
+            >
+              <CalendarIcon size={13} /> เลื่อนนัด
             </button>
           ) : null}
           {apt.patient_id ? (
@@ -196,10 +213,18 @@ function ReportRow({ r }: { r: ScheduleReport }) {
 
 export function Schedule() {
   const [windowDays, setWindowDays] = useState<7 | 14 | 30>(7)
+  const [reschedule, setReschedule] = useState<{ uid: string; text: string | null } | null>(null)
   const dateFrom = useMemo(() => todayIso(), [])
   const dateTo = useMemo(() => addDaysIso(dateFrom, windowDays), [dateFrom, windowDays])
   const q = useMySchedule({ dateFrom, dateTo })
   const data = q.data
+
+  const openReschedule = (apt: ScheduleAppointment) => {
+    const text =
+      apt.requested_datetime_text ||
+      (apt.requested_date ? `${formatThaiDate(apt.requested_date)} ${formatTime(apt.requested_time)}` : null)
+    setReschedule({ uid: apt.request_uid, text })
+  }
 
   // Group appointments by date
   const apptsByDate = useMemo(() => {
@@ -288,7 +313,7 @@ export function Schedule() {
                       {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· วันนี้</span> : null}
                     </p>
                     <div className="grid gap-6 md:grid-cols-2">
-                      {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} />)}
+                      {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} onReschedule={openReschedule} />)}
                     </div>
                   </div>
                 ))}
@@ -329,6 +354,14 @@ export function Schedule() {
           </p>
         </div>
       ) : null}
+
+      <RescheduleModal
+        open={reschedule !== null}
+        uid={reschedule?.uid ?? null}
+        currentDateTimeText={reschedule?.text ?? null}
+        onClose={() => setReschedule(null)}
+        onSuccess={() => q.refetch()}
+      />
     </div>
   )
 }

@@ -10,7 +10,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useAssignDoctor } from '../hooks/useAssignDoctor'
 import { useBooking } from '../hooks/useBooking'
 import { useBookings } from '../hooks/useBookings'
-import type { BookingStatus } from '../hooks/useBookings'
+import type { BookingGroup, BookingStatus } from '../hooks/useBookings'
 import { useDoctors } from '../hooks/useDoctors'
 import { useToast } from '../hooks/useToast'
 import { ApiError } from '../lib/api'
@@ -20,13 +20,27 @@ import { ApiError } from '../lib/api'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const FILTERS: { key: BookingStatus | 'all'; label: string }[] = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'pending_approval', label: 'รอยืนยัน' },
-  { key: 'approved', label: 'ยืนยันแล้ว' },
-  { key: 'no_show', label: 'No-show' },
-  { key: 'rejected', label: 'ปฏิเสธ' },
+const TABS: { key: BookingGroup; label: string }[] = [
+  { key: 'active', label: 'กำลังดำเนินการ' },
+  { key: 'history', label: 'ประวัติ' },
 ]
+
+// Status pills scoped to each tab. 'all' means "no status filter — show the
+// whole group" and the backend group param drives the list.
+const FILTERS_BY_TAB: Record<BookingGroup, { key: BookingStatus | 'all'; label: string }[]> = {
+  active: [
+    { key: 'all', label: 'ทั้งหมด' },
+    { key: 'pending_approval', label: 'รอยืนยัน' },
+    { key: 'approved', label: 'ยืนยันแล้ว' },
+  ],
+  history: [
+    { key: 'all', label: 'ทั้งหมด' },
+    { key: 'no_show', label: 'No-show' },
+    { key: 'rejected', label: 'ปฏิเสธ' },
+    { key: 'cancelled', label: 'ยกเลิก' },
+    { key: 'expired', label: 'หมดอายุ' },
+  ],
+}
 
 const PAGE_LIMIT = 20
 
@@ -43,7 +57,8 @@ function formatRelative(iso: string): string {
 }
 
 export function Bookings() {
-  const [filter, setFilter] = useState<BookingStatus | 'all'>('pending_approval')
+  const [tab, setTab] = useState<BookingGroup>('active')
+  const [filter, setFilter] = useState<BookingStatus | 'all'>('all')
   const [page, setPage] = useState(1)
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
   const [newBookingOpen, setNewBookingOpen] = useState(false)
@@ -51,12 +66,23 @@ export function Bookings() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
 
+  const filters = FILTERS_BY_TAB[tab]
+
   const list = useBookings({
+    // When no specific status is picked, drive the list by the tab's group.
     status: filter === 'all' ? undefined : filter,
+    group: filter === 'all' ? tab : undefined,
     page,
     limit: PAGE_LIMIT,
   })
   const detail = useBooking(selectedUid)
+
+  function handleTab(key: BookingGroup) {
+    setTab(key)
+    setFilter('all')
+    setPage(1)
+    setSelectedUid(null)
+  }
 
   function handleFilter(key: BookingStatus | 'all') {
     setFilter(key)
@@ -92,9 +118,36 @@ export function Bookings() {
           </button>
         </div>
 
+        {/* Lifecycle tabs — segmented control; green reserved for the active tab */}
+        <div
+          className="animate-rise mb-4 inline-flex rounded-lg border border-bbh-line bg-white p-1"
+          role="tablist"
+          style={{ animationDelay: '40ms' }}
+        >
+          {TABS.map((item) => {
+            const active = item.key === tab
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => handleTab(item.key)}
+                className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors duration-200 ${FOCUS_RING} ${
+                  active
+                    ? 'bg-bbh-green text-white'
+                    : 'bg-transparent text-bbh-muted hover:text-bbh-green-dark'
+                }`}
+              >
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+
         {/* Filter rail — hairline pills; green reserved for the active filter */}
         <div className="animate-rise mb-8 flex flex-wrap items-center gap-2" style={{ animationDelay: '70ms' }}>
-          {FILTERS.map((item) => {
+          {filters.map((item) => {
             const active = item.key === filter
             return (
               <button
@@ -359,6 +412,7 @@ export function Bookings() {
         open={newBookingOpen}
         onClose={() => setNewBookingOpen(false)}
         onCreated={(requestUid) => {
+          setTab('active')
           setFilter('pending_approval')
           setPage(1)
           setSelectedUid(requestUid)

@@ -24,12 +24,30 @@ _DETAIL_COLUMNS = (
 )
 
 
+# Lifecycle groups for the Bookings inbox tabs. "active" = still needs / has
+# CRO attention; "history" = terminal states kept for the record.
+ACTIVE_STATUSES = ("pending_approval", "approved")
+HISTORY_STATUSES = ("rejected", "cancelled", "expired", "no_show")
+
+
 def list_bookings(
-    *, status: str | None, page: int, limit: int
+    *, status: str | None, group: str | None = None, page: int, limit: int
 ) -> tuple[list[dict[str, Any]], int]:
+    """List bookings, filtered by exact ``status`` or by lifecycle ``group``.
+
+    An explicit ``status`` always wins. Otherwise ``group`` selects a status
+    set: 'active' (pending_approval/approved) or 'history' (rejected/cancelled/
+    expired/no_show). When neither is given we default to 'active'.
+    """
     offset = (page - 1) * limit
-    where_sql = "WHERE status = %s" if status else ""
-    where_args: tuple[Any, ...] = (status,) if status else ()
+    if status:
+        where_sql = "WHERE status = %s"
+        where_args: tuple[Any, ...] = (status,)
+    else:
+        statuses = HISTORY_STATUSES if group == "history" else ACTIVE_STATUSES
+        placeholders = ", ".join(["%s"] * len(statuses))
+        where_sql = f"WHERE status IN ({placeholders})"
+        where_args = tuple(statuses)
 
     with mysql_db() as conn:
         with conn.cursor() as cur:

@@ -18,11 +18,34 @@ from core.email_templates import (
 )
 from integrations import calendar_client
 from integrations.line_client import PRIMARY, push as line_push
-from repositories import booking_repo, user_repo
+from repositories import booking_repo, schedule_block_repo, user_repo
 from utils.pagination import paginate
 
 logger = logging.getLogger(__name__)
 TZ_BANGKOK = timezone(timedelta(hours=7))
+
+
+def _assert_doctor_available(
+    *, doctor_id: int | None, start_at: datetime, duration_min: int
+) -> None:
+    """Reject booking slots that overlap a doctor's unavailable block."""
+    if not doctor_id:
+        return
+    end_at = start_at + timedelta(minutes=duration_min)
+    overlap = schedule_block_repo.find_overlap(
+        doctor_id=int(doctor_id), start_at=start_at, end_at=end_at,
+    )
+    if overlap:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DOCTOR_BLOCKED",
+                "message": (
+                    f"แพทย์ไม่ว่าง ({overlap['block_type']}) "
+                    f"ช่วง {overlap['start_at']} - {overlap['end_at']}"
+                ),
+            },
+        )
 
 
 def _normalize_booking_date(value: str) -> tuple[str, str]:
@@ -42,8 +65,12 @@ def _normalize_booking_date(value: str) -> tuple[str, str]:
     )
 
 
-def list_bookings(*, status: str | None, page: int, limit: int) -> dict[str, Any]:
-    rows, total = booking_repo.list_bookings(status=status, page=page, limit=limit)
+def list_bookings(
+    *, status: str | None, group: str | None = None, page: int, limit: int
+) -> dict[str, Any]:
+    rows, total = booking_repo.list_bookings(
+        status=status, group=group, page=page, limit=limit,
+    )
     return paginate(rows=rows, total=total, page=page, limit=limit)
 
 
@@ -120,27 +147,14 @@ def approve_booking(
             },
         )
 
-    # Doctor schedule block check: if booking is for a specific doctor and
-    # that doctor has a vacation/off-hours block overlapping this slot, refuse.
-    assigned = row.get("assigned_doctor_id")
-    if assigned:
-        from datetime import timedelta as _td
-        from repositories import schedule_block_repo
-        end_at = start_at + _td(minutes=duration_min)
-        overlap = schedule_block_repo.find_overlap(
-            doctor_id=int(assigned), start_at=start_at, end_at=end_at,
-        )
-        if overlap:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "DOCTOR_BLOCKED",
-                    "message": (
-                        f"แพทย์ลา/ไม่อยู่ ({overlap['block_type']}) "
-                        f"ช่วง {overlap['start_at']} – {overlap['end_at']}"
-                    ),
-                },
-            )
+    # Doctor schedule block check: use the doctor selected in this approval
+    # request, not only the doctor currently stored on the pending booking.
+    effective_doctor_id = assigned_doctor_id or row.get("assigned_doctor_id")
+    _assert_doctor_available(
+        doctor_id=int(effective_doctor_id) if effective_doctor_id else None,
+        start_at=start_at,
+        duration_min=duration_min,
+    )
 
     patient_name = row.get("patient_name") or "ผู้ป่วย"
     phone = row.get("phone") or "-"
@@ -344,23 +358,11 @@ def reschedule_booking(
         )
 
     # Doctor block check (same guard as approve flow)
-    if row.get("assigned_doctor_id"):
-        from datetime import timedelta as _td
-        from repositories import schedule_block_repo
-        end_at = new_start_at + _td(minutes=duration_min)
-        overlap = schedule_block_repo.find_overlap(
-            doctor_id=int(row["assigned_doctor_id"]),
-            start_at=new_start_at, end_at=end_at,
-        )
-        if overlap:
-            raise HTTPException(
-                409,
-                {"code": "DOCTOR_BLOCKED",
-                 "message": (
-                     f"แพทย์ลา/ไม่อยู่ ({overlap['block_type']}) ช่วงเวลาใหม่ "
-                     f"{overlap['start_at']} – {overlap['end_at']}"
-                 )},
-            )
+    _assert_doctor_available(
+        doctor_id=int(row["assigned_doctor_id"]) if row.get("assigned_doctor_id") else None,
+        start_at=new_start_at,
+        duration_min=duration_min,
+    )
 
     # Book new calendar event first; if it fails we keep the old one.
     new_event = calendar_client.book_event(

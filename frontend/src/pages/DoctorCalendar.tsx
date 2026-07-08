@@ -108,7 +108,11 @@ function positionForDateTime(date: Date, fallbackMinutes = 60) {
 function appointmentPosition(apt: ScheduleAppointment) {
   const time = apt.requested_time ?? '09:00'
   const date = new Date(`${apt.requested_date}T${time}`)
-  return positionForDateTime(date, apt.appointment_type === 'new' ? 75 : 45)
+  const pos = positionForDateTime(date, apt.appointment_type === 'new' ? 75 : 45)
+  // Cap the card to one hour row (minus a small gap) so a 'new' appointment
+  // (assumed 75 min = 90px) does not bleed past its slot into the row below.
+  const rowPx = 60 * PX_PER_MINUTE
+  return { top: pos.top, height: Math.min(pos.height, rowPx - 6) }
 }
 function blockPosition(block: ScheduleBlock, dayKey: string) {
   const start = new Date(block.start_at)

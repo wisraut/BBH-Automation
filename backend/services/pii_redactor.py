@@ -3,7 +3,7 @@
 Anything that crosses out of the bridge to Dify (which proxies to OpenRouter →
 Gemini outside Thailand) must pass through `redact_for_llm` first. The goal
 is to strip identifiers the model does not need to give useful medical advice
-while preserving clinical content (lab values, symptoms, drug names).
+while preserving medical content (lab values, symptoms, drug names).
 
 Strategy:
 - Universal regex patterns (citizen ID, phone, email, HN codes, PT codes,

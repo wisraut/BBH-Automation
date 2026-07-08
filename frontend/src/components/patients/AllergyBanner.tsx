@@ -1,4 +1,4 @@
-// Persistent allergy warning shown wherever clinical decisions are made
+// Persistent allergy warning shown wherever medical decisions are made
 // (upload report, analyze, decide triage). Pulls from patient medical bundle.
 import { AlertTriangle, ShieldAlert } from 'lucide-react'
 

@@ -2,7 +2,7 @@
 passes by a grace window without check-in.
 
 We don't have a real check-in event yet (the bridge is patient-facing via
-LINE only, with no in-clinic UI), so the rule for the pilot is simple:
+LINE only, with no in-hospital UI), so the rule for the pilot is simple:
 
   status='approved' AND
   TIMESTAMP(requested_date, requested_time) < NOW() - INTERVAL grace MINUTE

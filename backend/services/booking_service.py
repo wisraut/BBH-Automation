@@ -180,6 +180,8 @@ def approve_booking(
         approved_by_user_id=user.get("id"),
         hn_year=start_at.strftime("%y"),
         assigned_doctor_id=assigned_doctor_id,
+        requested_date=start_at.strftime("%Y-%m-%d"),
+        requested_time=start_at.strftime("%H:%M:%S"),
     )
     if not approved:
         # Lost race — another approver acted first; clean up the just-created event

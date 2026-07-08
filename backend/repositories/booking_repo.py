@@ -348,8 +348,15 @@ def update_approved(
     approved_by_user_id: int | None,
     hn_year: str,
     assigned_doctor_id: int | None = None,
+    requested_date: str | None = None,
+    requested_time: str | None = None,
 ) -> dict[str, Any] | None:
-    """Approve booking and attach/create the real patient record atomically."""
+    """Approve booking and attach/create the real patient record atomically.
+
+    ``requested_date``/``requested_time`` persist the confirmed slot so the DB
+    is the source of truth for per-doctor schedule views (the doctor calendar
+    filters on ``requested_date``). Google Calendar stays a mirror.
+    """
     with mysql_db() as conn:
         try:
             with conn.cursor() as cur:
@@ -406,12 +413,15 @@ def update_approved(
                         calendar_event_id   = %s,
                         calendar_event_url  = %s,
                         calendar_status     = 'created',
+                        requested_date      = COALESCE(%s, requested_date),
+                        requested_time      = COALESCE(%s, requested_time),
                         approved_by         = %s,
                         approved_at         = NOW(),
                         assigned_doctor_id  = COALESCE(%s, assigned_doctor_id)
                     WHERE request_uid = %s AND status = 'pending_approval'
                     """,
-                    (patient_id, event_id, event_url, approved_by, assigned_doctor_id, uid),
+                    (patient_id, event_id, event_url, requested_date, requested_time,
+                     approved_by, assigned_doctor_id, uid),
                 )
             if rows == 0:
                 conn.rollback()

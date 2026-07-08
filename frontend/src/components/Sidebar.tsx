@@ -1,4 +1,4 @@
-﻿import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
   Activity,
   ArrowLeft,
@@ -45,7 +45,8 @@ const NAV: NavItem[] = [
   { to: '/admin', label: 'Admin', icon: ShieldCheck, roles: ['admin'] },
   { to: '/bookings', label: 'การจอง', icon: ClipboardList, roles: ['cro'] },
   { to: '/calendar', label: 'ปฏิทิน', icon: CalendarDays, roles: ['cro'] },
-  { to: '/schedule', label: 'ตารางงาน', icon: CalendarClock, roles: ['doctor', 'nurse'] },
+  { to: '/schedule', label: 'วันนี้', icon: CalendarClock, roles: ['doctor', 'nurse'] },
+  { to: '/doctor-calendar', label: 'ปฏิทินแพทย์', icon: CalendarDays, roles: ['doctor', 'nurse'] },
   { to: '/patients', label: 'คนไข้', icon: Users, roles: ['cro', 'doctor', 'nurse'] },
   { to: '/reports', label: 'รายงาน', icon: FileText, roles: ['doctor', 'nurse', 'lab_staff'] },
   { to: '/ai', label: 'AI Assistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },

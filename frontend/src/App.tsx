@@ -18,6 +18,7 @@ import { AuditLog } from './pages/AuditLog'
 import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
+import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
@@ -40,7 +41,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
   },
   '/calendar': { title: 'ปฏิทิน' },
-  '/schedule': { title: 'ตารางงานแพทย์' },
+  '/schedule': { title: 'สรุปงานแพทย์' },
+  '/doctor-calendar': { title: 'ปฏิทินแพทย์', subtitle: 'นัดหมาย เวลาที่ไม่อยู่ และ availability ของแพทย์' },
   '/patients': { title: 'คนไข้' },
   '/reports': { title: 'รายงานแพทย์' },
   '/ai': { title: 'AI Assistant' },
@@ -92,6 +94,7 @@ const ROLE_OF_PATH: Record<string, Role> = {
   '/bookings': 'cro',
   '/calendar': 'cro',
   '/schedule': 'doctor',
+  '/doctor-calendar': 'doctor',
 }
 const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
 
@@ -156,6 +159,7 @@ function AppRoutes() {
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />
+            <Route path="doctor-calendar" element={<DoctorCalendar />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse', 'lab_staff']} />}>
             <Route path="reports" element={<Reports />} />

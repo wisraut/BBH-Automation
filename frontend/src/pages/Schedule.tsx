@@ -1,6 +1,7 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  ArrowRight,
   Brain,
   Calendar as CalendarIcon,
   CalendarOff,
@@ -9,14 +10,18 @@ import {
   ExternalLink,
   FileText,
   Loader2,
+  MessageSquareText,
   Phone,
   Plus,
   RefreshCw,
+  ShieldAlert,
   Sparkles,
   Stethoscope,
   Clock,
   Trash2,
+  UserRound,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
@@ -44,38 +49,215 @@ function formatTime(t: string | null): string {
   if (!t) return '-'
   return t.slice(0, 5)
 }
+function appointmentSortValue(apt: ScheduleAppointment): string {
+  return `${apt.requested_date}T${apt.requested_time ?? '99:99'}`
+}
+function describeTimeToAppointment(apt: ScheduleAppointment): string {
+  if (apt.requested_date !== todayIso() || !apt.requested_time) return formatThaiDate(apt.requested_date)
+  const target = new Date(`${apt.requested_date}T${apt.requested_time}`)
+  const diffMin = Math.round((target.getTime() - Date.now()) / 60000)
+  if (Number.isNaN(diffMin)) return 'วันนี้'
+  if (diffMin < -45) return 'ผ่านมาแล้ว'
+  if (diffMin < 0) return 'กำลังถึงเวลา'
+  if (diffMin < 60) return `อีก ${diffMin} นาที`
+  return `อีก ${Math.floor(diffMin / 60)} ชม. ${diffMin % 60} นาที`
+}
 
-// Stat cell — lives inside a hairline-ruled cluster (gap-px reveals bbh-line as
-// rules) rather than floating as its own card. Numbers read as instrument
-// readouts in mono/tabular so they line up column-to-column.
-function StatCard({ label, value, icon: Icon, tone = 'green' }: {
-  label: string; value: number | string; icon: typeof Stethoscope; tone?: 'green' | 'amber' | 'red'
+function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
+  label: string
+  value: number | string
+  icon: LucideIcon
+  tone?: 'green' | 'amber' | 'red' | 'ink'
 }) {
-  const iconClass = tone === 'red' ? 'text-red-500' : tone === 'amber' ? 'text-amber-500' : 'text-bbh-green'
+  const iconClass =
+    tone === 'red' ? 'text-red-500' : tone === 'amber' ? 'text-amber-500' : tone === 'ink' ? 'text-bbh-ink' : 'text-bbh-green'
   return (
-    <div className="flex flex-col gap-4 bg-white p-6">
+    <div className="flex min-h-[128px] flex-col justify-between bg-white p-5 md:p-6">
       <div className="flex items-center justify-between gap-3">
         <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</p>
         <Icon size={16} className={iconClass} />
       </div>
-      <p className="font-mono text-4xl font-semibold leading-none tracking-tight tabular-nums text-bbh-ink">{value}</p>
+      <p className="font-mono text-3xl font-semibold leading-none tabular-nums text-bbh-ink md:text-4xl">{value}</p>
     </div>
+  )
+}
+
+function AiBriefPanel({ patientId }: { patientId: number }) {
+  const briefM = usePatientAiSummary()
+  const [open, setOpen] = useState(false)
+
+  function loadBrief() {
+    setOpen(true)
+    if (!briefM.data && !briefM.isPending) briefM.mutate(patientId)
+  }
+
+  return (
+    <div className="rounded-xl border border-bbh-green/30 bg-bbh-green-soft/45 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="inline-flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-green-dark">
+          <Sparkles size={13} /> Pre-visit AI brief
+        </p>
+        <button
+          type="button"
+          onClick={loadBrief}
+          className={`inline-flex items-center gap-2 rounded-lg border border-bbh-green/30 bg-white px-3 py-1.5 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
+        >
+          <Brain size={13} /> สรุปเคส
+        </button>
+      </div>
+      {open ? (
+        <div className="mt-3">
+          {briefM.isPending ? (
+            <p className="inline-flex items-center gap-2 text-sm text-bbh-muted"><Loader2 size={14} className="animate-spin" /> กำลังสรุป...</p>
+          ) : briefM.error ? (
+            <p className="text-sm text-red-700">โหลด AI brief ไม่สำเร็จ</p>
+          ) : briefM.data ? (
+            <pre className="max-h-[280px] overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-bbh-ink">{briefM.data.summary}</pre>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm leading-relaxed text-bbh-muted">
+          สรุปก่อนพบแพทย์ควรช่วยให้เห็นเหตุผลที่มา ประวัติสำคัญ ผลตรวจที่ต้องดู และคำถามที่ควรถามต่อ
+        </p>
+      )}
+    </div>
+  )
+}
+
+function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | null; pendingReports: ScheduleReport[] }) {
+  if (!apt) {
+    return (
+      <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6 md:p-8">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Next patient</p>
+        <div className="mt-8 flex items-center gap-3 text-bbh-muted">
+          <CheckCircle2 size={18} className="text-bbh-green" />
+          <p className="text-sm">วันนี้ยังไม่มีนัดที่ต้องเตรียมก่อนตรวจ</p>
+        </div>
+      </section>
+    )
+  }
+
+  const patientReports = apt.patient_id
+    ? pendingReports.filter((report) => report.patient_id === apt.patient_id)
+    : []
+
+  return (
+    <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6 md:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Next patient</p>
+          <h2 className="mt-3 font-serif text-3xl font-semibold leading-tight text-bbh-ink">
+            {apt.patient_name || '(ไม่ระบุชื่อ)'}
+          </h2>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-bbh-muted">
+            <span className="inline-flex items-center gap-1.5"><Clock size={14} /> <span className="font-mono tabular-nums text-bbh-ink">{formatTime(apt.requested_time)}</span></span>
+            <span className="font-mono tabular-nums">{describeTimeToAppointment(apt)}</span>
+            {apt.phone ? (
+              <a href={`tel:${apt.phone}`} className={`inline-flex items-center gap-1.5 rounded transition-colors duration-200 hover:text-bbh-green-dark ${FOCUS_RING}`}>
+                <Phone size={14} /> <span className="font-mono tabular-nums">{apt.phone}</span>
+              </a>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {apt.patient_id ? (
+            <Link
+              to={`/patients?patient=${apt.patient_id}`}
+              className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
+            >
+              เปิดเคส <ArrowRight size={15} />
+            </Link>
+          ) : null}
+          {apt.calendar_event_url ? (
+            <a
+              href={apt.calendar_event_url}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              Calendar <ExternalLink size={14} />
+            </a>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-3">
+        <div className="bg-white p-4">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Reason</p>
+          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-bbh-ink">{apt.symptom || '-'}</p>
+        </div>
+        <div className="bg-white p-4">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Visit type</p>
+          <p className="mt-2 text-sm text-bbh-ink">{apt.appointment_type || 'consultation'}</p>
+        </div>
+        <div className="bg-white p-4">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Reports</p>
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-bbh-ink">{patientReports.length}</p>
+        </div>
+      </div>
+
+      {apt.patient_id ? <div className="mt-5"><AiBriefPanel patientId={apt.patient_id} /></div> : null}
+    </section>
+  )
+}
+
+function SignalRail({ todayAppointments, pendingReports }: {
+  todayAppointments: ScheduleAppointment[]
+  pendingReports: ScheduleReport[]
+}) {
+  const overdueReports = pendingReports.filter((report) => report.latest_decision === null || report.latest_decision === 'review')
+  const noPhone = todayAppointments.filter((apt) => !apt.phone)
+  const signals = [
+    {
+      icon: ShieldAlert,
+      label: 'Safety watch',
+      value: overdueReports.length > 0 ? `${overdueReports.length} report ต้อง review` : 'ไม่มีสัญญาณเร่งด่วน',
+      tone: overdueReports.length > 0 ? 'amber' : 'green',
+    },
+    {
+      icon: MessageSquareText,
+      label: 'Team notes',
+      value: noPhone.length > 0 ? `${noPhone.length} นัดไม่มีเบอร์โทร` : 'ไม่มี note ค้าง',
+      tone: noPhone.length > 0 ? 'amber' : 'green',
+    },
+    {
+      icon: UserRound,
+      label: 'Patient prep',
+      value: todayAppointments.length > 0 ? `${todayAppointments.length} เคสวันนี้` : 'ไม่มีเคสวันนี้',
+      tone: 'green',
+    },
+  ] as const
+
+  return (
+    <aside className="animate-rise space-y-3" style={{ animationDelay: '100ms' }}>
+      <div className="rounded-xl border border-bbh-line bg-white p-5">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Medical signals</p>
+        <div className="mt-4 space-y-3">
+          {signals.map((signal) => {
+            const Icon = signal.icon
+            const toneClass = signal.tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark'
+            return (
+              <div key={signal.label} className="flex items-start gap-3 rounded-lg border border-bbh-line bg-white p-3">
+                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${toneClass}`}>
+                  <Icon size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{signal.label}</p>
+                  <p className="mt-1 text-sm font-medium text-bbh-ink">{signal.value}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </aside>
   )
 }
 
 function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
   const isToday = apt.requested_date === todayIso()
-  const [briefOpen, setBriefOpen] = useState(false)
-  const briefM = usePatientAiSummary()
-  const canBrief = apt.patient_id !== null
-
-  const loadBrief = () => {
-    if (!apt.patient_id) return
-    setBriefOpen(true)
-    if (!briefM.data && !briefM.isPending) briefM.mutate(apt.patient_id)
-  }
   return (
-    <div className={`rounded-xl border bg-white p-6 ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
+    <div className={`rounded-xl border bg-white p-5 ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs text-bbh-muted">
@@ -90,67 +272,17 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
             ) : null}
           </div>
           <p className="mt-2 truncate text-base font-semibold text-bbh-ink">{apt.patient_name || '(ไม่ระบุชื่อ)'}</p>
-          {apt.symptom ? (
-            <p className="mt-1 line-clamp-2 text-sm text-bbh-muted">{apt.symptom}</p>
-          ) : null}
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-bbh-muted">
-            {apt.phone ? (
-              <a href={`tel:${apt.phone}`} className={`inline-flex items-center gap-1 rounded transition-colors duration-200 hover:text-bbh-green-dark ${FOCUS_RING}`}>
-                <Phone size={12} /> <span className="font-mono tabular-nums">{apt.phone}</span>
-              </a>
-            ) : null}
-            {apt.appointment_type ? <span>· {apt.appointment_type}</span> : null}
-          </div>
+          {apt.symptom ? <p className="mt-1 line-clamp-2 text-sm text-bbh-muted">{apt.symptom}</p> : null}
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {apt.calendar_event_url ? (
-            <a
-              href={apt.calendar_event_url}
-              target="_blank"
-              rel="noreferrer"
-              className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-              title="เปิดใน Google Calendar"
-            >
-              <CalendarIcon size={13} /> Calendar
-            </a>
-          ) : null}
-          {canBrief ? (
-            <button
-              type="button"
-              onClick={loadBrief}
-              className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-              title="สรุปก่อนตรวจ"
-            >
-              <Brain size={13} /> AI brief
-            </button>
-          ) : null}
-          {apt.patient_id ? (
-            <Link
-              to={`/patients?patient=${apt.patient_id}`}
-              className={`inline-flex items-center gap-1 rounded-lg border border-bbh-green/30 bg-bbh-green-soft px-2 py-1 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
-            >
-              คนไข้ <ExternalLink size={11} />
-            </Link>
-          ) : null}
-        </div>
+        {apt.patient_id ? (
+          <Link
+            to={`/patients?patient=${apt.patient_id}`}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-lg border border-bbh-green/30 bg-bbh-green-soft px-2 py-1 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
+          >
+            เคส <ExternalLink size={11} />
+          </Link>
+        ) : null}
       </div>
-      {briefOpen ? (
-        <div className="mt-3 rounded-xl border border-bbh-green/30 bg-bbh-green-soft/40 p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="inline-flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-green-dark">
-              <Sparkles size={12} /> สรุปก่อนตรวจ (AI)
-            </p>
-            <button type="button" onClick={() => setBriefOpen(false)} className={`rounded text-xs text-bbh-muted transition-colors duration-200 hover:text-bbh-ink ${FOCUS_RING}`}>ซ่อน</button>
-          </div>
-          {briefM.isPending ? (
-            <p className="inline-flex items-center gap-2 text-sm text-bbh-muted"><Loader2 size={14} className="animate-spin" /> กำลังสรุป...</p>
-          ) : briefM.error ? (
-            <p className="text-sm text-red-700">โหลด AI brief ไม่สำเร็จ</p>
-          ) : briefM.data ? (
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-bbh-ink">{briefM.data.summary}</pre>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -209,29 +341,41 @@ export function Schedule() {
   const q = useMySchedule({ dateFrom, dateTo })
   const data = q.data
 
-  // Group appointments by date
+  const sortedAppointments = useMemo(
+    () => [...(data?.appointments ?? [])].sort((a, b) => appointmentSortValue(a).localeCompare(appointmentSortValue(b))),
+    [data?.appointments],
+  )
+  const todayAppointments = useMemo(
+    () => sortedAppointments.filter((apt) => apt.requested_date === todayIso()),
+    [sortedAppointments],
+  )
+  const nextAppointment = useMemo(() => {
+    const now = new Date()
+    return todayAppointments.find((apt) => {
+      if (!apt.requested_time) return true
+      return new Date(`${apt.requested_date}T${apt.requested_time}`).getTime() >= now.getTime() - 45 * 60000
+    }) ?? todayAppointments[0] ?? sortedAppointments[0] ?? null
+  }, [sortedAppointments, todayAppointments])
+
   const apptsByDate = useMemo(() => {
     const map = new Map<string, ScheduleAppointment[]>()
-    for (const apt of data?.appointments ?? []) {
+    for (const apt of sortedAppointments) {
       const k = apt.requested_date
       if (!map.has(k)) map.set(k, [])
       map.get(k)!.push(apt)
     }
     return Array.from(map.entries())
-  }, [data])
+  }, [sortedAppointments])
 
   return (
     <div className="flex h-full min-w-0 overflow-hidden bg-white">
       <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
-        {/* Masthead — instrument label + serif heading, controls on the right */}
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">My Workspace</p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">ตารางงาน</h1>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Doctor Today</p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">สรุปงานแพทย์วันนี้</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              นัดหมายและรายงานที่ได้รับมอบหมายให้กับท่าน — เริ่ม{' '}
-              <span className="font-mono tabular-nums">{formatThaiDate(dateFrom)}</span> ถึง{' '}
-              <span className="font-mono tabular-nums">{formatThaiDate(dateTo)}</span>
+              นัดหมาย คนไข้ถัดไป report ที่ต้องดู และสัญญาณสำคัญสำหรับการตรวจวันนี้
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -262,36 +406,34 @@ export function Schedule() {
         </div>
 
         {q.isLoading ? (
-          <div className="animate-rise flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted" style={{ animationDelay: '70ms' }}>
-            <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลดตารางงาน
+          <div className="animate-rise flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
+            <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลดงานวันนี้
           </div>
         ) : q.isError ? (
-          <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700" style={{ animationDelay: '70ms' }}>
-            โหลดข้อมูลไม่สำเร็จ
-          </div>
+          <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">โหลดข้อมูลไม่สำเร็จ</div>
         ) : data ? (
-          <div className="space-y-10">
-            {/* Stat cluster — one hairline-ruled panel (gap-px reveals bbh-line as
-                rules) instead of floating cards */}
-            <div className="animate-rise grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-3" style={{ animationDelay: '70ms' }}>
-              <StatCard label="วันนี้" value={data.stats.today_appointments} icon={CalendarIcon} tone="green" />
-              <StatCard label={`ใน ${windowDays} วัน`} value={data.stats.window_appointments} icon={Stethoscope} tone="green" />
-              <StatCard
-                label="Report รอตัดสิน"
-                value={data.stats.pending_reports}
-                icon={ClipboardList}
-                tone={data.stats.pending_reports > 0 ? 'amber' : 'green'}
-              />
+          <div className="space-y-8">
+            <div className="animate-rise grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-2 xl:grid-cols-4" style={{ animationDelay: '50ms' }}>
+              <MetricCell label="นัดวันนี้" value={data.stats.today_appointments} icon={CalendarIcon} />
+              <MetricCell label="คนไข้ถัดไป" value={nextAppointment ? formatTime(nextAppointment.requested_time) : '-'} icon={Stethoscope} tone="ink" />
+              <MetricCell label="Report รอดู" value={data.stats.pending_reports} icon={ClipboardList} tone={data.stats.pending_reports > 0 ? 'amber' : 'green'} />
+              <MetricCell label={`ใน ${windowDays} วัน`} value={data.stats.window_appointments} icon={Clock} />
             </div>
 
-            {/* Schedule blocks (vacation) */}
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <NextPatientPanel apt={nextAppointment} pendingReports={data.pending_reports} />
+              <SignalRail todayAppointments={todayAppointments} pendingReports={data.pending_reports} />
+            </div>
+
             <div className="animate-rise" style={{ animationDelay: '140ms' }}>
               <ScheduleBlocksSection />
             </div>
 
-            {/* Appointments grouped by date */}
             <section className="animate-rise" style={{ animationDelay: '210ms' }}>
-              <h2 className="mb-4 font-serif text-lg font-semibold text-bbh-ink md:text-xl">นัดหมาย</h2>
+              <div className="mb-4 flex items-baseline justify-between gap-2">
+                <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">Timeline นัดหมาย</h2>
+                <span className="font-mono text-xs tabular-nums text-bbh-muted">{data.appointments.length} รายการ</span>
+              </div>
               {data.appointments.length === 0 ? (
                 <div className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white p-6 text-sm text-bbh-muted">
                   <CheckCircle2 size={16} className="text-bbh-green" />
@@ -305,7 +447,7 @@ export function Schedule() {
                         {formatThaiDate(date_)}
                         {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· วันนี้</span> : null}
                       </p>
-                      <div className="grid gap-6 md:grid-cols-2">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} />)}
                       </div>
                     </div>
@@ -314,10 +456,9 @@ export function Schedule() {
               )}
             </section>
 
-            {/* Pending reports */}
             <section className="animate-rise" style={{ animationDelay: '280ms' }}>
               <div className="mb-4 flex items-baseline justify-between gap-2">
-                <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">Report ที่ต้องดู</h2>
+                <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">Review queue</h2>
                 <span className="font-mono text-xs tabular-nums text-bbh-muted">{data.pending_reports.length} รายการ</span>
               </div>
               {data.pending_reports.length === 0 ? (
@@ -340,10 +481,9 @@ export function Schedule() {
               )}
             </section>
 
-            {/* footer hint */}
             <p className="flex items-center gap-2 text-xs text-bbh-muted">
               <FileText size={12} />
-              คลิก report เพื่อไปยังหน้าคนไข้และตัดสินใจ (รับ / ปฏิเสธ / review)
+              หน้าแรกนี้จัดลำดับจากงานที่หมอต้องทำวันนี้ก่อน: คนไข้ถัดไป → safety signals → timeline → review queue
             </p>
           </div>
         ) : null}

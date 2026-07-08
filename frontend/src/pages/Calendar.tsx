@@ -1,6 +1,7 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { CalendarClock, CalendarDays, CalendarOff, CheckCircle2, ChevronLeft, ChevronRight, Clock, Stethoscope, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { RescheduleModal } from '../components/bookings/RescheduleModal'
@@ -10,6 +11,8 @@ import { useAllBookings } from '../hooks/useAllBookings'
 import { useBooking } from '../hooks/useBooking'
 import { useCancelBooking } from '../hooks/useCancelBooking'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
+import { useDoctors } from '../hooks/useDoctors'
+import { useScheduleBlocks, type ScheduleBlock } from '../hooks/useScheduleBlocks'
 import type { CalendarEvent } from '../hooks/useCalendarEvents'
 import { useRescheduledMarks } from '../hooks/useRescheduledMarks'
 import { useToast } from '../hooks/useToast'
@@ -93,6 +96,37 @@ function eventTimeLabel(event: CalendarEvent): string {
   return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
 }
 
+function blockOverlapsDay(block: ScheduleBlock, dateKey: string): boolean {
+  const start = new Date(block.start_at)
+  const end = new Date(block.end_at)
+  const dayStart = new Date(`${dateKey}T00:00:00`)
+  const dayEnd = new Date(`${dateKey}T23:59:59`)
+  return start <= dayEnd && end >= dayStart
+}
+
+function blockTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    vacation: 'ลา',
+    off_hours: 'ไม่อยู่',
+    conference: 'ประชุม',
+    sick: 'ป่วย',
+    other: 'ไม่ว่าง',
+  }
+  return labels[type] ?? type
+}
+
+function formatBlockRange(block: ScheduleBlock): string {
+  const start = new Date(block.start_at)
+  const end = new Date(block.end_at)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-'
+  const sameDay = start.toDateString() === end.toDateString()
+  const startDate = start.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+  const endDate = end.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+  const startTime = start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  const endTime = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  return sameDay ? `${startDate} ${startTime}-${endTime}` : `${startDate} ${startTime} - ${endDate} ${endTime}`
+}
+
 function parseBbhCalendarEvent(event: CalendarEvent) {
   const summaryName = event.summary
     .replace(/^BBH\s*[—-]\s*/i, '')
@@ -123,6 +157,25 @@ function formatThaiDate(dateKey: string): string {
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
+// Month-summary readout — a cell in the hairline metric cluster at the top of
+// the page. Numbers read as instrument values in mono/tabular. Green stays
+// reserved for confirmed load; other tones carry status semantics only.
+function SummaryCell({ label, value, icon: Icon, tone }: {
+  label: string; value: number; icon: LucideIcon; tone: 'ink' | 'green' | 'amber' | 'sky'
+}) {
+  const iconClass =
+    tone === 'green' ? 'text-bbh-green' : tone === 'amber' ? 'text-amber-500' : tone === 'sky' ? 'text-sky-500' : 'text-bbh-ink'
+  return (
+    <div className="flex flex-col gap-3 bg-white p-4 md:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</span>
+        <Icon size={14} className={iconClass} />
+      </div>
+      <span className="font-mono text-2xl font-semibold leading-none tracking-tight tabular-nums text-bbh-ink md:text-3xl">{value}</span>
+    </div>
+  )
+}
+
 function mapByDate<T>(items: T[], getDate: (item: T) => string | null): Record<string, T[]> {
   const map: Record<string, T[]> = {}
   for (const item of items) {
@@ -150,6 +203,7 @@ export function Calendar() {
     uid: string; currentText: string | null
   } | null>(null)
   const [approveTargetUid, setApproveTargetUid] = useState<string | null>(null)
+  const [selectedDoctorId, setSelectedDoctorId] = useState<number | ''>('')
 
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
@@ -163,6 +217,12 @@ export function Calendar() {
   const rejectedQ = useAllBookings('rejected')
   const googleQ = useCalendarEvents(rangeStart, rangeEnd)
   const monthKey = (d: Date) => toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
+  const doctorsQ = useDoctors()
+  const blocksQ = useScheduleBlocks({
+    doctorId: selectedDoctorId === '' ? undefined : selectedDoctorId,
+    dateFrom: monthKey(new Date(year, month, 1)),
+    dateTo: monthKey(new Date(year, month + 1, 1)),
+  })
   const rescheduledQ = useRescheduledMarks(
     monthKey(new Date(year, month, 1)),
     monthKey(new Date(year, month, daysInMonthFor(year, month))),
@@ -188,15 +248,31 @@ export function Calendar() {
     [rescheduledQ.data],
   )
 
+  const blocksByDate = useMemo(() => {
+    const map: Record<string, ScheduleBlock[]> = {}
+    for (let d = 1; d <= daysInMonthFor(year, month); d++) {
+      const dk = toDateKey(year, month, d)
+      const dayBlocks = (blocksQ.data?.data ?? []).filter((block) => blockOverlapsDay(block, dk))
+      if (dayBlocks.length > 0) map[dk] = dayBlocks
+    }
+    return map
+  }, [blocksQ.data, month, year])
+
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfWeek = monthStart.getDay()
+  const leadingBlanks = firstDayOfWeek
+  // Pad the tail so the grid always fills complete week rows (multiple of 7);
+  // otherwise the cluster's bg-bbh-line shows through the missing trailing cells.
+  const trailingBlanks = (7 - ((leadingBlanks + daysInMonth) % 7)) % 7
   const cells: (number | null)[] = [
-    ...Array(firstDayOfWeek).fill(null),
+    ...Array(leadingBlanks).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    ...Array(trailingBlanks).fill(null),
   ]
 
   const rawSelected = selectedDate ? bookingsByDate[selectedDate] ?? [] : []
   const selectedGoogle = selectedDate ? googleByDate[selectedDate] ?? [] : []
+  const selectedBlocks = selectedDate ? blocksByDate[selectedDate] ?? [] : []
   const tbdMarksSelected = useMemo(
     () => selectedDate
       ? (rescheduledByDate[selectedDate] ?? []).filter((m) => m.is_tbd)
@@ -222,13 +298,25 @@ export function Calendar() {
     pendingQ.isLoading ||
     cancelledQ.isLoading ||
     rejectedQ.isLoading ||
-    googleQ.isLoading
-  const totalCount =
-    approvedQ.total +
-    pendingQ.total +
-    cancelledQ.total +
-    rejectedQ.total +
-    (googleQ.data?.data.length ?? 0)
+    googleQ.isLoading ||
+    blocksQ.isLoading
+
+  // Month-scoped rollup (only days shown in this month) — feeds the summary
+  // strip and each day cell's density readout so both tell the same story.
+  const monthSummary = useMemo(() => {
+    let approved = 0, pending = 0, cancelled = 0, rescheduled = 0, google = 0, unavailable = 0
+    for (let d = 1; d <= daysInMonthFor(year, month); d++) {
+      const dk = toDateKey(year, month, d)
+      const items = bookingsByDate[dk] ?? []
+      approved += items.filter((b) => b.status === 'approved').length
+      pending += items.filter((b) => b.status === 'pending_approval').length
+      cancelled += items.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
+      rescheduled += (rescheduledByDate[dk] ?? []).length
+      google += (googleByDate[dk] ?? []).length
+      unavailable += (blocksByDate[dk] ?? []).length
+    }
+    return { approved, pending, cancelled, rescheduled, google, unavailable, total: approved + pending + cancelled + rescheduled + google }
+  }, [year, month, bookingsByDate, rescheduledByDate, googleByDate, blocksByDate])
 
   function prevMonth() {
     setMonthStart(new Date(year, month - 1, 1))
@@ -263,37 +351,64 @@ export function Calendar() {
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
             CRO Calendar
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={prevMonth}
-              className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-              aria-label="เดือนก่อนหน้า"
+        </div>
+
+        {/* Month-summary strip — instrument metric cluster (hairline gap-px) so the
+            page opens with a confident readout of the month's load, not empty space */}
+        <div className="animate-rise mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-5" style={{ animationDelay: '40ms' }}>
+          <SummaryCell label="นัดเดือนนี้" value={monthSummary.total} icon={CalendarDays} tone="ink" />
+          <SummaryCell label="ยืนยันแล้ว" value={monthSummary.approved} icon={CheckCircle2} tone="green" />
+          <SummaryCell label="รอยืนยัน" value={monthSummary.pending} icon={Clock} tone="amber" />
+          <SummaryCell label="ในปฏิทิน" value={monthSummary.google} icon={CalendarClock} tone="sky" />
+          <SummaryCell label="แพทย์ไม่อยู่" value={monthSummary.unavailable} icon={CalendarOff} tone="amber" />
+        </div>
+
+        {/* Month navigation — kept right above the grid so changing month
+            does not require scrolling up and back to see the result */}
+        <div className="animate-rise mb-4 flex flex-wrap items-center gap-2" style={{ animationDelay: '55ms' }}>
+          <button
+            type="button"
+            onClick={prevMonth}
+            className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            aria-label="เดือนก่อนหน้า"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <h1 className="min-w-[180px] flex-1 text-center font-serif text-2xl font-semibold text-bbh-ink sm:flex-none md:text-3xl">
+            {THAI_MONTHS[month]} <span className="font-mono tabular-nums">{year}</span>
+          </h1>
+          <button
+            type="button"
+            onClick={nextMonth}
+            className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            aria-label="เดือนถัดไป"
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={goToday}
+            className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+          >
+            วันนี้
+          </button>
+          <label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink">
+            <Stethoscope size={15} className="text-bbh-muted" />
+            <select
+              value={selectedDoctorId}
+              onChange={(event) => setSelectedDoctorId(event.target.value === '' ? '' : Number(event.target.value))}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              aria-label="กรองเวลาที่แพทย์ไม่อยู่"
             >
-              <ChevronLeft size={18} />
-            </button>
-            <h1 className="min-w-[180px] flex-1 text-center font-serif text-2xl font-semibold text-bbh-ink sm:flex-none md:text-3xl">
-              {THAI_MONTHS[month]} <span className="font-mono tabular-nums">{year}</span>
-            </h1>
-            <button
-              type="button"
-              onClick={nextMonth}
-              className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-              aria-label="เดือนถัดไป"
-            >
-              <ChevronRight size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={goToday}
-              className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-            >
-              วันนี้
-            </button>
-            <span className="ml-0 w-full font-mono text-xs tabular-nums text-bbh-muted sm:ml-auto sm:w-auto">
-              {isLoading ? <span className="animate-pulse">กำลังโหลด…</span> : `${totalCount} นัดทั้งหมด`}
-            </span>
-          </div>
+              <option value="">แพทย์ทุกคน</option>
+              {(doctorsQ.data?.data ?? []).map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>{doctor.display_name}</option>
+              ))}
+            </select>
+          </label>
+          <span className="ml-0 w-full font-mono text-xs tabular-nums text-bbh-muted sm:ml-auto sm:w-auto">
+            {isLoading ? <span className="animate-pulse">กำลังโหลด…</span> : null}
+          </span>
         </div>
 
         <div className="animate-rise overflow-x-auto pb-2" style={{ animationDelay: '70ms' }}>
@@ -319,6 +434,7 @@ export function Calendar() {
                 const items = bookingsByDate[dk] ?? []
                 const googleItems = googleByDate[dk] ?? []
                 const rescheduledItems = rescheduledByDate[dk] ?? []
+                const blockCnt = (blocksByDate[dk] ?? []).length
                 const approvedCnt = items.filter((b) => b.status === 'approved').length
                 const pendingCnt = items.filter((b) => b.status === 'pending_approval').length
                 const cancelledCnt = items.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
@@ -343,6 +459,7 @@ export function Calendar() {
                       {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> ยืนยัน</span>}
                       {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> รอ</span>}
                       {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{rescheduledCnt}</span> เลื่อนนัด</span>}
+                      {blockCnt > 0 && <span className="truncate rounded bg-zinc-200 px-1 text-[10px] font-medium leading-tight text-zinc-700"><span className="font-mono tabular-nums">{blockCnt}</span> หมอไม่อยู่</span>}
                       {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500"><span className="font-mono tabular-nums">{cancelledCnt}</span> ยกเลิก</span>}
                       {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700"><span className="font-mono tabular-nums">{googleItems.length}</span> นัด</span>}
                     </div>
@@ -357,9 +474,10 @@ export function Calendar() {
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />ยืนยันแล้ว</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />รอยืนยัน</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-slate-300 bg-slate-200" />เลื่อนนัด (รอเวลาใหม่)</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-zinc-300 bg-zinc-200" />แพทย์ไม่อยู่</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-gray-200 bg-gray-100" />ยกเลิก / ปฏิเสธ</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-sky-200 bg-sky-50" />นัดในปฏิทิน</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border-2 border-bbh-green/50 bg-white" />วันนี้</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-[3px] rounded-full bg-bbh-green" />วันนี้</span>
         </div>
       </section>
 
@@ -430,12 +548,25 @@ export function Calendar() {
               <div className="space-y-3">
                 {[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-bbh-surface" />)}
               </div>
-            ) : filteredSelected.length === 0 && selectedGoogle.length === 0 && tbdBookings.length === 0 ? (
+            ) : filteredSelected.length === 0 && selectedGoogle.length === 0 && tbdBookings.length === 0 && selectedBlocks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-bbh-line bg-white p-10 text-center">
                 <p className="text-sm text-bbh-muted">ยังไม่มีนัดหมายในวันนี้</p>
               </div>
             ) : (
               <div className="space-y-3">
+                {selectedBlocks.map((block) => (
+                  <div key={`block-${block.id}`} className="rounded-xl border border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-700">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-bbh-ink">{block.doctor_name ?? `แพทย์ #${block.doctor_id}`}</p>
+                        <p className="mt-1 font-mono text-xs tabular-nums text-zinc-600">{formatBlockRange(block)}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-700">{blockTypeLabel(block.block_type)}</span>
+                    </div>
+                    {block.reason ? <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{block.reason}</p> : null}
+                    <p className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">แพทย์ระบุว่า: <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type)}</span></p>
+                  </div>
+                ))}
                 {tbdBookings.map((b) => (
                   <div key={`tbd-${b.request_uid}`} className="group rounded-xl border border-slate-300 bg-slate-50 p-4 transition-colors duration-200 hover:border-slate-400 hover:bg-slate-100/70">
                     <div className="flex items-start justify-between gap-2">

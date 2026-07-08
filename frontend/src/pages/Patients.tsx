@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { CalendarClock, ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { API_BASE } from '../lib/apiBase'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
@@ -160,6 +160,21 @@ export function Patients() {
     () => matchingBookings(allBookings, selectedPatient),
     [allBookings, selectedPatient]
   )
+  // Appointment text per patient for the list rows — from APPROVED bookings only
+  // (confirmed). BookingListItem has no structured date, just requested_datetime_text
+  // (e.g. "12/7 14:00"), so we show that verbatim, picking the latest-created one.
+  const apptByPatient = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const p of patients) {
+      const matches = matchingBookings(approvedQ.data, p).filter((b) => b.requested_datetime_text)
+      if (!matches.length) continue
+      const chosen = matches
+        .slice()
+        .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))[0]
+      map.set(p.id, chosen.requested_datetime_text as string)
+    }
+    return map
+  }, [patients, approvedQ.data])
 
   useEffect(() => {
     // Wait until the patient list query has resolved so we don't clobber
@@ -307,6 +322,11 @@ export function Patients() {
                         <p className="mt-0.5 truncate text-xs text-bbh-muted">
                           {patient.hn ?? 'ยังไม่มี HN'} · {patient.phone ?? 'ไม่มีเบอร์'}
                         </p>
+                        {apptByPatient.get(patient.id) ? (
+                          <p className="mt-1 flex items-center gap-1 truncate text-xs font-medium text-bbh-green-dark">
+                            <CalendarClock size={12} className="shrink-0" /> นัด {apptByPatient.get(patient.id)}
+                          </p>
+                        ) : null}
                       </div>
                       <span className="shrink-0 rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">
                         {patient.total_reports} reports

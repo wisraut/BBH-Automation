@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "gen-types": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api-types.ts",

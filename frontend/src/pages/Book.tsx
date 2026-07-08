@@ -3,9 +3,8 @@
 // (POST as doctor → status='pending_approval', created_by_role='doctor') needs a
 // doctor booking endpoint that does not exist yet, so "ยืนยันลงนัด" shows the
 // "ส่งให้ CRO แล้ว" confirmation locally without persisting.
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
-  CalendarPlus,
   Check,
   ChevronRight,
   Loader2,

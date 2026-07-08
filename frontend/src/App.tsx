@@ -21,6 +21,8 @@ import { Biomarker } from './pages/Biomarker'
 import { Book } from './pages/Book'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
+import { Documents } from './pages/Documents'
+import { LabResults } from './pages/LabResults'
 import { Patients } from './pages/Patients'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
@@ -49,6 +51,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/book': { title: 'ลงนัดเอง', subtitle: 'ลงนัด → ส่งเข้าคิว CRO ยืนยัน' },
   '/availability': { title: 'ตารางว่างของฉัน', subtitle: 'กำหนดเวลาว่างให้ระบบเสนอเวลาจอง' },
   '/biomarker': { title: 'Biomarker', subtitle: 'แนวโน้มค่าตรวจเทียบ optimal range' },
+  '/documents': { title: 'กล่องเอกสาร', subtitle: 'เอกสารที่ CRO อัปโหลดและมอบหมายให้คุณ' },
+  '/lab-results': { title: 'ผลแล็บ (ละเอียด)', subtitle: 'ค่าตรวจแตกรายตัว · ค่าอ้างอิง · สถานะ' },
   '/patients': { title: 'คนไข้' },
   '/reports': { title: 'ผลแล็บ' },
   '/ai': { title: 'AI Assistant' },
@@ -167,6 +171,8 @@ function AppRoutes() {
             <Route path="book" element={<Book />} />
             <Route path="availability" element={<Availability />} />
             <Route path="biomarker" element={<Biomarker />} />
+            <Route path="documents" element={<Documents />} />
+            <Route path="lab-results" element={<LabResults />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />

@@ -4,10 +4,9 @@ import {
   ArrowLeft,
   BellRing,
   Bot,
-  Calendar,
-  CalendarPlus,
   FlaskConical,
   History,
+  Inbox,
   CalendarClock,
   CalendarDays,
   ClipboardList,
@@ -41,6 +40,7 @@ interface NavItem {
   label: string
   icon: LucideIcon
   roles: Role[]
+  soon?: boolean // parked: visible on the roadmap but not wired to real data yet
 }
 
 // Admin sidebar shows only admin-scoped items. To enter another role's workspace
@@ -68,11 +68,10 @@ const NAV: NavItem[] = [
 const DOCTOR_NAV: NavItem[] = [
   { to: '/today', label: 'วันนี้', icon: LayoutDashboard, roles: ['doctor'] },
   { to: '/patients', label: 'คนไข้ของฉัน', icon: Users, roles: ['doctor'] },
-  { to: '/schedule', label: 'ตารางนัด', icon: Calendar, roles: ['doctor'] },
-  { to: '/book', label: 'ลงนัดเอง', icon: CalendarPlus, roles: ['doctor'] },
-  { to: '/availability', label: 'ตารางว่าง', icon: CalendarClock, roles: ['doctor'] },
-  { to: '/reports', label: 'ผลแล็บ', icon: FlaskConical, roles: ['doctor'] },
-  { to: '/biomarker', label: 'Biomarker', icon: Activity, roles: ['doctor'] },
+  { to: '/documents', label: 'กล่องเอกสาร', icon: Inbox, roles: ['doctor'] },
+  { to: '/lab-results', label: 'ผลแล็บ', icon: FlaskConical, roles: ['doctor'] },
+  { to: '/availability', label: 'ตารางว่าง', icon: CalendarClock, roles: ['doctor'], soon: true },
+  { to: '/biomarker', label: 'Biomarker', icon: Activity, roles: ['doctor'], soon: true },
   { to: '/ai', label: 'AI ผู้ช่วย', icon: Bot, roles: ['doctor'] },
   { to: '/account', label: 'บัญชี', icon: UserCog, roles: ['doctor'] },
 ]
@@ -179,21 +178,34 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
                 key={item.to}
                 to={withViewAs(item.to)}
                 onClick={onClose}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? `${item.label}${item.soon ? ' (เร็วๆนี้)' : ''}` : undefined}
                 className={({ isActive }) =>
                   `mb-1 flex items-center rounded-xl text-sm font-semibold transition ${
                     collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
                   } ${
                     isActive
                       ? 'bg-bbh-green text-white shadow-md shadow-bbh-green/20'
-                      : 'text-bbh-muted hover:bg-bbh-green-soft hover:text-bbh-green-dark'
+                      : `hover:bg-bbh-green-soft hover:text-bbh-green-dark ${item.soon ? 'text-bbh-muted/70' : 'text-bbh-muted'}`
                   }`
                 }
               >
-                <Icon size={18} className="shrink-0" />
-                <span className={collapsed ? 'sr-only lg:hidden' : 'truncate'}>
-                  {item.label}
-                </span>
+                {({ isActive }) => (
+                  <>
+                    <Icon size={18} className="shrink-0" />
+                    <span className={collapsed ? 'sr-only lg:hidden' : 'truncate'}>
+                      {item.label}
+                    </span>
+                    {item.soon && !collapsed ? (
+                      <span
+                        className={`ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${
+                          isActive ? 'bg-white/25 text-white' : 'bg-bbh-surface text-bbh-muted'
+                        }`}
+                      >
+                        เร็วๆนี้
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </NavLink>
             )
           })}

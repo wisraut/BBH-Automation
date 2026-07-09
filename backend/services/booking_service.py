@@ -440,6 +440,12 @@ def reschedule_booking(
         new_start_at = new_start_at.astimezone(TZ_BANGKOK)
     duration_min = int(row.get("duration_min") or 30)
 
+    if new_start_at < datetime.now(TZ_BANGKOK) - timedelta(minutes=5):
+        raise HTTPException(
+            422,
+            {"code": "PAST_SLOT", "message": "ไม่สามารถเลื่อนนัดไปเวลาที่ผ่านมาแล้ว"},
+        )
+
     if not calendar_client.check_availability(new_start_at, duration_min):
         raise HTTPException(
             409,

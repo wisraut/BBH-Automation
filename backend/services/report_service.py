@@ -140,7 +140,15 @@ def set_notebooklm_url(report_id: int, url: str | None) -> dict[str, Any]:
             status_code=404,
             detail={"code": "REPORT_NOT_FOUND", "message": "ไม่พบ Report นี้"},
         )
-    report_repo.update_notebooklm_url(report_id, url.strip() if url else None)
+    clean = (url or "").strip()
+    if clean and not (clean.startswith("http://") or clean.startswith("https://")):
+        # Rendered as <a href> in the dashboard — reject javascript:/data: etc.
+        # so a pasted link can't become stored XSS.
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_URL", "message": "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://"},
+        )
+    report_repo.update_notebooklm_url(report_id, clean or None)
     return report_repo.get_by_id(report_id)
 
 

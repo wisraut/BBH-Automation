@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, CalendarDays, CalendarOff, CheckCircle2, ChevronLeft, ChevronRight, Clock, Stethoscope, X } from 'lucide-react'
+import { CalendarClock, CalendarDays, CalendarOff, CheckCircle2, ChevronLeft, ChevronRight, Clock, Stethoscope, Video, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
@@ -16,6 +16,7 @@ import { useScheduleBlocks, type ScheduleBlock } from '../hooks/useScheduleBlock
 import type { CalendarEvent } from '../hooks/useCalendarEvents'
 import { useRescheduledMarks } from '../hooks/useRescheduledMarks'
 import { useToast } from '../hooks/useToast'
+import { useSetVideoLink } from '../hooks/useSetVideoLink'
 import type { components } from '../lib/api-types'
 
 type BookingItem = components['schemas']['BookingListItem']
@@ -59,6 +60,36 @@ function toDateKey(year: number, month: number, day: number): string {
 
 function daysInMonthFor(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate()
+}
+
+// CRO-editable online-meeting link on an approved booking. Saving writes it to
+// the Google Calendar event (backend PATCH); the doctor schedule reads it back.
+function VideoLinkEditor({ uid, current }: { uid: string; current: string | null }) {
+  const [value, setValue] = useState(current ?? '')
+  const setLink = useSetVideoLink()
+  const changed = value.trim() !== (current ?? '')
+  return (
+    <div className="mt-3 border-t border-sky-100 pt-3">
+      <label className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">ลิงก์ประชุมออนไลน์</label>
+      <div className="mt-1.5 flex gap-1.5">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="วางลิงก์ Meet / Zoom / ..."
+          className={`min-w-0 flex-1 rounded-lg border border-bbh-line bg-white px-2 py-1.5 text-xs text-bbh-ink focus:border-bbh-green focus:outline-none ${FOCUS_RING}`}
+        />
+        <button
+          type="button"
+          disabled={setLink.isPending || !changed}
+          onClick={() => setLink.mutate({ uid, videoLink: value.trim() || null })}
+          className={`shrink-0 rounded-lg bg-bbh-green px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-50 ${FOCUS_RING}`}
+        >
+          บันทึก
+        </button>
+      </div>
+      {setLink.isError ? <p className="mt-1 text-[11px] text-red-600">บันทึกไม่สำเร็จ — ลิงก์ต้องขึ้นต้น http:// หรือ https://</p> : null}
+    </div>
+  )
 }
 
 function parseBookingDate(text: string | null | undefined): string | null {
@@ -654,6 +685,17 @@ export function Calendar() {
                         {info.symptom ? <p><span className="font-semibold text-bbh-ink">อาการ:</span> {info.symptom}</p> : null}
                         {info.requestUid ? <p className="truncate font-mono text-[11px] text-bbh-muted/80">รหัสคำขอ: {info.requestUid}</p> : null}
                       </div>
+                      {event.video_link ? (
+                        <a
+                          href={event.video_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-bbh-green px-3 py-2 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
+                        >
+                          <Video size={13} /> เข้าร่วมออนไลน์
+                        </a>
+                      ) : null}
+                      {info.requestUid ? <VideoLinkEditor uid={info.requestUid} current={event.video_link} /> : null}
                       <div className="grid grid-cols-2 gap-2 overflow-hidden transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:mt-3 lg:group-hover:max-h-16 lg:group-hover:opacity-100 lg:group-focus-within:mt-3 lg:group-focus-within:max-h-16 lg:group-focus-within:opacity-100">
                         <a
                           href={event.html_link ?? undefined}

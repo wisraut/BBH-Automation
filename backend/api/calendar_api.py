@@ -23,6 +23,8 @@ class CalendarEventOut(BaseModel):
     start: str
     end: str
     all_day: bool
+    location: str | None = None
+    video_link: str | None = None
 
 
 class CalendarEventsResponse(BaseModel):

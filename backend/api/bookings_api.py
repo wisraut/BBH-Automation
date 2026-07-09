@@ -2,6 +2,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from core.security import require_user
 from schemas.bookings import (
@@ -41,12 +42,36 @@ def list_rescheduled(
 @router.get("", response_model=BookingListResponse)
 def list_bookings(
     user: _CroOrAdmin,
-    status: str | None = Query(default=None, pattern="^(draft|pending_approval|approved|rejected|cancelled|expired)$"),
+    status: str | None = Query(default=None, pattern="^(draft|pending_approval|approved|rejected|cancelled|expired|no_show)$"),
+    group: str | None = Query(default=None, pattern="^(active|history)$"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict:
-    """List bookings with optional status filter + pagination."""
-    return booking_service.list_bookings(status=status, page=page, limit=limit)
+    """List bookings with pagination.
+
+    Filter by exact ``status`` (wins if given) or by lifecycle ``group``
+    (``active`` = pending_approval/approved, ``history`` = rejected/cancelled/
+    expired/no_show). Defaults to ``active`` when neither is provided.
+    """
+    if status is None and group is None:
+        group = "active"
+    return booking_service.list_bookings(
+        status=status, group=group, page=page, limit=limit,
+    )
+
+
+class SetVideoLinkRequest(BaseModel):
+    video_link: str | None = None
+
+
+@router.patch("/{request_uid}/video-link", response_model=SimpleOkResponse)
+def set_video_link(request_uid: str, body: SetVideoLinkRequest, user: _CroOrAdmin) -> dict:
+    """Set (or clear) the online-meeting link on an approved booking. Written to
+    the booking's Google Calendar event, so the doctor sees a join button and
+    Google Calendar reminds at the appointment time."""
+    return booking_service.set_video_link(
+        uid=request_uid, video_link=body.video_link, user=user,
+    )
 
 
 @router.post("", response_model=BookingCreateResponse)
@@ -73,6 +98,8 @@ def approve_booking(request_uid: str, body: ApproveRequest, user: _CroOrAdmin) -
         duration_min=body.duration_min,
         user=user,
         assigned_doctor_id=body.assigned_doctor_id,
+        link_patient_id=body.link_patient_id,
+        create_new_patient=body.create_new_patient,
     )
     return {"ok": True, **result}
 

@@ -3,6 +3,7 @@ from datetime import date as _date
 from typing import Any
 
 from core.mysql import mysql_db
+from utils.phone import normalize_phone
 
 
 _BASE_COLUMNS = (
@@ -20,9 +21,12 @@ def _serialize(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def list_patients(
-    *, search: str | None, page: int, limit: int
+    *, search: str | None, page: int, limit: int, panel_doctor_id: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """List with optional fuzzy search (name/hn/phone) + booking/report counts."""
+    """List with optional fuzzy search (name/hn/phone) + booking/report counts.
+
+    ``panel_doctor_id`` restricts to that doctor's active care-team panel
+    ("my patients")."""
     offset = (page - 1) * limit
     conds = ["p.deleted_at IS NULL"]
     args: tuple[Any, ...] = ()
@@ -30,6 +34,12 @@ def list_patients(
         like = f"%{search.strip()}%"
         conds.append("(p.display_name LIKE %s OR p.hn LIKE %s OR p.phone LIKE %s)")
         args = (like, like, like)
+    if panel_doctor_id is not None:
+        conds.append(
+            "EXISTS (SELECT 1 FROM patient_doctors pd "
+            "WHERE pd.patient_id = p.id AND pd.doctor_id = %s AND pd.is_active = 1)"
+        )
+        args = (*args, panel_doctor_id)
     where_sql = "WHERE " + " AND ".join(conds)
 
     with mysql_db() as conn:
@@ -75,6 +85,29 @@ def get_by_id(patient_id: int, *, include_deleted: bool = False) -> dict[str, An
             return _serialize(cur.fetchone())
 
 
+def find_candidates_by_phone(phone_normalized: str, *, limit: int = 5) -> list[dict[str, Any]]:
+    """Existing (non-deleted) patients whose normalized phone matches. Used at
+    approve time to let the CRO confirm identity instead of auto-merging on a
+    weak identifier. Ordered oldest-first (most-established record on top)."""
+    if not phone_normalized:
+        return []
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.hn, p.display_name, p.phone, p.dob,
+                    (SELECT MAX(b.approved_at) FROM booking_requests b
+                       WHERE b.patient_id = p.id AND b.status = 'approved') AS latest_visit_at
+                FROM patients p
+                WHERE p.phone_normalized = %s AND p.deleted_at IS NULL
+                ORDER BY p.id ASC
+                LIMIT %s
+                """,
+                (phone_normalized, limit),
+            )
+            return [_serialize(r) for r in cur.fetchall()]
+
+
 def get_by_hn(hn: str) -> dict[str, Any] | None:
     with mysql_db() as conn:
         with conn.cursor() as cur:
@@ -101,11 +134,12 @@ def create(
             cur.execute(
                 """
                 INSERT INTO patients
-                    (hn, display_name, phone, email, dob, gender, notes, created_by)
+                    (hn, display_name, phone, phone_normalized, email, dob, gender, notes, created_by)
                 VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (hn, display_name, phone, email, dob, gender, notes, created_by),
+                (hn, display_name, phone, normalize_phone(phone) or None,
+                 email, dob, gender, notes, created_by),
             )
             new_id = cur.lastrowid
         conn.commit()
@@ -115,6 +149,10 @@ def create(
 def update(*, patient_id: int, fields: dict[str, Any]) -> int:
     if not fields:
         return 0
+    # Keep phone_normalized in lockstep whenever the raw phone changes, so the
+    # matching index never goes stale against the displayed number.
+    if "phone" in fields:
+        fields = {**fields, "phone_normalized": normalize_phone(fields["phone"]) or None}
     cols = ", ".join(f"{k} = %s" for k in fields)
     values = tuple(fields.values()) + (patient_id,)
     with mysql_db() as conn:

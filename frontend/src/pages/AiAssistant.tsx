@@ -1,10 +1,15 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, Send, User, X } from 'lucide-react'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
 import { PatientPickerModal } from '../components/ai/PatientPickerModal'
 import { useAiChat } from '../hooks/useAiChat'
 import { useAuth } from '../lib/auth'
+
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
 const ROLE_CONTEXT: Record<string, { label: string; hint: string }> = {
   doctor: {
@@ -44,7 +49,7 @@ function TypingDots() {
 function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: string; ts: Date }) {
   const isUser = role === 'user'
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`animate-rise flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
         <div className="mr-2 mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-bbh-green-soft">
           <span className="font-serif text-sm font-semibold text-bbh-green-dark">B</span>
@@ -52,10 +57,10 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
       )}
       <div className={`max-w-[85%] md:max-w-[72%] ${isUser ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
         <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+          className={`px-4 py-3 text-sm leading-relaxed ${
             isUser
-              ? 'rounded-tr-sm bg-bbh-green text-white'
-              : 'rounded-tl-sm border border-bbh-line bg-white text-bbh-ink'
+              ? 'rounded-2xl rounded-tr-sm bg-bbh-green text-white'
+              : 'rounded-2xl rounded-tl-sm border border-bbh-line bg-white text-bbh-ink'
           }`}
         >
           {text.split('\n').map((line, i) => (
@@ -65,7 +70,7 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
             </span>
           ))}
         </div>
-        <p className="px-1 text-[11px] text-bbh-muted">
+        <p className="px-1 font-mono text-[11px] tabular-nums text-bbh-muted">
           {ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
@@ -119,9 +124,9 @@ export function AiAssistant() {
   }
 
   return (
-    <div className="relative flex h-full min-w-0 overflow-hidden">
-      {/* Desktop sessions panel — collapsible + resizable */}
-      <div className="hidden w-72 shrink-0 lg:block">
+    <div className="relative flex h-full min-w-0 overflow-hidden bg-white">
+      {/* Desktop sessions panel — flush to the chat column via its own border-r */}
+      <div className="hidden w-64 shrink-0 lg:block">
         <AiSessionsList
           sessions={sessions}
           currentId={currentId}
@@ -149,23 +154,25 @@ export function AiAssistant() {
 
       <div className="flex h-full min-w-0 flex-1 flex-col">
 
-      {/* Top bar */}
+      {/* Top bar — instrument masthead, flush to the topbar chrome via border-b */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bbh-line bg-white px-4 py-3 md:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={() => setSessionsOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-xs font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
           >
             <MessageSquare size={15} />
             ประวัติสนทนา
           </button>
-          <div className="hidden h-9 w-9 place-items-center rounded-xl bg-bbh-green-soft sm:grid">
+          <div className="hidden h-9 w-9 place-items-center rounded-lg bg-bbh-green-soft sm:grid">
             <span className="font-serif text-base font-semibold text-bbh-green-dark">AI</span>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
-            <p className="truncate text-xs text-bbh-muted">{ctx.label} · Dify + Gemini Flash</p>
+          <div className="min-w-0">
+            <p className="font-serif text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
+            <p className="truncate font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">
+              {ctx.label} · Dify + Gemini Flash
+            </p>
           </div>
         </div>
 
@@ -173,12 +180,13 @@ export function AiAssistant() {
           <div className="flex max-w-full items-center gap-2 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-3 py-1.5 text-xs font-semibold text-bbh-green-dark">
             <User size={14} />
             <span>
-              {pinned.hn ? `HN ${pinned.hn} · ` : ''}{pinned.display_name}
+              {pinned.hn ? <span className="font-mono tabular-nums">HN {pinned.hn}</span> : null}
+              {pinned.hn ? ' · ' : ''}{pinned.display_name}
             </span>
             <button
               type="button"
               onClick={() => currentId && patchById(currentId, () => ({ pinnedPatient: null }))}
-              className="ml-1 rounded-full p-0.5 transition hover:bg-white/60"
+              className={`ml-1 rounded-full p-0.5 transition hover:bg-white/60 ${FOCUS_RING}`}
               aria-label="ยกเลิก">
               <X size={12} />
             </button>
@@ -187,7 +195,7 @@ export function AiAssistant() {
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-1.5 text-xs font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
             <User size={14} />
             เลือกคนไข้
@@ -196,19 +204,19 @@ export function AiAssistant() {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-5">
+      <div className="flex-1 overflow-y-auto bg-white px-3 py-4 md:px-6 md:py-5">
         {messages.length === 0 ? (
           /* Welcome state */
           <div className="flex h-full flex-col items-center justify-center gap-6">
-            <div className="text-center">
+            <div className="animate-rise text-center">
               <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-bbh-green-soft">
                 <span className="font-serif text-3xl font-semibold text-bbh-green-dark">AI</span>
               </div>
               <p className="font-serif text-xl font-semibold text-bbh-ink">
                 BBH AI Assistant
               </p>
-              <p className="mt-1 text-sm text-bbh-muted">{ctx.hint}</p>
-              <p className="mt-4 text-xs text-bbh-muted">
+              <p className="mt-1 text-sm leading-relaxed text-bbh-muted">{ctx.hint}</p>
+              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">
                 พิมพ์คำถามด้านล่างเพื่อเริ่มสนทนา
               </p>
             </div>
@@ -231,7 +239,7 @@ export function AiAssistant() {
             )}
 
             {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -252,7 +260,7 @@ export function AiAssistant() {
             placeholder="พิมพ์คำถาม... (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)"
             rows={1}
             disabled={isLoading}
-            className="flex-1 resize-none rounded-2xl border border-bbh-line bg-bbh-surface px-4 py-3 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none disabled:opacity-50"
+            className="flex-1 resize-none rounded-lg border border-bbh-line bg-white px-4 py-3 text-sm text-bbh-ink transition-colors duration-200 placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30 disabled:opacity-50"
             style={{ maxHeight: '120px', overflowY: 'auto' }}
             onInput={(e) => {
               const el = e.currentTarget
@@ -264,7 +272,7 @@ export function AiAssistant() {
             type="button"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bbh-green text-white transition hover:bg-bbh-green-dark disabled:opacity-40"
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-bbh-green text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
             aria-label="ส่งข้อความ"
           >
             <Send size={18} />

@@ -6,7 +6,7 @@ from typing import Optional
 
 import pymysql
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.health import _require_internal_token
 from api.session import _db
@@ -17,13 +17,16 @@ router = APIRouter(prefix="/internal/booking")
 
 
 class BookingCreate(BaseModel):
-    user_id: str
-    name: str
-    phone: str
-    date: str
-    time: str
-    symptom: str
-    email: Optional[str] = None
+    # max_length mirrors the DB columns so an over-long value fails validation
+    # (422) instead of overflowing the INSERT (DataError 1406 -> 500). The
+    # name/phone come from patient free-text via LINE, so this is attacker-facing.
+    user_id: str = Field(max_length=191)
+    name: str = Field(max_length=191)
+    phone: str = Field(max_length=80)
+    date: str = Field(max_length=40)
+    time: str = Field(max_length=40)
+    symptom: str = Field(max_length=2000)
+    email: Optional[str] = Field(default=None, max_length=191)
     raw_summary: Optional[dict] = None
 
 

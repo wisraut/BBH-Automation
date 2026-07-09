@@ -18,6 +18,7 @@ import { AuditLog } from './pages/AuditLog'
 import { AiAssistant } from './pages/AiAssistant'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
+import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
@@ -40,7 +41,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
   },
   '/calendar': { title: 'ปฏิทิน' },
-  '/schedule': { title: 'ตารางงานแพทย์' },
+  '/schedule': { title: 'สรุปงานแพทย์' },
+  '/doctor-calendar': { title: 'ปฏิทินแพทย์', subtitle: 'นัดหมาย เวลาที่ไม่อยู่ และ availability ของแพทย์' },
   '/patients': { title: 'คนไข้' },
   '/reports': { title: 'รายงานแพทย์' },
   '/ai': { title: 'AI Assistant' },
@@ -92,6 +94,7 @@ const ROLE_OF_PATH: Record<string, Role> = {
   '/bookings': 'cro',
   '/calendar': 'cro',
   '/schedule': 'doctor',
+  '/doctor-calendar': 'doctor',
 }
 const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
 
@@ -118,7 +121,7 @@ function DashboardLayout() {
   const effectiveRole: Role = viewAs ?? user.role
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
+    <div className="flex h-screen overflow-hidden bg-white text-bbh-ink">
       <Sidebar
         role={effectiveRole}
         actualRole={user.role}
@@ -130,7 +133,11 @@ function DashboardLayout() {
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
-        <main className="flex-1 overflow-hidden p-4 md:p-7 lg:p-8">
+        {/* Open, edge-to-edge work surface for every route: pages are full-bleed
+            to the sidebar/topbar (which carry their own hairline borders), so no
+            page reads as a floating card on a gradient. Each page owns its own
+            internal scroll and hairline-ruled panels — see AdminDashboard. */}
+        <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>
@@ -152,6 +159,7 @@ function AppRoutes() {
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />
+            <Route path="doctor-calendar" element={<DoctorCalendar />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse', 'lab_staff']} />}>
             <Route path="reports" element={<Reports />} />

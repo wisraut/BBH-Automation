@@ -6,6 +6,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from core.mysql import mysql_db
+from utils.phone import normalize_phone
 
 
 _LIST_COLUMNS = (
@@ -24,12 +25,30 @@ _DETAIL_COLUMNS = (
 )
 
 
+# Lifecycle groups for the Bookings inbox tabs. "active" = still needs / has
+# CRO attention; "history" = terminal states kept for the record.
+ACTIVE_STATUSES = ("pending_approval", "approved")
+HISTORY_STATUSES = ("rejected", "cancelled", "expired", "no_show")
+
+
 def list_bookings(
-    *, status: str | None, page: int, limit: int
+    *, status: str | None, group: str | None = None, page: int, limit: int
 ) -> tuple[list[dict[str, Any]], int]:
+    """List bookings, filtered by exact ``status`` or by lifecycle ``group``.
+
+    An explicit ``status`` always wins. Otherwise ``group`` selects a status
+    set: 'active' (pending_approval/approved) or 'history' (rejected/cancelled/
+    expired/no_show). When neither is given we default to 'active'.
+    """
     offset = (page - 1) * limit
-    where_sql = "WHERE status = %s" if status else ""
-    where_args: tuple[Any, ...] = (status,) if status else ()
+    if status:
+        where_sql = "WHERE status = %s"
+        where_args: tuple[Any, ...] = (status,)
+    else:
+        statuses = HISTORY_STATUSES if group == "history" else ACTIVE_STATUSES
+        placeholders = ", ".join(["%s"] * len(statuses))
+        where_sql = f"WHERE status IN ({placeholders})"
+        where_args = tuple(statuses)
 
     with mysql_db() as conn:
         with conn.cursor() as cur:
@@ -330,8 +349,25 @@ def update_approved(
     approved_by_user_id: int | None,
     hn_year: str,
     assigned_doctor_id: int | None = None,
+    requested_date: str | None = None,
+    requested_time: str | None = None,
+    resolved_patient_id: int | None = None,
+    create_new_patient: bool = False,
 ) -> dict[str, Any] | None:
-    """Approve booking and attach/create the real patient record atomically."""
+    """Approve booking and attach/create the real patient record atomically.
+
+    ``requested_date``/``requested_time`` persist the confirmed slot so the DB
+    is the source of truth for per-doctor schedule views (the doctor calendar
+    filters on ``requested_date``). Google Calendar stays a mirror.
+
+    Patient identity resolution (only when the booking isn't already linked):
+      - ``resolved_patient_id`` — CRO confirmed this is an existing patient; link.
+      - ``create_new_patient``  — CRO confirmed it's a new person despite a phone
+        match; force a fresh record.
+      - neither — auto path (LINE/n8n, no human to confirm): link by normalized
+        phone if there's a match, else create. The dashboard never reaches this
+        branch: ``booking_service`` blocks (409) on an unresolved phone collision.
+    """
     with mysql_db() as conn:
         try:
             with conn.cursor() as cur:
@@ -355,8 +391,22 @@ def update_approved(
                     cur.execute("SELECT hn FROM patients WHERE id = %s LIMIT 1", (patient_id,))
                     patient = cur.fetchone()
                     hn = patient.get("hn") if patient else None
+                elif resolved_patient_id and not create_new_patient:
+                    # CRO confirmed link to an existing chart.
+                    cur.execute(
+                        "SELECT hn FROM patients WHERE id = %s AND deleted_at IS NULL LIMIT 1",
+                        (resolved_patient_id,),
+                    )
+                    patient = cur.fetchone()
+                    if not patient:
+                        conn.rollback()
+                        return None
+                    patient_id = resolved_patient_id
+                    hn = patient.get("hn")
                 else:
-                    patient = _find_patient_for_booking(cur, booking)
+                    # Auto path only: create_new_patient forces a fresh record;
+                    # otherwise link by normalized phone if there's a match.
+                    patient = None if create_new_patient else _find_patient_for_booking(cur, booking)
                     if patient:
                         patient_id = patient["id"]
                         hn = patient.get("hn")
@@ -365,14 +415,15 @@ def update_approved(
                         cur.execute(
                             """
                             INSERT INTO patients
-                                (hn, display_name, phone, email, notes, created_by)
+                                (hn, display_name, phone, phone_normalized, email, notes, created_by)
                             VALUES
-                                (%s, %s, %s, %s, %s, %s)
+                                (%s, %s, %s, %s, %s, %s, %s)
                             """,
                             (
                                 hn,
                                 booking.get("patient_name") or "Unknown Patient",
                                 booking.get("phone") or None,
+                                normalize_phone(booking.get("phone")) or None,
                                 booking.get("email") or None,
                                 f"Created from booking {uid}",
                                 approved_by_user_id,
@@ -388,12 +439,15 @@ def update_approved(
                         calendar_event_id   = %s,
                         calendar_event_url  = %s,
                         calendar_status     = 'created',
+                        requested_date      = COALESCE(%s, requested_date),
+                        requested_time      = COALESCE(%s, requested_time),
                         approved_by         = %s,
                         approved_at         = NOW(),
                         assigned_doctor_id  = COALESCE(%s, assigned_doctor_id)
                     WHERE request_uid = %s AND status = 'pending_approval'
                     """,
-                    (patient_id, event_id, event_url, approved_by, assigned_doctor_id, uid),
+                    (patient_id, event_id, event_url, requested_date, requested_time,
+                     approved_by, assigned_doctor_id, uid),
                 )
             if rows == 0:
                 conn.rollback()
@@ -403,6 +457,20 @@ def update_approved(
         except Exception:
             conn.rollback()
             raise
+
+
+def set_calendar_event(uid: str, event_id: str, event_url: str) -> int:
+    """Re-point a booking at a (re)created calendar event — used when the old
+    event_id is stale (event lived on a calendar we no longer use)."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE booking_requests SET calendar_event_id = %s, "
+                "calendar_event_url = %s WHERE request_uid = %s",
+                (event_id, event_url, uid),
+            )
+        conn.commit()
+    return rows
 
 
 _DATE_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
@@ -564,18 +632,21 @@ def assign_doctor(
 
 
 def _find_patient_for_booking(cur: Any, booking: dict[str, Any]) -> dict[str, Any] | None:
-    phone = (booking.get("phone") or "").strip()
-    if not phone:
+    """Auto-path patient match by NORMALIZED phone (format-insensitive). The
+    dashboard doesn't rely on this — it resolves identity with the CRO first;
+    this is the LINE/n8n fallback where no human is present to confirm."""
+    phone_norm = normalize_phone(booking.get("phone"))
+    if not phone_norm:
         return None
     cur.execute(
         """
         SELECT id, hn
         FROM patients
-        WHERE phone = %s
+        WHERE phone_normalized = %s AND deleted_at IS NULL
         ORDER BY id ASC
         LIMIT 1
         """,
-        (phone,),
+        (phone_norm,),
     )
     return cur.fetchone()
 

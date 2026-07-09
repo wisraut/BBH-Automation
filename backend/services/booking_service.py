@@ -18,11 +18,54 @@ from core.email_templates import (
 )
 from integrations import calendar_client
 from integrations.line_client import PRIMARY, push as line_push
-from repositories import booking_repo, user_repo
+from repositories import (
+    booking_repo,
+    patient_doctor_repo,
+    patient_repo,
+    schedule_block_repo,
+    user_repo,
+)
 from utils.pagination import paginate
+from utils.phone import normalize_phone
 
 logger = logging.getLogger(__name__)
 TZ_BANGKOK = timezone(timedelta(hours=7))
+
+
+def _assert_doctor_available(
+    *, doctor_id: int | None, start_at: datetime, duration_min: int
+) -> None:
+    """Reject booking slots that overlap a doctor's unavailable block."""
+    if not doctor_id:
+        return
+    end_at = start_at + timedelta(minutes=duration_min)
+    overlap = schedule_block_repo.find_overlap(
+        doctor_id=int(doctor_id), start_at=start_at, end_at=end_at,
+    )
+    if overlap:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DOCTOR_BLOCKED",
+                "message": (
+                    f"แพทย์ไม่ว่าง ({overlap['block_type']}) "
+                    f"ช่วง {overlap['start_at']} - {overlap['end_at']}"
+                ),
+            },
+        )
+
+
+def _assert_is_doctor(doctor_id: int | None) -> None:
+    """Reject an assigned_doctor_id that is not an active user with role=doctor
+    (e.g. a CRO/admin id). Used by both approve and assign-doctor."""
+    if doctor_id is None:
+        return
+    doctor = user_repo.find_user_by_id(int(doctor_id))
+    if not doctor or doctor.get("role") != "doctor" or not doctor.get("is_active"):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "DOCTOR_NOT_FOUND", "message": "แพทย์ที่เลือกไม่พบหรือไม่อยู่ในระบบ"},
+        )
 
 
 def _normalize_booking_date(value: str) -> tuple[str, str]:
@@ -42,8 +85,12 @@ def _normalize_booking_date(value: str) -> tuple[str, str]:
     )
 
 
-def list_bookings(*, status: str | None, page: int, limit: int) -> dict[str, Any]:
-    rows, total = booking_repo.list_bookings(status=status, page=page, limit=limit)
+def list_bookings(
+    *, status: str | None, group: str | None = None, page: int, limit: int
+) -> dict[str, Any]:
+    rows, total = booking_repo.list_bookings(
+        status=status, group=group, page=page, limit=limit,
+    )
     return paginate(rows=rows, total=total, page=page, limit=limit)
 
 
@@ -54,7 +101,50 @@ def get_booking(uid: str) -> dict[str, Any]:
             status_code=404,
             detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
         )
+    # Surface phone-matched existing charts so the ApproveModal can ask the CRO
+    # to confirm identity. Only relevant while still pending + not yet linked.
+    candidates: list[dict[str, Any]] = []
+    if row.get("status") == "pending_approval" and not row.get("patient_id"):
+        candidates = patient_repo.find_candidates_by_phone(normalize_phone(row.get("phone")))
+    row["patient_candidates"] = candidates
     return row
+
+
+def _resolve_patient_choice(
+    *, row: dict[str, Any], link_patient_id: int | None, create_new_patient: bool,
+) -> tuple[int | None, bool]:
+    """Decide how the approved booking attaches to a patient chart.
+
+    Returns ``(resolved_patient_id, create_new_patient)`` to hand to the repo.
+    Raises 409 PATIENT_MATCH_REQUIRED when the phone collides with an existing
+    chart and the CRO hasn't yet chosen — never merge on phone alone.
+    """
+    if row.get("patient_id"):
+        return None, False  # already linked upstream; repo keeps it
+
+    candidates = patient_repo.find_candidates_by_phone(normalize_phone(row.get("phone")))
+    if create_new_patient:
+        return None, True
+    if link_patient_id is not None:
+        if not any(c["id"] == link_patient_id for c in candidates):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_PATIENT_CHOICE",
+                    "message": "คนไข้ที่เลือกไม่ตรงกับเบอร์นี้ กรุณาเลือกใหม่",
+                },
+            )
+        return link_patient_id, False
+    if candidates:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PATIENT_MATCH_REQUIRED",
+                "message": "เบอร์นี้ตรงกับคนไข้เดิม กรุณายืนยันว่าเป็นคนเดียวกันหรือสร้างใหม่",
+                "candidates": candidates,
+            },
+        )
+    return None, False  # no collision — repo auto-creates a fresh chart
 
 
 def create_booking(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
@@ -80,6 +170,8 @@ def approve_booking(
     duration_min: int,
     user: dict[str, Any],
     assigned_doctor_id: int | None = None,
+    link_patient_id: int | None = None,
+    create_new_patient: bool = False,
 ) -> dict[str, str]:
     row = booking_repo.get_by_uid(uid)
     if not row:
@@ -111,6 +203,18 @@ def approve_booking(
     else:
         start_at = start_at.astimezone(TZ_BANGKOK)
 
+    if duration_min <= 0 or duration_min > 480:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_DURATION", "message": "ระยะเวลานัดต้องอยู่ระหว่าง 1-480 นาที"},
+        )
+    if start_at < datetime.now(TZ_BANGKOK) - timedelta(minutes=5):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "PAST_SLOT", "message": "ไม่สามารถอนุมัตินัดในเวลาที่ผ่านมาแล้ว"},
+        )
+    _assert_is_doctor(assigned_doctor_id)
+
     if not calendar_client.check_availability(start_at, duration_min):
         raise HTTPException(
             status_code=409,
@@ -120,27 +224,22 @@ def approve_booking(
             },
         )
 
-    # Doctor schedule block check: if booking is for a specific doctor and
-    # that doctor has a vacation/off-hours block overlapping this slot, refuse.
-    assigned = row.get("assigned_doctor_id")
-    if assigned:
-        from datetime import timedelta as _td
-        from repositories import schedule_block_repo
-        end_at = start_at + _td(minutes=duration_min)
-        overlap = schedule_block_repo.find_overlap(
-            doctor_id=int(assigned), start_at=start_at, end_at=end_at,
-        )
-        if overlap:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "DOCTOR_BLOCKED",
-                    "message": (
-                        f"แพทย์ลา/ไม่อยู่ ({overlap['block_type']}) "
-                        f"ช่วง {overlap['start_at']} – {overlap['end_at']}"
-                    ),
-                },
-            )
+    # Doctor schedule block check: use the doctor selected in this approval
+    # request, not only the doctor currently stored on the pending booking.
+    effective_doctor_id = assigned_doctor_id or row.get("assigned_doctor_id")
+    _assert_doctor_available(
+        doctor_id=int(effective_doctor_id) if effective_doctor_id else None,
+        start_at=start_at,
+        duration_min=duration_min,
+    )
+
+    # Resolve patient identity BEFORE creating the calendar event so an
+    # unresolved phone collision (409) never leaves an orphan Google event.
+    resolved_patient_id, create_new = _resolve_patient_choice(
+        row=row,
+        link_patient_id=link_patient_id,
+        create_new_patient=create_new_patient,
+    )
 
     patient_name = row.get("patient_name") or "ผู้ป่วย"
     phone = row.get("phone") or "-"
@@ -166,6 +265,10 @@ def approve_booking(
         approved_by_user_id=user.get("id"),
         hn_year=start_at.strftime("%y"),
         assigned_doctor_id=assigned_doctor_id,
+        requested_date=start_at.strftime("%Y-%m-%d"),
+        requested_time=start_at.strftime("%H:%M:%S"),
+        resolved_patient_id=resolved_patient_id,
+        create_new_patient=create_new,
     )
     if not approved:
         # Lost race — another approver acted first; clean up the just-created event
@@ -177,6 +280,19 @@ def approve_booking(
                 "message": "รายการถูกอัปเดตโดยผู้อื่นแล้ว",
             },
         )
+
+    # Seed the patient's care team from the assigned doctor (best-effort — a
+    # care-team hiccup must not fail an otherwise-successful approval).
+    seed_doctor = assigned_doctor_id or row.get("assigned_doctor_id")
+    if seed_doctor and approved.get("patient_id"):
+        try:
+            patient_doctor_repo.seed_from_booking(
+                patient_id=int(approved["patient_id"]),
+                doctor_id=int(seed_doctor),
+                added_by=user.get("id"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Care-team seed failed for booking %s: %s", uid, exc)
 
     _safe_push_patient(
         row.get("external_user_id"),
@@ -191,6 +307,76 @@ def approve_booking(
         "patient_id": approved["patient_id"],
         "hn": approved["hn"],
     }
+
+
+def _row_start(row: dict[str, Any]) -> datetime | None:
+    """Rebuild the Asia/Bangkok start datetime from a booking's stored
+    requested_date + requested_time (ISO strings from the repo serializer)."""
+    d = row.get("requested_date")
+    if not d:
+        return None
+    t = row.get("requested_time") or "09:00:00"
+    try:
+        return datetime.fromisoformat(f"{d}T{t}").replace(tzinfo=TZ_BANGKOK)
+    except ValueError:
+        return None
+
+
+def set_video_link(
+    *, uid: str, video_link: str | None, user: dict[str, Any]
+) -> dict[str, bool]:
+    """Write (or clear) an online-meeting link on an approved booking's Google
+    Calendar event. If that event is missing (e.g. it lived on a calendar we no
+    longer use), recreate it on the active calendar and re-link the booking so
+    the doctor still sees the join button."""
+    row = booking_repo.get_by_uid(uid)
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
+        )
+    url = (video_link or "").strip()
+    if url and not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_URL", "message": "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://"},
+        )
+
+    event_id = row.get("calendar_event_id") or ""
+    if event_id and calendar_client.event_exists(event_id):
+        if not calendar_client.set_event_video_link(event_id, url):
+            raise HTTPException(
+                status_code=502,
+                detail={"code": "CALENDAR_ERROR", "message": "อัปเดตลิงก์บนปฏิทินไม่สำเร็จ"},
+            )
+        return {"ok": True}
+
+    # Event missing/stale -> recreate on the active calendar (approved only).
+    if row.get("status") != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "NO_CALENDAR_EVENT", "message": "ต้อง approve นัดก่อนจึงจะใส่ลิงก์ได้"},
+        )
+    start = _row_start(row)
+    if not start:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "NO_SLOT", "message": "นัดนี้ไม่มีวัน/เวลา ใส่ลิงก์ไม่ได้"},
+        )
+    if not calendar_client.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "CALENDAR_DISABLED", "message": "Google Calendar service ยังไม่ได้ตั้งค่า"},
+        )
+    event = calendar_client.book_event(
+        summary=f"BBH — {row.get('patient_name') or 'ผู้ป่วย'}",
+        description=f"Request UID: {uid}",
+        start=start,
+        duration_min=30,
+    )
+    calendar_client.set_event_video_link(event["event_id"], url)
+    booking_repo.set_calendar_event(uid, event["event_id"], event.get("html_link", ""))
+    return {"ok": True}
 
 
 def reject_booking(
@@ -253,14 +439,7 @@ def assign_doctor(
     if not row:
         raise HTTPException(404, {"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"})
 
-    if assigned_doctor_id is not None:
-        doctor = user_repo.find_user_by_id(int(assigned_doctor_id))
-        if not doctor or doctor.get("role") != "doctor" or not doctor.get("is_active"):
-            raise HTTPException(
-                422,
-                {"code": "DOCTOR_NOT_FOUND",
-                 "message": "แพทย์ที่เลือกไม่พบหรือไม่อยู่ในระบบ"},
-            )
+    _assert_is_doctor(assigned_doctor_id)
 
     updated = booking_repo.assign_doctor(
         uid=uid,
@@ -320,7 +499,7 @@ def reschedule_booking(
                 (
                     f"แจ้งเลื่อนนัดของท่าน\n"
                     f"เวลาเดิม: {row.get('requested_datetime_text') or '-'}\n"
-                    f"เวลาใหม่: รอยืนยัน — กรุณาแจ้งเวลาที่สะดวกกลับมาที่คลินิก"
+                    f"เวลาใหม่: รอยืนยัน — กรุณาแจ้งเวลาที่สะดวกกลับมาที่โรงพยาบาล"
                     + (f"\nหมายเหตุ: {reason}" if reason else "")
                 ),
             )
@@ -336,6 +515,12 @@ def reschedule_booking(
         new_start_at = new_start_at.astimezone(TZ_BANGKOK)
     duration_min = int(row.get("duration_min") or 30)
 
+    if new_start_at < datetime.now(TZ_BANGKOK) - timedelta(minutes=5):
+        raise HTTPException(
+            422,
+            {"code": "PAST_SLOT", "message": "ไม่สามารถเลื่อนนัดไปเวลาที่ผ่านมาแล้ว"},
+        )
+
     if not calendar_client.check_availability(new_start_at, duration_min):
         raise HTTPException(
             409,
@@ -344,23 +529,11 @@ def reschedule_booking(
         )
 
     # Doctor block check (same guard as approve flow)
-    if row.get("assigned_doctor_id"):
-        from datetime import timedelta as _td
-        from repositories import schedule_block_repo
-        end_at = new_start_at + _td(minutes=duration_min)
-        overlap = schedule_block_repo.find_overlap(
-            doctor_id=int(row["assigned_doctor_id"]),
-            start_at=new_start_at, end_at=end_at,
-        )
-        if overlap:
-            raise HTTPException(
-                409,
-                {"code": "DOCTOR_BLOCKED",
-                 "message": (
-                     f"แพทย์ลา/ไม่อยู่ ({overlap['block_type']}) ช่วงเวลาใหม่ "
-                     f"{overlap['start_at']} – {overlap['end_at']}"
-                 )},
-            )
+    _assert_doctor_available(
+        doctor_id=int(row["assigned_doctor_id"]) if row.get("assigned_doctor_id") else None,
+        start_at=new_start_at,
+        duration_min=duration_min,
+    )
 
     # Book new calendar event first; if it fails we keep the old one.
     new_event = calendar_client.book_event(

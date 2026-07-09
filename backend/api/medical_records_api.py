@@ -31,6 +31,10 @@ from services import audit_service
 
 router = APIRouter(tags=["medical-records"])
 
+# CRO can READ the clinical bundle (conditions/allergies/meds/treatments) — at
+# this hospital the CRO coordinates care and needs the clinical context. This is
+# intentional per hospital policy: read-only + audited (record_access); mutations
+# stay doctor/admin only. (Do not "tighten" this to exclude cro — it's on purpose.)
 _StaffUser = Annotated[dict, Depends(require_user(["cro", "doctor", "nurse", "admin"]))]
 _DoctorOrAdmin = Annotated[dict, Depends(require_user(["doctor", "admin"]))]
 

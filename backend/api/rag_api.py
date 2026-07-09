@@ -16,7 +16,7 @@ router = APIRouter(prefix="/internal/rag")
 class AnswerRequest(BaseModel):
     channel: str = "line_main"
     external_user_id: str = ""
-    text: str = Field(min_length=1)
+    text: str = Field(min_length=1, max_length=2000)
 
 
 @router.post("/answer")

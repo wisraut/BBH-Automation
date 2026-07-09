@@ -14,6 +14,9 @@ interface RejectModalProps {
   onRejected: () => void
 }
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
 export function RejectModal({ booking, open, onClose, onRejected }: RejectModalProps) {
   const [reason, setReason] = useState('')
   const reject = useRejectBooking()
@@ -55,7 +58,7 @@ export function RejectModal({ booking, open, onClose, onRejected }: RejectModalP
             rows={4}
             maxLength={500}
             placeholder="เช่น แพทย์ไม่ว่างในวันที่ขอ"
-            className="mt-2 w-full rounded-2xl border border-bbh-line bg-white px-4 py-3 text-base outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className="mt-1.5 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
           />
         </label>
 
@@ -64,14 +67,14 @@ export function RejectModal({ booking, open, onClose, onRejected }: RejectModalP
             type="button"
             onClick={onClose}
             disabled={reject.isPending}
-            className="rounded-xl border border-bbh-line px-4 py-2 text-sm font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-60"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             ยกเลิก
           </button>
           <button
             type="submit"
             disabled={reject.isPending}
-            className="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-red-700 disabled:opacity-60 ${FOCUS_RING}`}
           >
             {reject.isPending ? 'กำลังส่ง...' : 'ยืนยันการปฏิเสธ'}
           </button>

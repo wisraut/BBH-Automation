@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,6 +9,11 @@ import {
 
 import { useAuditLog, type AuditEntry } from '../hooks/useAuditLog'
 import { useUsers } from '../hooks/useUsers'
+
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
 const ACTIONS: Array<{ key: string; label: string }> = [
   { key: '', label: 'ทุก action' },
@@ -78,55 +83,60 @@ export function AuditLog() {
     setPage(1)
   }
 
-  return (
-    <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-green">Audit Trail</p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">บันทึกการเข้าถึงข้อมูลคนไข้</h1>
-          <p className="mt-1 text-sm text-bbh-muted">
-            ใครเข้าดู / download / ตัดสิน record ของคนไข้ — สำหรับ compliance audit
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => { setDateFrom(todayIso()); setDateTo(nowIso()); setPage(1) }}
-            className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-xs font-medium text-bbh-muted hover:border-bbh-green"
-          >
-            วันนี้
-          </button>
-          <button
-            type="button"
-            onClick={() => q.refetch()}
-            className="inline-flex items-center gap-2 rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink hover:border-bbh-green"
-          >
-            <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-            รีเฟรช
-          </button>
-        </div>
-      </div>
+  const fieldClass = `rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30 ${FOCUS_RING}`
 
-      {/* Filters */}
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        <select
-          value={actorId ?? ''}
-          onChange={(e) => { setActorId(e.target.value ? Number(e.target.value) : undefined); setPage(1) }}
-          className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm"
-        >
-          <option value="">ทุก user</option>
-          {userOptions.map((u) => (
-            <option key={u.id} value={u.id}>{u.display_name} ({u.role})</option>
-          ))}
-        </select>
-        <select
-          value={action}
-          onChange={(e) => { setAction(e.target.value); setPage(1) }}
-          className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm"
-        >
-          {ACTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
-        </select>
-        <div className="flex items-center gap-1">
+  return (
+    <div className="flex h-full min-w-0 overflow-hidden bg-white">
+      <section className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
+        {/* Masthead — instrument label + serif heading, quick-range actions on the right */}
+        <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+              Audit Trail
+            </p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">บันทึกการเข้าถึงข้อมูลคนไข้</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
+              ใครเข้าดู / download / ตัดสิน record ของคนไข้ — สำหรับ compliance audit
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { setDateFrom(todayIso()); setDateTo(nowIso()); setPage(1) }}
+              className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              วันนี้
+            </button>
+            <button
+              type="button"
+              onClick={() => q.refetch()}
+              className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
+              รีเฟรช
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="animate-rise mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" style={{ animationDelay: '70ms' }}>
+          <select
+            value={actorId ?? ''}
+            onChange={(e) => { setActorId(e.target.value ? Number(e.target.value) : undefined); setPage(1) }}
+            className={fieldClass}
+          >
+            <option value="">ทุก user</option>
+            {userOptions.map((u) => (
+              <option key={u.id} value={u.id}>{u.display_name} ({u.role})</option>
+            ))}
+          </select>
+          <select
+            value={action}
+            onChange={(e) => { setAction(e.target.value); setPage(1) }}
+            className={fieldClass}
+          >
+            {ACTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+          </select>
           <input
             type="text"
             inputMode="numeric"
@@ -135,75 +145,80 @@ export function AuditLog() {
             onBlur={applyPatientId}
             onKeyDown={(e) => { if (e.key === 'Enter') applyPatientId() }}
             placeholder="patient_id"
-            className="w-full rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm"
+            className={`w-full font-mono tabular-nums ${fieldClass}`}
+          />
+          <input
+            type="datetime-local"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+            className={`font-mono tabular-nums ${fieldClass}`}
+          />
+          <input
+            type="datetime-local"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+            className={`font-mono tabular-nums ${fieldClass}`}
           />
         </div>
-        <input
-          type="datetime-local"
-          value={dateFrom}
-          onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
-          className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm"
-        />
-        <input
-          type="datetime-local"
-          value={dateTo}
-          onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
-          className="rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm"
-        />
-      </div>
 
-      {(actorId || action || patientId || dateFrom || dateTo) ? (
-        <div className="mb-4 flex items-center gap-2">
-          <button type="button" onClick={clearFilters} className="text-xs text-bbh-muted hover:text-bbh-ink underline">ล้าง filter ทั้งหมด</button>
-        </div>
-      ) : null}
+        {(actorId || action || patientId || dateFrom || dateTo) ? (
+          <div className="animate-rise mb-4 flex items-center gap-2" style={{ animationDelay: '100ms' }}>
+            <button type="button" onClick={clearFilters} className={`rounded text-xs text-bbh-muted underline transition-colors hover:text-bbh-ink ${FOCUS_RING}`}>ล้าง filter ทั้งหมด</button>
+          </div>
+        ) : null}
 
-      {/* Table */}
-      {q.isLoading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-          <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด audit log
-        </div>
-      ) : q.isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">โหลดข้อมูลไม่สำเร็จ</div>
-      ) : !q.data || q.data.data.length === 0 ? (
-        <div className="rounded-2xl border border-bbh-line bg-white p-10 text-center">
-          <ShieldCheck size={28} className="mx-auto mb-2 text-bbh-green" />
-          <p className="text-sm font-semibold text-bbh-ink">ไม่พบ event ใน filter นี้</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
-          <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-muted lg:grid">
-            <span>เวลา</span>
-            <span>Actor</span>
-            <span>Action</span>
-            <span>Patient</span>
-            <span>Subject / Path</span>
-            <span className="text-right">IP</span>
-          </div>
-          <div className="divide-y divide-bbh-line">
-            {q.data.data.map((r) => <AuditRow key={r.id} r={r} />)}
-          </div>
-        </div>
-      )}
+        {/* Table */}
+        <div className="animate-rise" style={{ animationDelay: '140ms' }}>
+          {q.isLoading ? (
+            <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
+              <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด audit log
+            </div>
+          ) : q.isError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">โหลดข้อมูลไม่สำเร็จ</div>
+          ) : !q.data || q.data.data.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-center">
+              <ShieldCheck size={28} className="mb-2 text-bbh-green" />
+              <p className="text-sm font-semibold text-bbh-ink">ไม่พบ event ใน filter นี้</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
+              <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
+                <span>เวลา</span>
+                <span>Actor</span>
+                <span>Action</span>
+                <span>Patient</span>
+                <span>Subject / Path</span>
+                <span className="text-right">IP</span>
+              </div>
+              <div className="divide-y divide-bbh-line">
+                {q.data.data.map((r, i) => <AuditRow key={r.id} r={r} index={i} />)}
+              </div>
+            </div>
+          )}
 
-      {q.data && q.data.pagination.total_pages > 1 ? (
-        <div className="mt-4 flex items-center justify-between text-xs text-bbh-muted">
-          <span>หน้า {q.data.pagination.page} / {q.data.pagination.total_pages} · {q.data.pagination.total} events</span>
-          <div className="flex items-center gap-2">
-            <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 disabled:opacity-50"><ChevronLeft size={14}/> ก่อน</button>
-            <button type="button" disabled={page >= q.data.pagination.total_pages} onClick={() => setPage(p => p + 1)} className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 disabled:opacity-50">ถัดไป <ChevronRight size={14}/></button>
-          </div>
+          {q.data && q.data.pagination.total_pages > 1 ? (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <span className="font-mono text-sm tabular-nums text-bbh-muted">หน้า {q.data.pagination.page} / {q.data.pagination.total_pages} · {q.data.pagination.total} events</span>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}><ChevronLeft size={16}/> ก่อน</button>
+                <button type="button" disabled={page >= q.data.pagination.total_pages} onClick={() => setPage(p => p + 1)} className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>ถัดไป <ChevronRight size={16}/></button>
+              </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </section>
     </div>
   )
 }
 
-function AuditRow({ r }: { r: AuditEntry }) {
+function AuditRow({ r, index }: { r: AuditEntry; index: number }) {
   const actionStyle = ACTION_STYLES[r.action] ?? 'border-bbh-line bg-bbh-surface text-bbh-muted'
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3 text-sm lg:grid-cols-[160px_160px_140px_180px_1fr_100px]">
-      <span className="font-mono text-xs text-bbh-muted">{fmtDateTime(r.created_at)}</span>
+    <div
+      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+      className="animate-rise grid grid-cols-[1fr_auto] gap-3 bg-white px-4 py-3 text-sm transition-colors duration-200 hover:bg-bbh-surface lg:grid-cols-[160px_160px_140px_180px_1fr_100px]"
+    >
+      <span className="font-mono text-xs tabular-nums text-bbh-muted">{fmtDateTime(r.created_at)}</span>
       <div className="min-w-0">
         <p className="truncate text-bbh-ink">{r.actor_email ?? '(system)'}</p>
         {r.actor_role ? <p className="text-[10px] text-bbh-muted">{r.actor_role}</p> : null}
@@ -215,15 +230,15 @@ function AuditRow({ r }: { r: AuditEntry }) {
         {r.patient_id ? (
           <>
             <p className="truncate text-bbh-ink">{r.patient_display_name ?? `#${r.patient_id}`}</p>
-            <p className="font-mono text-[10px] text-bbh-muted">{r.patient_hn ?? `id=${r.patient_id}`}</p>
+            <p className="truncate font-mono text-[10px] tabular-nums text-bbh-muted">{r.patient_hn ?? `id=${r.patient_id}`}</p>
           </>
         ) : <span className="text-bbh-muted">—</span>}
       </div>
       <div className="hidden min-w-0 lg:block">
-        <p className="truncate font-mono text-[11px] text-bbh-muted">{r.subject_type}:{r.subject_id}</p>
+        <p className="truncate font-mono text-[11px] tabular-nums text-bbh-muted">{r.subject_type}:{r.subject_id}</p>
         <p className="truncate font-mono text-[10px] text-bbh-muted">{r.request_method} {r.request_path}</p>
       </div>
-      <span className="text-right font-mono text-[11px] text-bbh-muted">{r.ip_address ?? '—'}</span>
+      <span className="text-right font-mono text-[11px] tabular-nums text-bbh-muted">{r.ip_address ?? '—'}</span>
     </div>
   )
 }

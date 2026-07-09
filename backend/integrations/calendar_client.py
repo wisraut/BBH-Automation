@@ -9,6 +9,7 @@ Requires:
 All times stored as Asia/Bangkok TZ.
 """
 import os
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -21,14 +22,17 @@ GOOGLE_SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "/app/cre
 GOOGLE_CALENDAR_ID          = os.getenv("GOOGLE_CALENDAR_ID", "")
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-_service = None
+# Per-thread service: googleapiclient's httplib2 transport is NOT thread-safe,
+# and a shared global instance segfaulted the worker under concurrent requests
+# (FastAPI runs sync endpoints in a threadpool). Each thread gets its own.
+_local = threading.local()
 
 
 def _get_service():
-    """Lazy-init Google Calendar service. Cache instance."""
-    global _service
-    if _service is not None:
-        return _service
+    """Lazy-init a per-thread Google Calendar service."""
+    svc = getattr(_local, "service", None)
+    if svc is not None:
+        return svc
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
 
@@ -39,8 +43,8 @@ def _get_service():
     creds = service_account.Credentials.from_service_account_file(
         GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES
     )
-    _service = build("calendar", "v3", credentials=creds, cache_discovery=False)
-    return _service
+    _local.service = build("calendar", "v3", credentials=creds, cache_discovery=False)
+    return _local.service
 
 
 def is_configured() -> bool:
@@ -83,6 +87,20 @@ def list_events(time_min: datetime, time_max: datetime) -> list[dict]:
     for item in resp.get("items", []):
         start = item.get("start", {})
         end = item.get("end", {})
+        # Video-call link: native Meet (hangoutLink) first, else the video
+        # entry point in conferenceData, else whatever CRO pasted in location.
+        video_link = item.get("hangoutLink") or ""
+        if not video_link:
+            for ep in item.get("conferenceData", {}).get("entryPoints", []):
+                if ep.get("entryPointType") == "video" and ep.get("uri"):
+                    video_link = ep["uri"]
+                    break
+        if not video_link:
+            # CRO (non-Workspace, can't add native Meet) pastes a join URL into
+            # the event's location — treat a bare URL there as the video link.
+            loc = (item.get("location") or "").strip()
+            if loc.startswith("http://") or loc.startswith("https://"):
+                video_link = loc
         events.append({
             "id": item.get("id", ""),
             "summary": item.get("summary", "(No title)"),
@@ -92,17 +110,25 @@ def list_events(time_min: datetime, time_max: datetime) -> list[dict]:
             "start": start.get("dateTime") or start.get("date"),
             "end": end.get("dateTime") or end.get("date"),
             "all_day": "date" in start and "dateTime" not in start,
+            "location": item.get("location"),
+            "video_link": video_link or None,
         })
     return events
 
 
 def book_event(summary: str, description: str, start: datetime,
                duration_min: int = DEFAULT_DURATION_MIN,
-               attendee_emails: Optional[list] = None) -> dict:
+               attendee_emails: Optional[list] = None,
+               transparent: bool = False,
+               location: str | None = None) -> dict:
     """
     Create event in calendar.
     Returns: {event_id, html_link, start, end} on success
     Raises: Google API errors on failure
+
+    ``transparent=True`` marks the event as free (not busy) — used for doctor
+    schedule blocks so they're visible/remind but don't consume the shared
+    calendar's availability. ``location`` holds an online-meeting join URL.
     """
     end = start + timedelta(minutes=duration_min)
     event = {
@@ -111,6 +137,10 @@ def book_event(summary: str, description: str, start: datetime,
         "start":       {"dateTime": start.isoformat(), "timeZone": "Asia/Bangkok"},
         "end":         {"dateTime": end.isoformat(),   "timeZone": "Asia/Bangkok"},
     }
+    if transparent:
+        event["transparency"] = "transparent"
+    if location:
+        event["location"] = location
     if attendee_emails:
         event["attendees"] = [{"email": e} for e in attendee_emails]
 
@@ -133,6 +163,35 @@ def cancel_event(event_id: str) -> bool:
         return True
     except Exception as e:
         log.exception("Calendar cancel error: %s", e)
+        return False
+
+
+def set_event_video_link(event_id: str, url: str | None) -> bool:
+    """Set (or clear) an appointment's online-meeting link by writing it to the
+    event's location. Empty/None clears it. Returns True on success."""
+    try:
+        _get_service().events().patch(
+            calendarId=GOOGLE_CALENDAR_ID,
+            eventId=event_id,
+            body={"location": (url or "").strip()},
+        ).execute()
+        return True
+    except Exception as e:
+        log.exception("Calendar set video link error: %s", e)
+        return False
+
+
+def event_exists(event_id: str) -> bool:
+    """True if the event still lives on the active calendar. Old bookings may
+    reference an event on a calendar we no longer use (stale event_id)."""
+    if not event_id:
+        return False
+    try:
+        ev = _get_service().events().get(
+            calendarId=GOOGLE_CALENDAR_ID, eventId=event_id,
+        ).execute()
+        return ev.get("status") != "cancelled"
+    except Exception:
         return False
 
 

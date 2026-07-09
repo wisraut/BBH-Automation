@@ -279,6 +279,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/rag/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rag Answer */
+        post: operations["rag_answer_internal_rag_answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/booking": {
         parameters: {
             query?: never;
@@ -411,7 +428,11 @@ export interface paths {
         };
         /**
          * List Bookings
-         * @description List bookings with optional status filter + pagination.
+         * @description List bookings with pagination.
+         *
+         *     Filter by exact ``status`` (wins if given) or by lifecycle ``group``
+         *     (``active`` = pending_approval/approved, ``history`` = rejected/cancelled/
+         *     expired/no_show). Defaults to ``active`` when neither is provided.
          */
         get: operations["list_bookings_api_bookings_get"];
         put?: never;
@@ -424,6 +445,28 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/bookings/{request_uid}/video-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Video Link
+         * @description Set (or clear) the online-meeting link on an approved booking. Written to
+         *     the booking's Google Calendar event, so the doctor sees a join button and
+         *     Google Calendar reminds at the appointment time.
+         */
+        patch: operations["set_video_link_api_bookings__request_uid__video_link_patch"];
         trace?: never;
     };
     "/api/bookings/{request_uid}": {
@@ -1582,6 +1625,21 @@ export interface components {
             ok: boolean;
             analysis: components["schemas"]["AnalysisOut"];
         };
+        /** AnswerRequest */
+        AnswerRequest: {
+            /**
+             * Channel
+             * @default line_main
+             */
+            channel: string;
+            /**
+             * External User Id
+             * @default
+             */
+            external_user_id: string;
+            /** Text */
+            text: string;
+        };
         /** ApproveBooking */
         ApproveBooking: {
             /**
@@ -1618,6 +1676,17 @@ export interface components {
              * @description Optional at the API layer for backwards compatibility. The Web ApproveModal enforces selection; LINE-originated confirms may arrive without one and be assigned later via /assign-doctor.
              */
             assigned_doctor_id?: number | null;
+            /**
+             * Link Patient Id
+             * @description Link to this existing patient id (must be one of the candidates).
+             */
+            link_patient_id?: number | null;
+            /**
+             * Create New Patient
+             * @description Create a fresh patient even though the phone matches an existing one.
+             * @default false
+             */
+            create_new_patient: boolean;
         };
         /** ApproveResponse */
         ApproveResponse: {
@@ -1850,6 +1919,11 @@ export interface components {
             reminder_24h_sent_at?: string | null;
             /** Reminder 1H Sent At */
             reminder_1h_sent_at?: string | null;
+            /**
+             * Patient Candidates
+             * @default []
+             */
+            patient_candidates: components["schemas"]["PatientCandidate"][];
         };
         /** CalendarEventOut */
         CalendarEventOut: {
@@ -1869,6 +1943,10 @@ export interface components {
             end: string;
             /** All Day */
             all_day: boolean;
+            /** Location */
+            location?: string | null;
+            /** Video Link */
+            video_link?: string | null;
         };
         /** CalendarEventsResponse */
         CalendarEventsResponse: {
@@ -2145,6 +2223,26 @@ export interface components {
         PasswordResetRequest: {
             /** New Password */
             new_password: string;
+        };
+        /**
+         * PatientCandidate
+         * @description An existing patient whose normalized phone matches this booking — shown
+         *     to the CRO at approve time so they confirm identity instead of the system
+         *     merging on phone alone.
+         */
+        PatientCandidate: {
+            /** Id */
+            id: number;
+            /** Hn */
+            hn?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /** Latest Visit At */
+            latest_visit_at?: string | null;
         };
         /** PatientCreateRequest */
         PatientCreateRequest: {
@@ -2498,8 +2596,9 @@ export interface components {
             /**
              * Block Type
              * @default vacation
+             * @enum {string}
              */
-            block_type: string;
+            block_type: "vacation" | "off_hours" | "conference" | "sick" | "other";
             /**
              * Start At
              * Format: date-time
@@ -2525,6 +2624,11 @@ export interface components {
              * @default active
              */
             current_state: string;
+        };
+        /** SetVideoLinkRequest */
+        SetVideoLinkRequest: {
+            /** Video Link */
+            video_link?: string | null;
         };
         /** SimpleOk */
         SimpleOk: {
@@ -3129,6 +3233,43 @@ export interface operations {
             };
         };
     };
+    rag_answer_internal_rag_answer_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-internal-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_booking_internal_booking_post: {
         parameters: {
             query?: never;
@@ -3369,6 +3510,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                group?: string | null;
                 page?: number;
                 limit?: number;
             };
@@ -3418,6 +3560,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_video_link_api_bookings__request_uid__video_link_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVideoLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
                 };
             };
             /** @description Validation Error */

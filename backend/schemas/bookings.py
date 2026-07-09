@@ -23,6 +23,18 @@ class BookingListItem(BaseModel):
     created_at: datetime
 
 
+class PatientCandidate(BaseModel):
+    """An existing patient whose normalized phone matches this booking — shown
+    to the CRO at approve time so they confirm identity instead of the system
+    merging on phone alone."""
+    id: int
+    hn: str | None = None
+    display_name: str
+    phone: str | None = None
+    dob: str | None = None
+    latest_visit_at: datetime | None = None
+
+
 class BookingOut(BookingListItem):
     channel: str
     external_user_id: str
@@ -42,6 +54,9 @@ class BookingOut(BookingListItem):
     updated_at: datetime
     reminder_24h_sent_at: datetime | None = None
     reminder_1h_sent_at: datetime | None = None
+    # Populated only for a pending booking with no linked patient yet: existing
+    # charts sharing this phone. Empty = no collision (approve auto-creates).
+    patient_candidates: list[PatientCandidate] = []
 
 
 class PaginationMeta(BaseModel):
@@ -80,6 +95,17 @@ class ApproveRequest(BaseModel):
             "ApproveModal enforces selection; LINE-originated confirms may "
             "arrive without one and be assigned later via /assign-doctor."
         ),
+    )
+    # Patient identity resolution (see PatientCandidate). When the booking's
+    # phone matches an existing chart, the CRO must pick one of these before
+    # approve succeeds — otherwise the API returns 409 PATIENT_MATCH_REQUIRED.
+    link_patient_id: int | None = Field(
+        default=None,
+        description="Link to this existing patient id (must be one of the candidates).",
+    )
+    create_new_patient: bool = Field(
+        default=False,
+        description="Create a fresh patient even though the phone matches an existing one.",
     )
 
 

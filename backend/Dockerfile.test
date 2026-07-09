@@ -1,0 +1,5 @@
+# Test image = the prod bridge image plus pytest. Built for running integration
+# tests against an ISOLATED test database (bbh_bot_ops_test), never for prod.
+# Build:  docker build -f backend/Dockerfile.test -t hospital-bridge:test backend
+FROM hospital-bridge:dev
+RUN pip install --no-cache-dir pytest==8.3.4 pytest-timeout==2.3.1

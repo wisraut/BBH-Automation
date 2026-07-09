@@ -6,6 +6,23 @@ context we retrieved. n8n reads the prefix and acts (reply / booking /
 escalate) exactly as it does today.
 """
 import re
+from datetime import datetime, timedelta, timezone
+
+_TZ_BKK = timezone(timedelta(hours=7))
+_THAI_DOW = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"]
+
+
+def _today_line() -> str:
+    """Give the model the current Bangkok date so it can turn relative dates
+    ('วันนี้' / 'พรุ่งนี้' / 'มะรืน' / 'จันทร์หน้า') into a real DD/MM. Without
+    this the model guesses a date or emits the literal '(DD/MM)' placeholder."""
+    now = datetime.now(_TZ_BKK)
+    return (
+        f"\n\nวันนี้คือ วัน{_THAI_DOW[now.weekday()]} ที่ {now.strftime('%d/%m/%Y')} "
+        f"เวลา {now.strftime('%H:%M')} น. — ใช้แปลงคำบอกวันแบบสัมพัทธ์ "
+        f"('วันนี้'/'พรุ่งนี้'/'มะรืน'/'สัปดาห์หน้า'/'จันทร์หน้า') ให้เป็นวันที่จริง DD/MM เสมอ "
+        f"ห้ามใส่ (DD/MM) เป็น placeholder และห้ามเดาวันเอง"
+    )
 
 SYSTEM = """คุณเป็น AI Assistant ของโรงพยาบาล Better Being (Functional Medicine)
 
@@ -64,7 +81,7 @@ def _format_context(hits: list[dict]) -> str:
 
 def build(query: str, hits: list[dict], history: list[dict]) -> list[dict]:
     """Assemble OpenRouter chat messages: system + history + context+question."""
-    messages = [{"role": "system", "content": SYSTEM}]
+    messages = [{"role": "system", "content": SYSTEM + _today_line()}]
     for turn in history:
         messages.append({"role": turn["role"], "content": turn["text"]})
     user_block = (

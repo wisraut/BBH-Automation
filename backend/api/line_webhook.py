@@ -14,6 +14,23 @@ from core.config import N8N_INTERNAL_BASE_URL, log
 
 router = APIRouter()
 
+# Human labels for non-text inbound messages (chat-history placeholder).
+_NONTEXT_LABEL = {
+    "image": "รูปภาพ",
+    "audio": "ข้อความเสียง",
+    "video": "วิดีโอ",
+    "file": "ไฟล์",
+    "sticker": "สติกเกอร์",
+    "location": "ตำแหน่ง",
+}
+
+# Canned guide sent when a patient sends a non-text message. The bot handles
+# text only, so we ask them to type instead of leaving them with no reply.
+_UNSUPPORTED_REPLY = (
+    "ขออภัยค่ะ ระบบรองรับเฉพาะข้อความ "
+    "รบกวนพิมพ์เป็นข้อความเข้ามาสอบถามหรือนัดหมายได้เลยนะคะ"
+)
+
 # Module-level singleton — reused across all events so we pay the
 # TCP/TLS/SSL-context cost once instead of per request.
 _n8n_client: httpx.AsyncClient | None = None
@@ -32,6 +49,15 @@ async def close_n8n_client() -> None:
     if _n8n_client is not None:
         await _n8n_client.aclose()
         _n8n_client = None
+
+
+async def _reply_unsupported(reply_token: str) -> None:
+    """Reply the 'please type text' guide for a non-text message. line_client
+    .reply is sync (httpx) so run it off the event loop; never raises."""
+    try:
+        await asyncio.to_thread(line_client.reply, reply_token, _UNSUPPORTED_REPLY)
+    except Exception:
+        log.exception("failed to send unsupported-message guide reply")
 
 
 @router.post("/webhook")
@@ -54,15 +80,30 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
     for event in payload.get("events", []):
         if event.get("type") != "message":
             continue
-        if event["message"].get("type") != "text":
+        msg_type = event["message"].get("type")
+        user_id = event.get("source", {}).get("userId")
+        if msg_type != "text":
+            # Don't ghost the patient on non-text (image/audio/sticker/...):
+            # record it for chat history and reply a short "please type" guide.
+            # Canned reply — no LLM/n8n — scheduled off the webhook hot path.
+            if user_id:
+                message_repo.log_inbound(
+                    channel="line_main",
+                    external_user_id=user_id,
+                    text=f"[{_NONTEXT_LABEL.get(msg_type, msg_type)}]",
+                    raw_payload={"webhookEventId": event.get("webhookEventId"), "type": msg_type},
+                )
+            reply_token = event.get("replyToken")
+            if reply_token:
+                background_tasks.add_task(_reply_unsupported, reply_token)
             continue
-        if not event.get("source", {}).get("userId"):
+        if not user_id:
             continue
         # Log inbound to booking_messages for chat-history render. Best-effort;
         # message_repo swallows exceptions so this never blocks LINE ack.
         message_repo.log_inbound(
             channel="line_main",
-            external_user_id=event["source"]["userId"],
+            external_user_id=user_id,
             text=event.get("message", {}).get("text", ""),
             raw_payload={"webhookEventId": event.get("webhookEventId"), "type": event.get("type")},
         )

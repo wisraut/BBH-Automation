@@ -11,15 +11,16 @@ interface PatientPickerModalProps {
   open: boolean
   onClose: () => void
   onPick: (p: PatientListItem) => void
+  title?: string
 }
 
-export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModalProps) {
+export function PatientPickerModal({ open, onClose, onPick, title = 'เลือกคนไข้ที่จะถาม AI' }: PatientPickerModalProps) {
   const [search, setSearch] = useState('')
   const { data, isLoading } = usePatients({ search, page: 1, limit: 20 })
   const rows = data?.data ?? []
 
   return (
-    <Modal open={open} title="เลือกคนไข้ที่จะถาม AI" onClose={onClose}>
+    <Modal open={open} title={title} onClose={onClose}>
       <div className="space-y-3">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-bbh-muted" />

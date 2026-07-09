@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileText,
   Loader2,
+  Lock,
   Phone,
   Plus,
   RefreshCw,
@@ -16,13 +17,32 @@ import {
   Stethoscope,
   Clock,
   Trash2,
+  UserRound,
   X,
 } from 'lucide-react'
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
 import { RescheduleModal } from '../components/bookings/RescheduleModal'
+import { PatientPickerModal } from '../components/ai/PatientPickerModal'
 import { useAuth } from '../lib/auth'
+import type { components } from '../lib/api-types'
+
+type PatientListItem = components['schemas']['PatientListItem']
+
+// Doctor-side "hold a slot for a patient": stored as a schedule block
+// (block_type='other') whose reason starts with this marker, so CRO cannot
+// double-book the time. Frontend-only — reuses the existing block endpoints.
+const LOCK_PREFIX = 'ล็อคคิวคนไข้:'
+
+// Add minutes to a datetime-local "YYYY-MM-DDTHH:MM" string (for default end).
+function plusMinutesLocal(dt: string, mins: number): string {
+  const d = new Date(dt)
+  if (Number.isNaN(d.getTime())) return ''
+  d.setMinutes(d.getMinutes() + mins)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -366,7 +386,7 @@ export function Schedule() {
   )
 }
 
-// --- Schedule blocks (vacation) ----------------------------------------
+// --- Schedule blocks (leave) + patient-slot locks -----------------------
 
 function ScheduleBlocksSection() {
   const { user } = useAuth()
@@ -374,11 +394,21 @@ function ScheduleBlocksSection() {
   const q = useScheduleBlocks({ doctorId })
   const create = useCreateScheduleBlock()
   const del = useDeleteScheduleBlock()
+
+  // Generic block (leave / off-hours / conference).
   const [open, setOpen] = useState(false)
   const [blockType, setBlockType] = useState('vacation')
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
   const [reason, setReason] = useState('')
+
+  // Patient-slot lock.
+  const [lockOpen, setLockOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [lockPatient, setLockPatient] = useState<PatientListItem | null>(null)
+  const [lockStart, setLockStart] = useState('')
+  const [lockEnd, setLockEnd] = useState('')
+  const [lockNote, setLockNote] = useState('')
 
   if (!doctorId) return null
   const blocks = q.data?.data ?? []
@@ -392,43 +422,86 @@ function ScheduleBlocksSection() {
     )
   }
 
+  const resetLock = () => {
+    setLockOpen(false); setLockPatient(null); setLockStart(''); setLockEnd(''); setLockNote('')
+  }
+  const onLockStart = (v: string) => {
+    setLockStart(v)
+    if (v && !lockEnd) setLockEnd(plusMinutesLocal(v, 30))
+  }
+  const submitLock = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!lockPatient || !lockStart || !lockEnd) return
+    const hn = lockPatient.hn ? ` (HN ${lockPatient.hn})` : ''
+    const note = lockNote.trim() ? ` — ${lockNote.trim()}` : ''
+    const built = `${LOCK_PREFIX} ${lockPatient.display_name}${hn}${note}`
+    create.mutate(
+      { doctor_id: doctorId, block_type: 'other', start_at: lockStart, end_at: lockEnd, reason: built },
+      { onSuccess: resetLock },
+    )
+  }
+
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-base font-semibold text-bbh-ink inline-flex items-center gap-2">
           <CalendarOff size={16} className="text-amber-500" />
-          ลา / ไม่อยู่
+          เวลาที่ไม่ว่าง / ล็อคคิว
           <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">{blocks.length}</span>
         </h2>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
-        >
-          <Plus size={12} /> เพิ่ม block
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLockOpen(true)}
+            className="inline-flex items-center gap-1 rounded-lg border border-bbh-green/30 bg-bbh-green-soft px-2 py-1 text-xs font-semibold text-bbh-green-dark hover:border-bbh-green"
+          >
+            <Lock size={12} /> ล็อคคิวคนไข้
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
+          >
+            <Plus size={12} /> ลา / ไม่อยู่
+          </button>
+        </div>
       </div>
 
       {blocks.length === 0 ? (
-        <p className="rounded-2xl border border-bbh-line bg-white p-4 text-sm text-bbh-muted">— ไม่มีรายการลา —</p>
+        <p className="rounded-2xl border border-bbh-line bg-white p-4 text-sm text-bbh-muted">— ยังไม่มีเวลาที่ไม่ว่างหรือคิวที่ล็อคไว้ —</p>
       ) : (
         <div className="grid gap-2 md:grid-cols-2">
-          {blocks.map((b) => (
-            <div key={b.id} className="flex items-start justify-between gap-3 rounded-xl border border-bbh-line bg-white p-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-[10px] font-mono text-bbh-muted">{b.block_type}</span>
+          {blocks.map((b) => {
+            const isLock = b.reason?.startsWith(LOCK_PREFIX) ?? false
+            const lockText = isLock ? (b.reason ?? '').slice(LOCK_PREFIX.length).trim() : ''
+            return (
+              <div key={b.id} className={`flex items-start justify-between gap-3 rounded-xl border p-3 ${isLock ? 'border-bbh-green/30 bg-bbh-green-soft/40' : 'border-bbh-line bg-white'}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {isLock ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-bbh-green-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark ring-1 ring-bbh-green/30">
+                        <Lock size={10} /> ล็อคคิวคนไข้
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-[10px] font-mono text-bbh-muted">{b.block_type}</span>
+                    )}
+                  </div>
+                  {isLock ? (
+                    <p className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-bbh-ink">
+                      <UserRound size={13} className="text-bbh-green-dark" /> {lockText}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 font-mono text-xs text-bbh-ink">
+                    {b.start_at.replace('T', ' ').slice(0, 16)}
+                    <span className="mx-1 text-bbh-muted">→</span>
+                    {b.end_at.replace('T', ' ').slice(0, 16)}
+                  </p>
+                  {!isLock && b.reason ? <p className="mt-1 text-xs text-bbh-muted">{b.reason}</p> : null}
                 </div>
-                <p className="mt-1 font-mono text-xs text-bbh-ink">
-                  {b.start_at.replace('T', ' ').slice(0, 16)}
-                  <span className="mx-1 text-bbh-muted">→</span>
-                  {b.end_at.replace('T', ' ').slice(0, 16)}
-                </p>
-                {b.reason ? <p className="mt-1 text-xs text-bbh-muted">{b.reason}</p> : null}
+                <button type="button" onClick={() => { if (confirm(isLock ? 'ปลดล็อคคิวนี้?' : 'ลบรายการนี้?')) del.mutate(b.id) }} className="text-bbh-muted hover:text-red-600" title={isLock ? 'ปลดล็อค' : 'ลบ'}><Trash2 size={13} /></button>
               </div>
-              <button type="button" onClick={() => { if (confirm('ลบรายการนี้?')) del.mutate(b.id) }} className="text-bbh-muted hover:text-red-600" title="ลบ"><Trash2 size={13} /></button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -436,7 +509,7 @@ function ScheduleBlocksSection() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bbh-ink/30" onClick={() => setOpen(false)}>
           <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">เพิ่ม block</h3>
+              <h3 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">เพิ่มวันลา / ไม่อยู่</h3>
               <button type="button" onClick={() => setOpen(false)} className="text-bbh-muted hover:text-bbh-ink"><X size={18} /></button>
             </div>
             <form onSubmit={submit} className="space-y-3">
@@ -461,6 +534,57 @@ function ScheduleBlocksSection() {
           </div>
         </div>
       ) : null}
+
+      {lockOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-bbh-ink/30 p-4" onClick={resetLock}>
+          <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-serif text-xl font-semibold text-bbh-ink inline-flex items-center gap-2 md:text-2xl">
+                <Lock size={18} className="text-bbh-green-dark" /> ล็อคคิวคนไข้
+              </h3>
+              <button type="button" onClick={resetLock} className="text-bbh-muted hover:text-bbh-ink"><X size={18} /></button>
+            </div>
+            <form onSubmit={submitLock} className="space-y-3">
+              {lockPatient ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-bbh-green/30 bg-bbh-green-soft/40 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-bbh-ink">{lockPatient.display_name}</p>
+                    <p className="text-xs text-bbh-muted">{lockPatient.hn ? `HN ${lockPatient.hn}` : 'ไม่มี HN'}{lockPatient.phone ? ` · ${lockPatient.phone}` : ''}</p>
+                  </div>
+                  <button type="button" onClick={() => setPickerOpen(true)} className="shrink-0 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark">เปลี่ยน</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setPickerOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-bbh-green/40 bg-bbh-green-soft/30 px-3 py-3 text-sm font-medium text-bbh-green-dark hover:border-bbh-green">
+                  <UserRound size={15} /> เลือกคนไข้
+                </button>
+              )}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-bbh-muted">ช่วงเวลาที่ล็อค</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input required type="datetime-local" value={lockStart} onChange={(e) => onLockStart(e.target.value)} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+                  <input required type="datetime-local" value={lockEnd} onChange={(e) => setLockEnd(e.target.value)} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <input type="text" placeholder="หมายเหตุ (เช่น รอผลแล็บ, ตรวจติดตาม)" value={lockNote} onChange={(e) => setLockNote(e.target.value)} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+              <p className="rounded-lg bg-bbh-surface px-3 py-2 text-xs text-bbh-muted">ล็อคช่วงเวลานี้ไว้ให้คนไข้ — CRO จะจองทับไม่ได้ แล้วค่อยเปลี่ยนเป็นนัดจริงในระบบ CRO</p>
+              {create.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={resetLock} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
+                <button type="submit" disabled={create.isPending || !lockPatient} className="inline-flex items-center gap-1 rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">
+                  {create.isPending ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />} ล็อคคิว
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      <PatientPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(p) => setLockPatient(p)}
+        title="เลือกคนไข้ที่จะล็อคคิว"
+      />
     </section>
   )
 }

@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarClock, ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { CalendarClock, ChevronLeft, Download, Edit3, ExternalLink, FileText, History, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { API_BASE } from '../lib/apiBase'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
@@ -160,18 +160,32 @@ export function Patients() {
     () => matchingBookings(allBookings, selectedPatient),
     [allBookings, selectedPatient]
   )
-  // Appointment text per patient for the list rows — from APPROVED bookings only
+  // Thai labels for the appointment types shown on the patient list rows.
+  const APPT_TYPE_TH: Record<string, string> = {
+    new: 'คนไข้ใหม่',
+    followup: 'ติดตามผล',
+    procedure: 'หัตถการ',
+    consult: 'ปรึกษา',
+  }
+  // Pill colours per appointment type (semantic — distinct at a glance).
+  const APPT_TYPE_STYLE: Record<string, string> = {
+    new: 'bg-sky-50 text-sky-700 ring-sky-200',
+    followup: 'bg-bbh-green-soft text-bbh-green-dark ring-bbh-green/30',
+    procedure: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+    consult: 'bg-amber-50 text-amber-700 ring-amber-200',
+  }
+  // Appointment text + type per patient for the list rows — from APPROVED bookings only
   // (confirmed). BookingListItem has no structured date, just requested_datetime_text
   // (e.g. "12/7 14:00"), so we show that verbatim, picking the latest-created one.
   const apptByPatient = useMemo(() => {
-    const map = new Map<number, string>()
+    const map = new Map<number, { text: string; type: string }>()
     for (const p of patients) {
       const matches = matchingBookings(approvedQ.data, p).filter((b) => b.requested_datetime_text)
       if (!matches.length) continue
       const chosen = matches
         .slice()
         .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))[0]
-      map.set(p.id, chosen.requested_datetime_text as string)
+      map.set(p.id, { text: chosen.requested_datetime_text as string, type: chosen.appointment_type })
     }
     return map
   }, [patients, approvedQ.data])
@@ -302,6 +316,10 @@ export function Patients() {
             <div className="space-y-1.5">
               {patients.map((patient) => {
                 const active = patient.id === selectedId
+                const appt = apptByPatient.get(patient.id)
+                const lastVisit = patient.latest_visit_at
+                  ? new Date(patient.latest_visit_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+                  : null
                 return (
                   <button
                     key={patient.id}
@@ -322,9 +340,17 @@ export function Patients() {
                         <p className="mt-0.5 truncate text-xs text-bbh-muted">
                           {patient.hn ?? 'ยังไม่มี HN'} · {patient.phone ?? 'ไม่มีเบอร์'}
                         </p>
-                        {apptByPatient.get(patient.id) ? (
-                          <p className="mt-1 flex items-center gap-1 truncate text-xs font-medium text-bbh-green-dark">
-                            <CalendarClock size={12} className="shrink-0" /> นัด {apptByPatient.get(patient.id)}
+                        {appt ? (
+                          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-bbh-green-dark">
+                            <CalendarClock size={12} className="shrink-0" />
+                            <span className="min-w-0 truncate">นัด {appt.text}</span>
+                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${APPT_TYPE_STYLE[appt.type] ?? 'bg-bbh-surface text-bbh-muted ring-bbh-line'}`}>
+                              {APPT_TYPE_TH[appt.type] ?? appt.type}
+                            </span>
+                          </p>
+                        ) : lastVisit ? (
+                          <p className="mt-1 flex items-center gap-1 truncate text-xs text-bbh-muted">
+                            <History size={12} className="shrink-0" /> เคยมา {lastVisit}
                           </p>
                         ) : null}
                       </div>

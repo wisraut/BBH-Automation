@@ -1,9 +1,10 @@
-﻿import { useState } from 'react'
-import { Link } from 'react-router-dom'
+﻿import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  FlaskConical,
   Loader2,
   RefreshCw,
   Search,
@@ -11,6 +12,7 @@ import {
 
 import { useAuth } from '../lib/auth'
 import { useReportsWorkspace, type ReportDecision, type WorkspaceReport } from '../hooks/useReportsWorkspace'
+import { MOCK_WORKSPACE_REPORTS } from '../lib/mockReports'
 
 const DECISION_LABELS: Record<string, string> = {
   no_analysis: 'ยังไม่วิเคราะห์',
@@ -88,6 +90,8 @@ export function Reports() {
   const [search, setSearch] = useState('')
   const [mineOnly, setMineOnly] = useState<boolean>(isDoctorOrNurse)
   const [page, setPage] = useState(1)
+  const [searchParams] = useSearchParams()
+  const [demo, setDemo] = useState(searchParams.get('demo') === '1')
 
   const q = useReportsWorkspace({
     decision: decision === 'all' ? undefined : decision,
@@ -99,6 +103,18 @@ export function Reports() {
     limit: 30,
   })
   const data = q.data
+
+  // Demo rows (sample uploaded files) — filtered client-side so the chips/search still work.
+  const demoRows = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return MOCK_WORKSPACE_REPORTS.filter((r) => {
+      if (decision !== 'all' && (r.latest_decision ?? 'no_analysis') !== decision) return false
+      if (reportType && r.report_type !== reportType) return false
+      if (source && r.source !== source) return false
+      if (term && !`${r.patient_name} ${r.hn ?? ''} ${r.title}`.toLowerCase().includes(term)) return false
+      return true
+    })
+  }, [decision, reportType, source, search])
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -116,15 +132,39 @@ export function Reports() {
             ค้นหา filter และดู report ของคนไข้ — คลิกเพื่อไปยังหน้าคนไข้และตัดสินใจ triage
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => q.refetch()}
-          className="inline-flex items-center gap-2 rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink hover:border-bbh-green"
-        >
-          <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-          รีเฟรช
-        </button>
+        <div className="flex items-center gap-2">
+          {!demo ? (
+            <button
+              type="button"
+              onClick={() => setDemo(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-bbh-green-soft px-3 py-2 text-sm font-semibold text-bbh-green-dark ring-1 ring-bbh-green/20 transition-colors hover:ring-bbh-green/40"
+            >
+              <FlaskConical size={15} /> ดูตัวอย่างข้อมูล (demo)
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => q.refetch()}
+            className="inline-flex items-center gap-2 rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink hover:border-bbh-green"
+          >
+            <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
+            รีเฟรช
+          </button>
+        </div>
       </div>
+
+      {demo ? (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+          <span>โหมดตัวอย่าง — ไฟล์ผลแล็บสมมุติสำหรับดูหน้าตาเท่านั้น ไม่ใช่ข้อมูลคนไข้จริง</span>
+          <button
+            type="button"
+            onClick={() => setDemo(false)}
+            className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
+          >
+            ปิดตัวอย่าง
+          </button>
+        </div>
+      ) : null}
 
       {/* Filters */}
       <div className="mb-4 space-y-3">
@@ -194,7 +234,28 @@ export function Reports() {
       </div>
 
       {/* Results */}
-      {q.isLoading ? (
+      {demo ? (
+        demoRows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-bbh-line bg-white p-10 text-center">
+            <FileText size={28} className="mb-2 text-bbh-muted" />
+            <p className="text-sm font-semibold text-bbh-ink">ไม่พบรายงาน (ตัวอย่าง)</p>
+            <p className="mt-1 text-xs text-bbh-muted">ลองปรับ filter หรือล้างคำค้น</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
+            <div className="hidden grid-cols-[180px_1fr_110px_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-muted lg:grid">
+              <span>คนไข้ / HN</span>
+              <span>เรื่อง</span>
+              <span>ประเภท</span>
+              <span className="text-right">วันที่อัพโหลด</span>
+              <span className="text-right">สถานะ</span>
+            </div>
+            <div className="divide-y divide-bbh-line">
+              {demoRows.map((r) => <ReportRow key={r.report_id} r={r} />)}
+            </div>
+          </div>
+        )
+      ) : q.isLoading ? (
         <div className="flex items-center justify-center rounded-2xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
           <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด
         </div>

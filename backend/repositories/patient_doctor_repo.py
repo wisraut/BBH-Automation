@@ -87,6 +87,25 @@ def list_by_patient(patient_id: int, *, active_only: bool = True) -> list[dict[s
             return cur.fetchall()
 
 
+def active_recipients(patient_id: int) -> list[dict[str, Any]]:
+    """Active care-team doctors that have an email — for report routing.
+    Primary first, then specialist, then consultant."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pd.doctor_id, u.display_name, u.email, pd.role
+                FROM patient_doctors pd
+                JOIN users u ON u.id = pd.doctor_id
+                WHERE pd.patient_id = %s AND pd.is_active = 1
+                  AND u.is_active = 1 AND u.email IS NOT NULL AND u.email <> ''
+                ORDER BY FIELD(pd.role, 'primary', 'specialist', 'consultant'), pd.added_at
+                """,
+                (patient_id,),
+            )
+            return cur.fetchall()
+
+
 def panel_patient_ids(doctor_id: int) -> list[int]:
     """Patient ids where this doctor is an active care-team member (the doctor's
     'my patients' panel)."""

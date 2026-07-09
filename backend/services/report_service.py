@@ -23,7 +23,7 @@ from core.email_templates import (
     render_steps_section,
     render_text_shell,
 )
-from repositories import patient_repo, report_repo, user_repo
+from repositories import patient_doctor_repo, patient_repo, report_repo, user_repo
 
 REPORTS_ROOT = os.getenv("REPORTS_STORAGE_ROOT", "/app/data/reports")
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10MB cap for MVP
@@ -340,15 +340,25 @@ def _notify_report_uploaded(
     """Email the assigned doctor (falls back to REPORT_NOTIFY_EMAIL when no
     doctor is picked or the doctor has no email on file). Best-effort: never
     raises, so a mail outage can't block the upload itself."""
-    doctor = user_repo.find_user_by_id(assigned_doctor_id) if assigned_doctor_id else None
-    recipient = (doctor.get("email") if doctor else None) or REPORT_NOTIFY_EMAIL
+    # Route to the patient's care team (Stage 2). Fall back to the report's
+    # assigned doctor, then the shared REPORT_NOTIFY_EMAIL, so a patient with no
+    # care team yet is still covered. recipients = [(email, display_name), ...]
+    team = patient_doctor_repo.active_recipients(patient_id)
+    if team:
+        recipients = [(m["email"], m.get("display_name") or "คุณหมอ") for m in team]
+    else:
+        doctor = user_repo.find_user_by_id(assigned_doctor_id) if assigned_doctor_id else None
+        doctor_email = doctor.get("email") if doctor else None
+        if doctor_email:
+            recipients = [(doctor_email, doctor.get("display_name") or "(ไม่ระบุ)")]
+        else:
+            recipients = [(REPORT_NOTIFY_EMAIL, "(ไม่ระบุ)")]
 
     frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
     deep_link = f"{frontend_base}/patients?patient={patient_id}&report={report_id}"
 
     patient_display = patient.get("display_name") or "-"
     hn = patient.get("hn") or "-"
-    doctor_display = doctor["display_name"] if doctor else "(ไม่ระบุ)"
     uploader_display = (
         uploaded_by.get("display_name") or uploaded_by.get("email") or "-"
     )
@@ -364,27 +374,6 @@ def _notify_report_uploaded(
     ]
 
     subject = f"[BBH] Report ใหม่: {title}"
-    body_text = render_text_shell(
-        eyebrow="รายงานใหม่ · ต้องดำเนินการ",
-        title=f"Report ใหม่ของคนไข้ {patient_display}",
-        subtitle=f"เรียน คุณหมอ {doctor_display}",
-        content_text=(
-            f"คนไข้:       {patient_display} (HN: {hn})\n"
-            f"ชื่อ Report:  {title}\n"
-            f"ประเภท:      {report_type}\n"
-            f"แหล่งที่มา:  {source}\n"
-            f"อัพโหลดโดย:  {uploader_display}\n\n"
-            f"เปิดใน BBH Portal:\n  {deep_link}\n\n"
-            f"ขั้นตอนใส่ NotebookLM:\n"
-            f"  1) เปิดลิงก์ด้านบน → ดาวน์โหลดไฟล์\n"
-            f"  2) เปิด notebooklm.google.com → New notebook → Upload\n"
-            f"  3) คัดลอกลิงก์ notebook กลับมาวางใน BBH Portal"
-        ),
-        footer_text=(
-            f"Report ID: {report_id}\n"
-            f"Patient ID: {patient_id}"
-        ),
-    )
 
     details = render_kv_section(
         eyebrow="รายละเอียด Report",
@@ -406,31 +395,56 @@ def _notify_report_uploaded(
         f"Report ID: <span style=\"font-family:{FONT_MONO};color:{COLOR_MUTED};\">{report_id}</span>"
         f" &middot; Patient ID: <span style=\"font-family:{FONT_MONO};color:{COLOR_MUTED};\">{patient_id}</span>"
     )
-    body_html = render_html_shell(
-        eyebrow="รายงานใหม่ · ต้องดำเนินการ",
-        title_html=(
-            f"Report ใหม่ของ <span style=\"color:{COLOR_GREEN_DARK};\">{patient_display}</span>"
-        ),
-        subtitle=f"เรียน คุณหมอ {doctor_display} — มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
-        content_html=details + cta + steps_section,
-        footer_html=footer_html,
-        preheader=f"{title} · {patient_display} (HN: {hn})",
-    )
-
-    # Attach the actual report file so the doctor can grab it straight from
-    # Gmail (drag-drop into NotebookLM). File path is the absolute disk path
-    # under REPORTS_ROOT; helper silently drops attachment if > 20MB or missing.
+    # Attach the actual report file so each doctor can grab it straight from
+    # Gmail (drag-drop into NotebookLM); helper drops the attachment if > 20MB.
     attach_name = f"{title[:80]}{_ext_for(file_mime or '')}"
-    return send_email(
-        to=recipient,
-        subject=subject,
-        body=body_text,
-        html=body_html,
-        attachment_path=file_path,
-        attachment_filename=attach_name,
-        attachment_mime=file_mime,
-        from_name="Better Being Hospital",
-    )
+
+    # One personalised email per care-team recipient; True if any send succeeds.
+    any_sent = False
+    for recipient_email, doctor_display in recipients:
+        body_text = render_text_shell(
+            eyebrow="รายงานใหม่ · ต้องดำเนินการ",
+            title=f"Report ใหม่ของคนไข้ {patient_display}",
+            subtitle=f"เรียน คุณหมอ {doctor_display}",
+            content_text=(
+                f"คนไข้:       {patient_display} (HN: {hn})\n"
+                f"ชื่อ Report:  {title}\n"
+                f"ประเภท:      {report_type}\n"
+                f"แหล่งที่มา:  {source}\n"
+                f"อัพโหลดโดย:  {uploader_display}\n\n"
+                f"เปิดใน BBH Portal:\n  {deep_link}\n\n"
+                f"ขั้นตอนใส่ NotebookLM:\n"
+                f"  1) เปิดลิงก์ด้านบน → ดาวน์โหลดไฟล์\n"
+                f"  2) เปิด notebooklm.google.com → New notebook → Upload\n"
+                f"  3) คัดลอกลิงก์ notebook กลับมาวางใน BBH Portal"
+            ),
+            footer_text=(
+                f"Report ID: {report_id}\n"
+                f"Patient ID: {patient_id}"
+            ),
+        )
+        body_html = render_html_shell(
+            eyebrow="รายงานใหม่ · ต้องดำเนินการ",
+            title_html=(
+                f"Report ใหม่ของ <span style=\"color:{COLOR_GREEN_DARK};\">{patient_display}</span>"
+            ),
+            subtitle=f"เรียน คุณหมอ {doctor_display} — มี Report ใหม่ถูกอัพโหลดเข้าระบบ",
+            content_html=details + cta + steps_section,
+            footer_html=footer_html,
+            preheader=f"{title} · {patient_display} (HN: {hn})",
+        )
+        sent = send_email(
+            to=recipient_email,
+            subject=subject,
+            body=body_text,
+            html=body_html,
+            attachment_path=file_path,
+            attachment_filename=attach_name,
+            attachment_mime=file_mime,
+            from_name="Better Being Hospital",
+        )
+        any_sent = any_sent or sent
+    return any_sent
 
 
 def _detect_mime(raw: bytes) -> str:

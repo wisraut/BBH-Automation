@@ -33,6 +33,8 @@ ALLOWED_MIMES = {
     "image/png",
     "text/plain",
 }
+MAX_EXTRACTED_CHARS = 50_000   # cap stored/analyzed text (DB bloat + LLM cost)
+MAX_PDF_PAGES = 100            # cap pages parsed (decompression-bomb guard)
 _DIFY_TRIAGE_PATTERN = re.compile(
     r"(accept|reject|review)", re.IGNORECASE
 )
@@ -171,17 +173,23 @@ async def upload_report(
             status_code=413,
             detail={"code": "FILE_TOO_LARGE", "message": "ไฟล์ใหญ่กว่า 10MB"},
         )
-    mime = (upload.content_type or "").lower() or "application/octet-stream"
+    # Trust the file's magic bytes, not the client-declared content_type — an
+    # .exe/.html renamed with Content-Type: application/pdf must not pass.
+    mime = _detect_mime(raw)
     if mime not in ALLOWED_MIMES:
         raise HTTPException(
             status_code=415,
-            detail={
-                "code": "UNSUPPORTED_MIME",
-                "message": f"ไม่รองรับไฟล์ประเภท {mime}",
-            },
+            detail={"code": "UNSUPPORTED_MIME", "message": "ชนิดไฟล์นี้ไม่รองรับ (ต้องเป็น PDF / รูป / ข้อความ)"},
         )
+    if assigned_doctor_id is not None:
+        doctor = user_repo.find_user_by_id(int(assigned_doctor_id))
+        if not doctor or doctor.get("role") != "doctor" or not doctor.get("is_active"):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "DOCTOR_NOT_FOUND", "message": "แพทย์ที่เลือกไม่พบหรือไม่อยู่ในระบบ"},
+            )
 
-    file_path = _save_to_disk(raw, upload.filename or "report", mime)
+    file_path = _save_to_disk(raw, mime)
     extracted_text = _extract_text(raw, mime)
 
     new_id = report_repo.create(
@@ -404,7 +412,7 @@ def _notify_report_uploaded(
     # Attach the actual report file so the doctor can grab it straight from
     # Gmail (drag-drop into NotebookLM). File path is the absolute disk path
     # under REPORTS_ROOT; helper silently drops attachment if > 20MB or missing.
-    attach_name = original_filename or f"{title}{_ext_for(original_filename or title, file_mime or '')}"
+    attach_name = f"{title[:80]}{_ext_for(file_mime or '')}"
     return send_email(
         to=recipient,
         subject=subject,
@@ -417,43 +425,69 @@ def _notify_report_uploaded(
     )
 
 
-def _save_to_disk(raw: bytes, filename: str, mime: str) -> str:
+def _detect_mime(raw: bytes) -> str:
+    """Authoritative content-type from magic bytes — never trust the client
+    header. Unknown binary -> octet-stream (rejected by the allow-list)."""
+    if raw[:5] == b"%PDF-":
+        return "application/pdf"
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if raw[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    head = raw[:8192]
+    if b"\x00" not in head:
+        try:
+            head.decode("utf-8")
+            return "text/plain"
+        except UnicodeDecodeError:
+            pass
+    return "application/octet-stream"
+
+
+def _save_to_disk(raw: bytes, mime: str) -> str:
     now = datetime.now()
     rel_dir = f"{now:%Y/%m}"
     abs_dir = os.path.join(REPORTS_ROOT, rel_dir)
     os.makedirs(abs_dir, exist_ok=True)
-    ext = _ext_for(filename, mime)
-    rel_path = f"{rel_dir}/{uuid.uuid4().hex}{ext}"
+    # Extension is derived from the verified mime, never the client filename.
+    rel_path = f"{rel_dir}/{uuid.uuid4().hex}{_ext_for(mime)}"
     with open(os.path.join(REPORTS_ROOT, rel_path), "wb") as fh:
         fh.write(raw)
     return rel_path
 
 
-def _ext_for(filename: str, mime: str) -> str:
-    _, ext = os.path.splitext(filename)
-    if ext:
-        return ext.lower()
+def _ext_for(mime: str) -> str:
     return {
         "application/pdf": ".pdf",
         "image/jpeg": ".jpg",
         "image/png": ".png",
         "text/plain": ".txt",
-    }.get(mime, "")
+    }.get(mime, ".bin")
 
 
 def _extract_text(raw: bytes, mime: str) -> str | None:
     if mime == "text/plain":
         try:
-            return raw.decode("utf-8", errors="ignore").strip() or None
+            text = raw.decode("utf-8", errors="ignore").strip()
+            return text[:MAX_EXTRACTED_CHARS] or None
         except Exception:  # noqa: BLE001
             return None
     if mime == "application/pdf":
         try:
             from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(raw))
-            parts = [page.extract_text() or "" for page in reader.pages]
+            parts: list[str] = []
+            total = 0
+            for i, page in enumerate(reader.pages):
+                if i >= MAX_PDF_PAGES:
+                    break
+                chunk = page.extract_text() or ""
+                parts.append(chunk)
+                total += len(chunk)
+                if total > MAX_EXTRACTED_CHARS:
+                    break
             text = "\n\n".join(p.strip() for p in parts if p.strip())
-            return text or None
+            return text[:MAX_EXTRACTED_CHARS] or None
         except Exception:  # noqa: BLE001
             log.exception("PDF text extraction failed")
             return None

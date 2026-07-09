@@ -48,6 +48,19 @@ def _assert_doctor_available(
         )
 
 
+def _assert_is_doctor(doctor_id: int | None) -> None:
+    """Reject an assigned_doctor_id that is not an active user with role=doctor
+    (e.g. a CRO/admin id). Used by both approve and assign-doctor."""
+    if doctor_id is None:
+        return
+    doctor = user_repo.find_user_by_id(int(doctor_id))
+    if not doctor or doctor.get("role") != "doctor" or not doctor.get("is_active"):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "DOCTOR_NOT_FOUND", "message": "แพทย์ที่เลือกไม่พบหรือไม่อยู่ในระบบ"},
+        )
+
+
 def _normalize_booking_date(value: str) -> tuple[str, str]:
     clean = value.strip()
     for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
@@ -138,6 +151,18 @@ def approve_booking(
     else:
         start_at = start_at.astimezone(TZ_BANGKOK)
 
+    if duration_min <= 0 or duration_min > 480:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_DURATION", "message": "ระยะเวลานัดต้องอยู่ระหว่าง 1-480 นาที"},
+        )
+    if start_at < datetime.now(TZ_BANGKOK) - timedelta(minutes=5):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "PAST_SLOT", "message": "ไม่สามารถอนุมัตินัดในเวลาที่ผ่านมาแล้ว"},
+        )
+    _assert_is_doctor(assigned_doctor_id)
+
     if not calendar_client.check_availability(start_at, duration_min):
         raise HTTPException(
             status_code=409,
@@ -209,6 +234,37 @@ def approve_booking(
     }
 
 
+def set_video_link(
+    *, uid: str, video_link: str | None, user: dict[str, Any]
+) -> dict[str, bool]:
+    """Write (or clear) an online-meeting link on an approved booking's Google
+    Calendar event. The doctor schedule reads it back as ``video_link``."""
+    row = booking_repo.get_by_uid(uid)
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
+        )
+    event_id = row.get("calendar_event_id")
+    if not event_id:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "NO_CALENDAR_EVENT", "message": "ต้อง approve นัดก่อนจึงจะใส่ลิงก์ได้"},
+        )
+    url = (video_link or "").strip()
+    if url and not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_URL", "message": "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://"},
+        )
+    if not calendar_client.set_event_video_link(event_id, url):
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "CALENDAR_ERROR", "message": "อัปเดตลิงก์บนปฏิทินไม่สำเร็จ"},
+        )
+    return {"ok": True}
+
+
 def reject_booking(
     *, uid: str, reason: str, user: dict[str, Any]
 ) -> dict[str, bool]:
@@ -269,14 +325,7 @@ def assign_doctor(
     if not row:
         raise HTTPException(404, {"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"})
 
-    if assigned_doctor_id is not None:
-        doctor = user_repo.find_user_by_id(int(assigned_doctor_id))
-        if not doctor or doctor.get("role") != "doctor" or not doctor.get("is_active"):
-            raise HTTPException(
-                422,
-                {"code": "DOCTOR_NOT_FOUND",
-                 "message": "แพทย์ที่เลือกไม่พบหรือไม่อยู่ในระบบ"},
-            )
+    _assert_is_doctor(assigned_doctor_id)
 
     updated = booking_repo.assign_doctor(
         uid=uid,

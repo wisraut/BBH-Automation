@@ -4,7 +4,7 @@ Doctor can self-block; admin can block on behalf of any doctor.
 CRO sees blocks (read-only) so they avoid bookings during them.
 """
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -21,7 +21,7 @@ _DoctorOrAdmin = Annotated[dict, Depends(require_user(["doctor", "admin"]))]
 
 class ScheduleBlockCreate(BaseModel):
     doctor_id: int
-    block_type: str = Field(default="vacation", max_length=32)
+    block_type: Literal["vacation", "off_hours", "conference", "sick", "other"] = "vacation"
     start_at: datetime
     end_at: datetime
     reason: str | None = Field(default=None, max_length=255)

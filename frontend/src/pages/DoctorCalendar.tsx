@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -324,6 +324,30 @@ export function DoctorCalendar() {
   const blocksQ = useScheduleBlocks({ doctorId, dateFrom, dateTo })
   const deleteBlock = useDeleteScheduleBlock()
 
+  // Wheel over the week grid scrolls it left/right so end-of-week days that
+  // overflow the viewport are reachable without hunting for the bottom
+  // scrollbar. While the pointer is over the grid the wheel is horizontal-only
+  // (it never bubbles to vertical page scroll, even at the edges) — to scroll
+  // the page the user moves the pointer off the grid. Native non-passive
+  // listener because React's onWheel is passive and cannot preventDefault.
+  const weekScrollRef = useRef<HTMLDivElement | null>(null)
+  const weekGridReady =
+    mode === 'week' &&
+    !scheduleQ.isLoading && !blocksQ.isLoading &&
+    !scheduleQ.isError && !blocksQ.isError
+  useEffect(() => {
+    const el = weekScrollRef.current
+    if (!el) return
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return
+      if (el.scrollWidth <= el.clientWidth) return
+      event.preventDefault()
+      el.scrollLeft += event.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [weekGridReady])
+
   const appointments = useMemo(() => scheduleQ.data?.appointments ?? [], [scheduleQ.data])
   const blocks = blocksQ.data?.data ?? []
   const todayKey = toDateKey(new Date())
@@ -430,7 +454,7 @@ export function DoctorCalendar() {
                 openBlock={openBlock}
               />
             ) : (
-              <div className="overflow-x-auto">
+              <div ref={weekScrollRef} className="overflow-x-auto">
                 <div className="min-w-[980px]">
                   <div className="grid grid-cols-[72px_repeat(7,minmax(116px,1fr))] border-b border-bbh-line bg-white">
                     <div className="border-r border-bbh-line px-3 py-3 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">เวลา</div>

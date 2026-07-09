@@ -20,6 +20,7 @@ import {
   Clock,
   Trash2,
   UserRound,
+  Video,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Modal } from '../components/Modal'
@@ -160,10 +161,20 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {apt.video_link ? (
+            <a
+              href={apt.video_link}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
+            >
+              <Video size={15} /> เข้าร่วมออนไลน์
+            </a>
+          ) : null}
           {apt.patient_id ? (
             <Link
               to={`/patients?patient=${apt.patient_id}`}
-              className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
+              className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               เปิดเคส <ArrowRight size={15} />
             </Link>
@@ -274,14 +285,26 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
           <p className="mt-2 truncate text-base font-semibold text-bbh-ink">{apt.patient_name || '(ไม่ระบุชื่อ)'}</p>
           {apt.symptom ? <p className="mt-1 line-clamp-2 text-sm text-bbh-muted">{apt.symptom}</p> : null}
         </div>
-        {apt.patient_id ? (
-          <Link
-            to={`/patients?patient=${apt.patient_id}`}
-            className={`inline-flex shrink-0 items-center gap-1 rounded-lg border border-bbh-green/30 bg-bbh-green-soft px-2 py-1 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
-          >
-            เคส <ExternalLink size={11} />
-          </Link>
-        ) : null}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {apt.video_link ? (
+            <a
+              href={apt.video_link}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex items-center gap-1 rounded-lg bg-bbh-green px-2 py-1 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
+            >
+              <Video size={11} /> ออนไลน์
+            </a>
+          ) : null}
+          {apt.patient_id ? (
+            <Link
+              to={`/patients?patient=${apt.patient_id}`}
+              className={`inline-flex items-center gap-1 rounded-lg border border-bbh-green/30 bg-bbh-green-soft px-2 py-1 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
+            >
+              เคส <ExternalLink size={11} />
+            </Link>
+          ) : null}
+        </div>
       </div>
     </div>
   )
@@ -505,6 +528,7 @@ function ScheduleBlocksSection() {
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
   const [reason, setReason] = useState('')
+  const [videoLink, setVideoLink] = useState('')
 
   if (!doctorId) return null
   const blocks = q.data?.data ?? []
@@ -513,8 +537,11 @@ function ScheduleBlocksSection() {
     e.preventDefault()
     if (!startAt || !endAt) return
     create.mutate(
-      { doctor_id: doctorId, block_type: blockType, start_at: startAt, end_at: endAt, reason: reason || null },
-      { onSuccess: () => { setOpen(false); setStartAt(''); setEndAt(''); setReason(''); setBlockType('vacation') } },
+      {
+        doctor_id: doctorId, block_type: blockType, start_at: startAt, end_at: endAt,
+        reason: reason || null, video_link: videoLink.trim() || null,
+      },
+      { onSuccess: () => { setOpen(false); setStartAt(''); setEndAt(''); setReason(''); setVideoLink(''); setBlockType('vacation') } },
     )
   }
 
@@ -556,6 +583,16 @@ function ScheduleBlocksSection() {
                   {b.end_at.replace('T', ' ').slice(0, 16)}
                 </p>
                 {b.reason ? <p className="mt-1 text-xs text-bbh-muted">{b.reason}</p> : null}
+                {b.video_link ? (
+                  <a
+                    href={b.video_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`mt-2 inline-flex items-center gap-1 rounded-lg border border-bbh-green/40 bg-bbh-green/5 px-2 py-1 text-xs font-medium text-bbh-green-dark transition-colors duration-200 hover:bg-bbh-green/10 ${FOCUS_RING}`}
+                  >
+                    <Video size={12} /> เข้าร่วมออนไลน์
+                  </a>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -593,6 +630,16 @@ function ScheduleBlocksSection() {
             </div>
           </div>
           <input type="text" placeholder="หมายเหตุ (เช่น พักร้อน)" value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} />
+          <div>
+            <input
+              type="url"
+              placeholder="ลิงก์ประชุมออนไลน์ (ไม่บังคับ — Zoom / Meet / อื่นๆ)"
+              value={videoLink}
+              onChange={(e) => setVideoLink(e.target.value)}
+              className={fieldClass}
+            />
+            <p className="mt-1 text-[11px] text-bbh-muted">ใส่ลิงก์เมื่อเป็นการประชุมออนไลน์ — จะขึ้นบนปฏิทินและมีปุ่มเข้าร่วม</p>
+          </div>
           {create.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
           <div className="flex justify-end gap-2">
             <button

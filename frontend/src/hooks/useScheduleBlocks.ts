@@ -11,6 +11,9 @@ export interface ScheduleBlock {
   start_at: string
   end_at: string
   reason: string | null
+  video_link: string | null
+  calendar_event_id: string | null
+  calendar_event_url: string | null
   created_by: number | null
   created_at: string
 }
@@ -21,6 +24,7 @@ export interface ScheduleBlockCreateBody {
   start_at: string
   end_at: string
   reason?: string | null
+  video_link?: string | null
 }
 
 export function useScheduleBlocks(args: { doctorId?: number; dateFrom?: string; dateTo?: string } = {}) {

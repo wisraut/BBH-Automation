@@ -14,6 +14,7 @@ import {
   Stethoscope,
   Trash2,
   UserRound,
+  Video,
 } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
@@ -171,13 +172,17 @@ function CreateBlockModal({
   const [startAt, setStartAt] = useState(initialStart)
   const [endAt, setEndAt] = useState('')
   const [reason, setReason] = useState('')
+  const [videoLink, setVideoLink] = useState('')
 
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!doctorId || !startAt || !endAt) return
     create.mutate(
-      { doctor_id: doctorId, block_type: blockType, start_at: startAt, end_at: endAt, reason: reason || null },
-      { onSuccess: onClose },
+      {
+        doctor_id: doctorId, block_type: blockType, start_at: startAt, end_at: endAt,
+        reason: reason || null, video_link: videoLink.trim() || null,
+      },
+      { onSuccess: () => { setReason(''); setVideoLink(''); onClose() } },
     )
   }
 
@@ -212,6 +217,13 @@ function CreateBlockModal({
           </div>
         </div>
         <input value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} placeholder="เหตุผล เช่น ประชุมทีม / conference" />
+        <input
+          type="url"
+          value={videoLink}
+          onChange={(e) => setVideoLink(e.target.value)}
+          className={fieldClass}
+          placeholder="ลิงก์ประชุมออนไลน์ (ไม่บังคับ — Zoom / Meet / อื่นๆ)"
+        />
         {create.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className={`rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>ยกเลิก</button>
@@ -561,8 +573,13 @@ export function DoctorCalendar() {
                     <p className="mt-1 text-sm text-bbh-ink">{selection.item.symptom || '-'}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {selection.item.video_link ? (
+                      <a href={selection.item.video_link} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}>
+                        <Video size={15} /> เข้าร่วมออนไลน์
+                      </a>
+                    ) : null}
                     {selection.item.patient_id ? (
-                      <Link to={`/patients?patient=${selection.item.patient_id}`} className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}>
+                      <Link to={`/patients?patient=${selection.item.patient_id}`} className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>
                         <UserRound size={15} /> เปิดเคส
                       </Link>
                     ) : null}
@@ -583,6 +600,16 @@ export function DoctorCalendar() {
                     <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">Reason</p>
                     <p className="mt-1 text-sm text-bbh-ink">{selection.item.reason || '-'}</p>
                   </div>
+                  {selection.item.video_link ? (
+                    <a
+                      href={selection.item.video_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
+                    >
+                      <Video size={15} /> เข้าร่วมออนไลน์
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => {

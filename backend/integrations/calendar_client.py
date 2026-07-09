@@ -118,11 +118,17 @@ def list_events(time_min: datetime, time_max: datetime) -> list[dict]:
 
 def book_event(summary: str, description: str, start: datetime,
                duration_min: int = DEFAULT_DURATION_MIN,
-               attendee_emails: Optional[list] = None) -> dict:
+               attendee_emails: Optional[list] = None,
+               transparent: bool = False,
+               location: str | None = None) -> dict:
     """
     Create event in calendar.
     Returns: {event_id, html_link, start, end} on success
     Raises: Google API errors on failure
+
+    ``transparent=True`` marks the event as free (not busy) — used for doctor
+    schedule blocks so they're visible/remind but don't consume the shared
+    calendar's availability. ``location`` holds an online-meeting join URL.
     """
     end = start + timedelta(minutes=duration_min)
     event = {
@@ -131,6 +137,10 @@ def book_event(summary: str, description: str, start: datetime,
         "start":       {"dateTime": start.isoformat(), "timeZone": "Asia/Bangkok"},
         "end":         {"dateTime": end.isoformat(),   "timeZone": "Asia/Bangkok"},
     }
+    if transparent:
+        event["transparency"] = "transparent"
+    if location:
+        event["location"] = location
     if attendee_emails:
         event["attendees"] = [{"email": e} for e in attendee_emails]
 

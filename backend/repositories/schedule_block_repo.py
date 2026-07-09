@@ -28,7 +28,9 @@ def list_blocks(
             cur.execute(
                 f"""
                 SELECT b.id, b.doctor_id, u.display_name AS doctor_name, b.block_type,
-                       b.start_at, b.end_at, b.reason, b.created_by, b.created_at
+                       b.start_at, b.end_at, b.reason, b.video_link,
+                       b.calendar_event_id, b.calendar_event_url,
+                       b.created_by, b.created_at
                 FROM doctor_schedule_blocks b
                 LEFT JOIN users u ON u.id = b.doctor_id
                 {where_sql}
@@ -41,21 +43,45 @@ def list_blocks(
 
 def insert_block(
     *, doctor_id: int, block_type: str, start_at: datetime, end_at: datetime,
-    reason: str | None, created_by: int | None,
+    reason: str | None, video_link: str | None, created_by: int | None,
 ) -> int:
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO doctor_schedule_blocks
-                    (doctor_id, block_type, start_at, end_at, reason, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (doctor_id, block_type, start_at, end_at, reason, video_link, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (doctor_id, block_type, start_at, end_at, reason, created_by),
+                (doctor_id, block_type, start_at, end_at, reason, video_link, created_by),
             )
             new_id = cur.lastrowid
         conn.commit()
     return int(new_id)
+
+
+def get_block(block_id: int) -> dict[str, Any] | None:
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, doctor_id, block_type, start_at, end_at, reason, "
+                "video_link, calendar_event_id, calendar_event_url "
+                "FROM doctor_schedule_blocks WHERE id = %s LIMIT 1",
+                (block_id,),
+            )
+            return cur.fetchone()
+
+
+def set_calendar_event(block_id: int, event_id: str, event_url: str) -> int:
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE doctor_schedule_blocks SET calendar_event_id = %s, "
+                "calendar_event_url = %s WHERE id = %s",
+                (event_id, event_url, block_id),
+            )
+        conn.commit()
+    return rows
 
 
 def delete_block(block_id: int) -> int:

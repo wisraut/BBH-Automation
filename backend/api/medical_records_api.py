@@ -31,7 +31,10 @@ from services import audit_service
 
 router = APIRouter(tags=["medical-records"])
 
-_StaffUser = Annotated[dict, Depends(require_user(["cro", "doctor", "nurse", "admin"]))]
+# Reading full clinical records (conditions/allergies/meds/treatments) is for
+# clinicians + admin only — a CRO (front desk / booking) does not need them
+# (least-privilege / PDPA). Flip back to include "cro" if hospital policy needs it.
+_StaffUser = Annotated[dict, Depends(require_user(["doctor", "nurse", "admin"]))]
 _DoctorOrAdmin = Annotated[dict, Depends(require_user(["doctor", "admin"]))]
 
 

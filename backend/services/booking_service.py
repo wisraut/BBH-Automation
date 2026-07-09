@@ -234,22 +234,31 @@ def approve_booking(
     }
 
 
+def _row_start(row: dict[str, Any]) -> datetime | None:
+    """Rebuild the Asia/Bangkok start datetime from a booking's stored
+    requested_date + requested_time (ISO strings from the repo serializer)."""
+    d = row.get("requested_date")
+    if not d:
+        return None
+    t = row.get("requested_time") or "09:00:00"
+    try:
+        return datetime.fromisoformat(f"{d}T{t}").replace(tzinfo=TZ_BANGKOK)
+    except ValueError:
+        return None
+
+
 def set_video_link(
     *, uid: str, video_link: str | None, user: dict[str, Any]
 ) -> dict[str, bool]:
     """Write (or clear) an online-meeting link on an approved booking's Google
-    Calendar event. The doctor schedule reads it back as ``video_link``."""
+    Calendar event. If that event is missing (e.g. it lived on a calendar we no
+    longer use), recreate it on the active calendar and re-link the booking so
+    the doctor still sees the join button."""
     row = booking_repo.get_by_uid(uid)
     if not row:
         raise HTTPException(
             status_code=404,
             detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
-        )
-    event_id = row.get("calendar_event_id")
-    if not event_id:
-        raise HTTPException(
-            status_code=409,
-            detail={"code": "NO_CALENDAR_EVENT", "message": "ต้อง approve นัดก่อนจึงจะใส่ลิงก์ได้"},
         )
     url = (video_link or "").strip()
     if url and not (url.startswith("http://") or url.startswith("https://")):
@@ -257,11 +266,41 @@ def set_video_link(
             status_code=422,
             detail={"code": "INVALID_URL", "message": "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://"},
         )
-    if not calendar_client.set_event_video_link(event_id, url):
+
+    event_id = row.get("calendar_event_id") or ""
+    if event_id and calendar_client.event_exists(event_id):
+        if not calendar_client.set_event_video_link(event_id, url):
+            raise HTTPException(
+                status_code=502,
+                detail={"code": "CALENDAR_ERROR", "message": "อัปเดตลิงก์บนปฏิทินไม่สำเร็จ"},
+            )
+        return {"ok": True}
+
+    # Event missing/stale -> recreate on the active calendar (approved only).
+    if row.get("status") != "approved":
         raise HTTPException(
-            status_code=502,
-            detail={"code": "CALENDAR_ERROR", "message": "อัปเดตลิงก์บนปฏิทินไม่สำเร็จ"},
+            status_code=409,
+            detail={"code": "NO_CALENDAR_EVENT", "message": "ต้อง approve นัดก่อนจึงจะใส่ลิงก์ได้"},
         )
+    start = _row_start(row)
+    if not start:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "NO_SLOT", "message": "นัดนี้ไม่มีวัน/เวลา ใส่ลิงก์ไม่ได้"},
+        )
+    if not calendar_client.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "CALENDAR_DISABLED", "message": "Google Calendar service ยังไม่ได้ตั้งค่า"},
+        )
+    event = calendar_client.book_event(
+        summary=f"BBH — {row.get('patient_name') or 'ผู้ป่วย'}",
+        description=f"Request UID: {uid}",
+        start=start,
+        duration_min=30,
+    )
+    calendar_client.set_event_video_link(event["event_id"], url)
+    booking_repo.set_calendar_event(uid, event["event_id"], event.get("html_link", ""))
     return {"ok": True}
 
 

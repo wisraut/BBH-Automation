@@ -433,6 +433,20 @@ def update_approved(
             raise
 
 
+def set_calendar_event(uid: str, event_id: str, event_url: str) -> int:
+    """Re-point a booking at a (re)created calendar event — used when the old
+    event_id is stale (event lived on a calendar we no longer use)."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE booking_requests SET calendar_event_id = %s, "
+                "calendar_event_url = %s WHERE request_uid = %s",
+                (event_id, event_url, uid),
+            )
+        conn.commit()
+    return rows
+
+
 _DATE_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
 
 

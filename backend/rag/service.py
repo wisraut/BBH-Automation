@@ -50,6 +50,19 @@ def _rate_limit_result() -> dict:
     }
 
 
+# Post-LLM safety net. The deterministic gate (safety.is_emergency) misses
+# heavy-typo emergencies ("จ็บหน้าอก", "หัวจัยจะวาย"); the LLM usually still puts
+# 1669/emergency guidance in its answer but sometimes routes AUTO — so staff
+# never get alerted. If the answer signals an emergency we upgrade the route to
+# ESCALATE regardless. Bias is intentional: a false staff alert is cheap, a
+# missed emergency is not.
+_EMERGENCY_SIGNALS = ("1669", "ฉุกเฉิน")
+
+
+def _answer_signals_emergency(answer: str) -> bool:
+    return any(sig in answer for sig in _EMERGENCY_SIGNALS)
+
+
 def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> dict:
     # Safety gate first: a hard emergency keyword forces ESCALATE:emergency
     # regardless of the LLM. Replaces Dify's if_else_emergency node.
@@ -66,6 +79,10 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
     messages = prompts.build(text, hits, history)
     raw = llm.chat(messages).strip()
     route, clean = prompts.parse_prefix(raw)
+
+    # Safety net for gate-miss emergencies (see _EMERGENCY_SIGNALS above).
+    if not route.upper().startswith("ESCALATE") and _answer_signals_emergency(clean):
+        route = "ESCALATE:EMERGENCY"
 
     return {
         "answer": clean,

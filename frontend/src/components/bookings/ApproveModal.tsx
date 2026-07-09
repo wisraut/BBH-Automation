@@ -70,6 +70,8 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
   const [startAt, setStartAt] = useState(defaultStart())
   const [duration, setDuration] = useState(60)
   const [doctorId, setDoctorId] = useState<number | ''>('')
+  // Patient identity: number = link to that existing chart, 'new' = fresh chart.
+  const [patientChoice, setPatientChoice] = useState<number | 'new' | null>(null)
   const approve = useApproveBooking()
   const doctorsQ = useDoctors()
   const blockDate = startAt.slice(0, 10)
@@ -81,11 +83,18 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
   const blockConflict = (blocksQ.data?.data ?? []).find((block) => overlapsBlock(block, startAt, duration))
   const toast = useToast()
 
+  // Existing charts sharing this phone. When present the CRO must confirm
+  // identity before approving — never merge on phone alone.
+  const candidates = booking?.patient_candidates ?? []
+  const hasCandidates = candidates.length > 0
+  const patientUnresolved = hasCandidates && patientChoice === null
+
   useEffect(() => {
     if (open) {
       setStartAt(defaultStart())
       setDuration(booking?.duration_min ?? 60)
       setDoctorId(booking?.assigned_doctor_id ?? '')
+      setPatientChoice(null)
     }
   }, [open, booking])
 
@@ -100,6 +109,10 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
       toast.show('error', 'แพทย์ไม่ว่างในช่วงเวลานี้')
       return
     }
+    if (patientUnresolved) {
+      toast.show('error', 'กรุณายืนยันตัวตนคนไข้ (เลือกคนเดิม หรือเป็นคนไข้ใหม่)')
+      return
+    }
     try {
       // Browser sends "YYYY-MM-DDTHH:MM"; treat as Asia/Bangkok by appending +07:00
       const isoBangkok = `${startAt}:00+07:00`
@@ -109,6 +122,8 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
           start_at: isoBangkok,
           duration_min: duration,
           assigned_doctor_id: Number(doctorId),
+          link_patient_id: typeof patientChoice === 'number' ? patientChoice : undefined,
+          create_new_patient: patientChoice === 'new',
         },
       })
       toast.show('success', `ยืนยันนัด ${booking.patient_name ?? ''} สำเร็จ`)
@@ -180,6 +195,51 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
           </span>
         </label>
 
+        {hasCandidates ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+            <p className="text-sm font-semibold text-amber-900">เบอร์นี้ตรงกับคนไข้เดิม — ยืนยันตัวตน</p>
+            <p className="mt-0.5 text-xs text-amber-800">
+              เลือกว่าเป็นคนเดียวกัน หรือเป็นคนไข้ใหม่ เพื่อกันเปิดเวชระเบียนผิดคน
+            </p>
+            <div className="mt-2 space-y-1">
+              {candidates.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-amber-100/60"
+                >
+                  <input
+                    type="radio"
+                    name="patient-choice"
+                    className="mt-1 accent-bbh-green"
+                    checked={patientChoice === c.id}
+                    onChange={() => setPatientChoice(c.id)}
+                  />
+                  <span className="text-sm leading-snug">
+                    <span className="font-medium text-bbh-ink">{c.display_name}</span>
+                    {c.hn ? <span className="font-mono text-xs text-bbh-muted"> · HN {c.hn}</span> : null}
+                    {c.phone ? <span className="text-xs text-bbh-muted"> · {c.phone}</span> : null}
+                    {c.latest_visit_at ? (
+                      <span className="block text-[11px] text-bbh-muted">
+                        มาล่าสุด {new Date(c.latest_visit_at).toLocaleDateString('th-TH')}
+                      </span>
+                    ) : null}
+                  </span>
+                </label>
+              ))}
+              <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-amber-100/60">
+                <input
+                  type="radio"
+                  name="patient-choice"
+                  className="accent-bbh-green"
+                  checked={patientChoice === 'new'}
+                  onChange={() => setPatientChoice('new')}
+                />
+                <span className="text-sm font-medium text-bbh-ink">เป็นคนไข้ใหม่ (สร้างเวชระเบียนใหม่)</span>
+              </label>
+            </div>
+          </div>
+        ) : null}
+
         {blockConflict ? (
           <div className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
             <p className="font-semibold text-bbh-ink">แพทย์ไม่ว่างช่วงเวลานี้</p>
@@ -199,10 +259,16 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
           </button>
           <button
             type="submit"
-            disabled={approve.isPending || !!blockConflict}
+            disabled={approve.isPending || !!blockConflict || patientUnresolved}
             className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
-            {blockConflict ? 'แพทย์ไม่ว่าง' : approve.isPending ? 'กำลังยืนยัน...' : 'ยืนยันนัด'}
+            {blockConflict
+              ? 'แพทย์ไม่ว่าง'
+              : patientUnresolved
+                ? 'ยืนยันตัวตนคนไข้ก่อน'
+                : approve.isPending
+                  ? 'กำลังยืนยัน...'
+                  : 'ยืนยันนัด'}
           </button>
         </div>
       </form>

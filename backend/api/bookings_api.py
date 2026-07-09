@@ -2,6 +2,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from core.security import require_user
 from schemas.bookings import (
@@ -59,6 +60,20 @@ def list_bookings(
     )
 
 
+class SetVideoLinkRequest(BaseModel):
+    video_link: str | None = None
+
+
+@router.patch("/{request_uid}/video-link", response_model=SimpleOkResponse)
+def set_video_link(request_uid: str, body: SetVideoLinkRequest, user: _CroOrAdmin) -> dict:
+    """Set (or clear) the online-meeting link on an approved booking. Written to
+    the booking's Google Calendar event, so the doctor sees a join button and
+    Google Calendar reminds at the appointment time."""
+    return booking_service.set_video_link(
+        uid=request_uid, video_link=body.video_link, user=user,
+    )
+
+
 @router.post("", response_model=BookingCreateResponse)
 def create_booking(body: BookingCreateRequest, user: _CroOrAdmin) -> dict:
     """Create a manual booking from Web Dashboard using JWT auth."""
@@ -83,6 +98,8 @@ def approve_booking(request_uid: str, body: ApproveRequest, user: _CroOrAdmin) -
         duration_min=body.duration_min,
         user=user,
         assigned_doctor_id=body.assigned_doctor_id,
+        link_patient_id=body.link_patient_id,
+        create_new_patient=body.create_new_patient,
     )
     return {"ok": True, **result}
 

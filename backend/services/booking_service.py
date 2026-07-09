@@ -18,8 +18,9 @@ from core.email_templates import (
 )
 from integrations import calendar_client
 from integrations.line_client import PRIMARY, push as line_push
-from repositories import booking_repo, schedule_block_repo, user_repo
+from repositories import booking_repo, patient_repo, schedule_block_repo, user_repo
 from utils.pagination import paginate
+from utils.phone import normalize_phone
 
 logger = logging.getLogger(__name__)
 TZ_BANGKOK = timezone(timedelta(hours=7))
@@ -94,7 +95,50 @@ def get_booking(uid: str) -> dict[str, Any]:
             status_code=404,
             detail={"code": "BOOKING_NOT_FOUND", "message": "ไม่พบรายการจองนี้"},
         )
+    # Surface phone-matched existing charts so the ApproveModal can ask the CRO
+    # to confirm identity. Only relevant while still pending + not yet linked.
+    candidates: list[dict[str, Any]] = []
+    if row.get("status") == "pending_approval" and not row.get("patient_id"):
+        candidates = patient_repo.find_candidates_by_phone(normalize_phone(row.get("phone")))
+    row["patient_candidates"] = candidates
     return row
+
+
+def _resolve_patient_choice(
+    *, row: dict[str, Any], link_patient_id: int | None, create_new_patient: bool,
+) -> tuple[int | None, bool]:
+    """Decide how the approved booking attaches to a patient chart.
+
+    Returns ``(resolved_patient_id, create_new_patient)`` to hand to the repo.
+    Raises 409 PATIENT_MATCH_REQUIRED when the phone collides with an existing
+    chart and the CRO hasn't yet chosen — never merge on phone alone.
+    """
+    if row.get("patient_id"):
+        return None, False  # already linked upstream; repo keeps it
+
+    candidates = patient_repo.find_candidates_by_phone(normalize_phone(row.get("phone")))
+    if create_new_patient:
+        return None, True
+    if link_patient_id is not None:
+        if not any(c["id"] == link_patient_id for c in candidates):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_PATIENT_CHOICE",
+                    "message": "คนไข้ที่เลือกไม่ตรงกับเบอร์นี้ กรุณาเลือกใหม่",
+                },
+            )
+        return link_patient_id, False
+    if candidates:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PATIENT_MATCH_REQUIRED",
+                "message": "เบอร์นี้ตรงกับคนไข้เดิม กรุณายืนยันว่าเป็นคนเดียวกันหรือสร้างใหม่",
+                "candidates": candidates,
+            },
+        )
+    return None, False  # no collision — repo auto-creates a fresh chart
 
 
 def create_booking(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
@@ -120,6 +164,8 @@ def approve_booking(
     duration_min: int,
     user: dict[str, Any],
     assigned_doctor_id: int | None = None,
+    link_patient_id: int | None = None,
+    create_new_patient: bool = False,
 ) -> dict[str, str]:
     row = booking_repo.get_by_uid(uid)
     if not row:
@@ -181,6 +227,14 @@ def approve_booking(
         duration_min=duration_min,
     )
 
+    # Resolve patient identity BEFORE creating the calendar event so an
+    # unresolved phone collision (409) never leaves an orphan Google event.
+    resolved_patient_id, create_new = _resolve_patient_choice(
+        row=row,
+        link_patient_id=link_patient_id,
+        create_new_patient=create_new_patient,
+    )
+
     patient_name = row.get("patient_name") or "ผู้ป่วย"
     phone = row.get("phone") or "-"
     symptom = row.get("symptom") or "-"
@@ -207,6 +261,8 @@ def approve_booking(
         assigned_doctor_id=assigned_doctor_id,
         requested_date=start_at.strftime("%Y-%m-%d"),
         requested_time=start_at.strftime("%H:%M:%S"),
+        resolved_patient_id=resolved_patient_id,
+        create_new_patient=create_new,
     )
     if not approved:
         # Lost race — another approver acted first; clean up the just-created event

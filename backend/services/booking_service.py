@@ -18,7 +18,13 @@ from core.email_templates import (
 )
 from integrations import calendar_client
 from integrations.line_client import PRIMARY, push as line_push
-from repositories import booking_repo, patient_repo, schedule_block_repo, user_repo
+from repositories import (
+    booking_repo,
+    patient_doctor_repo,
+    patient_repo,
+    schedule_block_repo,
+    user_repo,
+)
 from utils.pagination import paginate
 from utils.phone import normalize_phone
 
@@ -274,6 +280,19 @@ def approve_booking(
                 "message": "รายการถูกอัปเดตโดยผู้อื่นแล้ว",
             },
         )
+
+    # Seed the patient's care team from the assigned doctor (best-effort — a
+    # care-team hiccup must not fail an otherwise-successful approval).
+    seed_doctor = assigned_doctor_id or row.get("assigned_doctor_id")
+    if seed_doctor and approved.get("patient_id"):
+        try:
+            patient_doctor_repo.seed_from_booking(
+                patient_id=int(approved["patient_id"]),
+                doctor_id=int(seed_doctor),
+                added_by=user.get("id"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Care-team seed failed for booking %s: %s", uid, exc)
 
     _safe_push_patient(
         row.get("external_user_id"),

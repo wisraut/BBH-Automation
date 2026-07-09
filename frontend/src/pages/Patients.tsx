@@ -7,6 +7,7 @@ import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
+import { CareTeamSection } from '../components/patients/CareTeamSection'
 import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
@@ -101,6 +102,7 @@ export function Patients() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [mine, setMine] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(queryPatientId)
   const [showPatientDetail, setShowPatientDetail] = useState(Boolean(queryPatientId))
   const [selectedReportId, setSelectedReportId] = useState<number | null>(queryReportId)
@@ -133,7 +135,7 @@ export function Patients() {
     setNotebookUrlDraft('')
   }, [selectedReportId])
 
-  const patientsQ = usePatients({ search: debouncedSearch, page, limit: 20 })
+  const patientsQ = usePatients({ search: debouncedSearch, mine, page, limit: 20 })
   const patientQ = usePatient(selectedId)
   const reportsQ = usePatientReports(selectedId)
   const reportQ = useReport(selectedReportId)
@@ -263,6 +265,21 @@ export function Patients() {
                 className="h-11 w-full rounded-lg border border-bbh-line py-2 pl-9 pr-3 text-sm text-bbh-ink placeholder:text-bbh-muted transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
               />
             </div>
+            {user?.role === 'doctor' ? (
+              <button
+                type="button"
+                onClick={() => { setMine((v) => !v); setPage(1) }}
+                aria-pressed={mine}
+                className={`inline-flex h-11 shrink-0 items-center rounded-lg border px-3 text-sm font-medium transition-colors duration-200 ${FOCUS_RING} ${
+                  mine
+                    ? 'border-bbh-green bg-bbh-green-soft text-bbh-green-dark'
+                    : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
+                }`}
+                title="แสดงเฉพาะคนไข้ในความดูแลของฉัน"
+              >
+                คนไข้ของฉัน
+              </button>
+            ) : null}
             {canWritePatient ? (
               <button
                 type="button"
@@ -420,6 +437,8 @@ export function Patients() {
                     <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatDate(patients.find((p) => p.id === selectedId)?.latest_visit_at)}</p>
                   </div>
                 </div>
+
+                <CareTeamSection patientId={selectedPatient.id} />
 
                 <section>
                   <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประวัติการแพทย์</h2>

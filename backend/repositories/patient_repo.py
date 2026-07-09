@@ -21,9 +21,12 @@ def _serialize(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def list_patients(
-    *, search: str | None, page: int, limit: int
+    *, search: str | None, page: int, limit: int, panel_doctor_id: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """List with optional fuzzy search (name/hn/phone) + booking/report counts."""
+    """List with optional fuzzy search (name/hn/phone) + booking/report counts.
+
+    ``panel_doctor_id`` restricts to that doctor's active care-team panel
+    ("my patients")."""
     offset = (page - 1) * limit
     conds = ["p.deleted_at IS NULL"]
     args: tuple[Any, ...] = ()
@@ -31,6 +34,12 @@ def list_patients(
         like = f"%{search.strip()}%"
         conds.append("(p.display_name LIKE %s OR p.hn LIKE %s OR p.phone LIKE %s)")
         args = (like, like, like)
+    if panel_doctor_id is not None:
+        conds.append(
+            "EXISTS (SELECT 1 FROM patient_doctors pd "
+            "WHERE pd.patient_id = p.id AND pd.doctor_id = %s AND pd.is_active = 1)"
+        )
+        args = (*args, panel_doctor_id)
     where_sql = "WHERE " + " AND ".join(conds)
 
     with mysql_db() as conn:

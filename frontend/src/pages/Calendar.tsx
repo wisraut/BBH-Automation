@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, CalendarDays, CalendarOff, CheckCircle2, ChevronLeft, ChevronRight, Clock, Stethoscope, Video, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -12,6 +12,7 @@ import { useBooking } from '../hooks/useBooking'
 import { useCancelBooking } from '../hooks/useCancelBooking'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 import { useDoctors } from '../hooks/useDoctors'
+import { useAvailability } from '../hooks/useAvailability'
 import { useScheduleBlocks, type ScheduleBlock } from '../hooks/useScheduleBlocks'
 import type { CalendarEvent } from '../hooks/useCalendarEvents'
 import { useRescheduledMarks } from '../hooks/useRescheduledMarks'
@@ -235,6 +236,7 @@ export function Calendar() {
   } | null>(null)
   const [approveTargetUid, setApproveTargetUid] = useState<string | null>(null)
   const [selectedDoctorId, setSelectedDoctorId] = useState<number | ''>('')
+  const [doctorInit, setDoctorInit] = useState(false)
 
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
@@ -249,6 +251,15 @@ export function Calendar() {
   const googleQ = useCalendarEvents(rangeStart, rangeEnd)
   const monthKey = (d: Date) => toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
   const doctorsQ = useDoctors()
+  const availabilityQ = useAvailability(selectedDoctorId === '' ? undefined : selectedDoctorId)
+  // Default to the first doctor once loaded — the calendar is doctor-scoped;
+  // "แพทย์ทุกคน" stays available as an explicit overview choice.
+  useEffect(() => {
+    if (!doctorInit && (doctorsQ.data?.data?.length ?? 0) > 0) {
+      setSelectedDoctorId(doctorsQ.data!.data[0].id)
+      setDoctorInit(true)
+    }
+  }, [doctorInit, doctorsQ.data])
   const blocksQ = useScheduleBlocks({
     doctorId: selectedDoctorId === '' ? undefined : selectedDoctorId,
     dateFrom: monthKey(new Date(year, month, 1)),
@@ -260,18 +271,24 @@ export function Calendar() {
   )
 
   const bookingsByDate = useMemo(() => {
-    const all = [
+    let all = [
       ...approvedQ.data,
       ...pendingQ.data,
       ...cancelledQ.data,
       ...rejectedQ.data,
     ]
+    // Doctor-scoped: show only this doctor's bookings. "แพทย์ทุกคน" ('') = all.
+    if (selectedDoctorId !== '') {
+      all = all.filter((b) => b.assigned_doctor_id === selectedDoctorId)
+    }
     return mapByDate(all, (booking) => parseBookingDate(booking.requested_datetime_text))
-  }, [approvedQ.data, pendingQ.data, cancelledQ.data, rejectedQ.data])
+  }, [approvedQ.data, pendingQ.data, cancelledQ.data, rejectedQ.data, selectedDoctorId])
 
+  // The shared Google layer aggregates every doctor, so it only makes sense in
+  // the "แพทย์ทุกคน" overview; a doctor-scoped view relies on DB bookings.
   const googleByDate = useMemo(
-    () => mapByDate(googleQ.data?.data ?? [], eventDateKey),
-    [googleQ.data],
+    () => (selectedDoctorId === '' ? mapByDate(googleQ.data?.data ?? [], eventDateKey) : {}),
+    [googleQ.data, selectedDoctorId],
   )
 
   const rescheduledByDate = useMemo(
@@ -300,6 +317,16 @@ export function Calendar() {
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
     ...Array(trailingBlanks).fill(null),
   ]
+
+  // The selected doctor's open-for-booking hours on the selected weekday
+  // (day_of_week 0=Mon..6=Sun; JS getDay() is 0=Sun, so shift by +6 %7).
+  const openHoursForSelected = useMemo(() => {
+    if (!selectedDate || selectedDoctorId === '') return []
+    const dow = (new Date(selectedDate + 'T00:00:00').getDay() + 6) % 7
+    return (availabilityQ.data?.data ?? [])
+      .filter((r) => r.day_of_week === dow)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+  }, [selectedDate, selectedDoctorId, availabilityQ.data])
 
   const rawSelected = selectedDate ? bookingsByDate[selectedDate] ?? [] : []
   const selectedGoogle = selectedDate ? googleByDate[selectedDate] ?? [] : []
@@ -429,9 +456,9 @@ export function Calendar() {
               value={selectedDoctorId}
               onChange={(event) => setSelectedDoctorId(event.target.value === '' ? '' : Number(event.target.value))}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              aria-label="กรองเวลาที่แพทย์ไม่อยู่"
+              aria-label="เลือกปฏิทินของแพทย์"
             >
-              <option value="">แพทย์ทุกคน</option>
+              <option value="">แพทย์ทุกคน (ภาพรวม)</option>
               {(doctorsQ.data?.data ?? []).map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>{doctor.display_name}</option>
               ))}
@@ -548,6 +575,14 @@ export function Calendar() {
               <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">
                 {rawSelected.length + selectedGoogle.length === 0 ? 'ไม่มีนัดหมาย' : `${rawSelected.length + selectedGoogle.length} นัดหมาย`}
               </p>
+              {selectedDoctorId !== '' ? (
+                <p className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${openHoursForSelected.length > 0 ? 'bg-bbh-green-soft text-bbh-green-dark' : 'bg-bbh-surface text-bbh-muted'}`}>
+                  <Clock size={12} />
+                  {openHoursForSelected.length > 0
+                    ? `เปิดรับนัด ${openHoursForSelected.map((r) => `${r.start_time}–${r.end_time}`).join(', ')}`
+                    : 'วันนี้แพทย์ไม่เปิดรับนัด'}
+                </p>
+              ) : null}
             </div>
 
             {rawSelected.length > 0 && (
@@ -740,6 +775,7 @@ export function Calendar() {
 
       <ApproveModal
         booking={approveDetailQ.data ?? null}
+        defaultDoctorId={selectedDoctorId === '' ? undefined : selectedDoctorId}
         open={approveTargetUid !== null && !!approveDetailQ.data}
         onClose={() => setApproveTargetUid(null)}
         onApproved={() => {

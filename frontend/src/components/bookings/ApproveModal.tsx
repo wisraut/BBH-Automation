@@ -14,6 +14,9 @@ interface ApproveModalProps {
   open: boolean
   onClose: () => void
   onApproved: () => void
+  // Pre-select this doctor when the booking has none yet (e.g. the CRO calendar
+  // is scoped to one doctor).
+  defaultDoctorId?: number
 }
 
 const FOCUS_RING =
@@ -66,7 +69,7 @@ function overlapsBlock(block: ScheduleBlock, startAt: string, duration: number):
   return start < blockEnd && end > blockStart
 }
 
-export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModalProps) {
+export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctorId }: ApproveModalProps) {
   const [startAt, setStartAt] = useState(defaultStart())
   const [duration, setDuration] = useState(60)
   const [doctorId, setDoctorId] = useState<number | ''>('')
@@ -93,10 +96,10 @@ export function ApproveModal({ booking, open, onClose, onApproved }: ApproveModa
     if (open) {
       setStartAt(defaultStart())
       setDuration(booking?.duration_min ?? 60)
-      setDoctorId(booking?.assigned_doctor_id ?? '')
+      setDoctorId(booking?.assigned_doctor_id ?? defaultDoctorId ?? '')
       setPatientChoice(null)
     }
-  }, [open, booking])
+  }, [open, booking, defaultDoctorId])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

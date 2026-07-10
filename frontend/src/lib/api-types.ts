@@ -605,6 +605,9 @@ export interface paths {
         /**
          * List Patients
          * @description List patients with optional search (name/HN/phone) + pagination.
+         *
+         *     ``mine=true`` restricts to the caller's care-team panel (only meaningful for
+         *     a doctor; other roles have no panel and get an empty list).
          */
         get: operations["list_patients_api_patients_get"];
         put?: never;
@@ -665,6 +668,51 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/care-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Care Team
+         * @description List the patient's care team (active members, primary first).
+         */
+        get: operations["get_care_team_api_patients__patient_id__care_team_get"];
+        put?: never;
+        /**
+         * Add Care Team Member
+         * @description Add a doctor to the care team (or change their role). A `primary` demotes
+         *     the previous primary to `specialist`.
+         */
+        post: operations["add_care_team_member_api_patients__patient_id__care_team_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/care-team/{doctor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Care Team Member
+         * @description Remove a doctor from the care team (soft — history retained).
+         */
+        delete: operations["remove_care_team_member_api_patients__patient_id__care_team__doctor_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -856,6 +904,150 @@ export interface paths {
          * @description Confirm the final triage decision for one analysis.
          */
         post: operations["decide_report_triage_api_reports_analyses__analysis_id__decide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalog
+         * @description Marker catalog (labels, units, reference + optimal ranges) so the
+         *     frontend never hardcodes clinical ranges.
+         */
+        get: operations["get_catalog_api_measurements_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/extract-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Measurements
+         * @description Run LLM extraction over a report's text into draft values. Patient data
+         *     crosses to the external LLM (PII-redacted in the extractor) — audit is
+         *     mandatory.
+         */
+        post: operations["extract_measurements_api_reports__report_id__extract_measurements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Patient Measurements
+         * @description List a patient's measurements. `status` = draft|confirmed|rejected;
+         *     `codes` = comma-separated marker codes.
+         */
+        get: operations["list_patient_measurements_api_patients__patient_id__measurements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/measurement-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Report Drafts
+         * @description Draft values extracted from one report, for the review panel.
+         */
+        get: operations["list_report_drafts_api_reports__report_id__measurement_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/{measurement_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirm Measurement
+         * @description Confirm a draft (with optional doctor edits) so it becomes trusted.
+         */
+        put: operations["confirm_measurement_api_measurements__measurement_id__confirm_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/{measurement_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Measurement
+         * @description Discard a draft (kept for audit, never hard-deleted).
+         */
+        post: operations["reject_measurement_api_measurements__measurement_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/bulk-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Confirm Measurements
+         * @description Confirm many drafts at once (with per-row edits).
+         */
+        post: operations["bulk_confirm_measurements_api_measurements_bulk_confirm_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1193,6 +1385,48 @@ export interface paths {
         post?: never;
         /** Delete Block */
         delete: operations["delete_block_api_schedule_blocks__block_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schedule/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Availability
+         * @description List a doctor's weekly template. Doctors default to their own.
+         */
+        get: operations["get_availability_api_schedule_availability_get"];
+        /**
+         * Put Availability
+         * @description Replace the doctor's whole weekly template.
+         */
+        put: operations["put_availability_api_schedule_availability_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_account_settings_get"];
+        /** Put Settings */
+        put: operations["put_settings_api_account_settings_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1734,6 +1968,22 @@ export interface components {
             /** Data */
             data: components["schemas"]["AuditLogItem"][];
         };
+        /** AvailabilityPutRequest */
+        AvailabilityPutRequest: {
+            /** Doctor Id */
+            doctor_id: number;
+            /** Ranges */
+            ranges?: components["schemas"]["AvailabilityRange"][];
+        };
+        /** AvailabilityRange */
+        AvailabilityRange: {
+            /** Day Of Week */
+            day_of_week: number;
+            /** Start Time */
+            start_time: string;
+            /** End Time */
+            end_time: string;
+        };
         /** Body_upload_patient_report_api_patients__patient_id__reports_post */
         Body_upload_patient_report_api_patients__patient_id__reports_post: {
             /**
@@ -1836,6 +2086,8 @@ export interface components {
              * @enum {string}
              */
             appointment_type: "new" | "followup" | "procedure" | "consult";
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -1875,6 +2127,8 @@ export interface components {
              * @enum {string}
              */
             appointment_type: "new" | "followup" | "procedure" | "consult";
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -1900,8 +2154,6 @@ export interface components {
             calendar_event_url?: string | null;
             /** Calendar Status */
             calendar_status: string;
-            /** Assigned Doctor Id */
-            assigned_doctor_id?: number | null;
             /** Patient Id */
             patient_id?: number | null;
             /** Notes */
@@ -1924,6 +2176,33 @@ export interface components {
              * @default []
              */
             patient_candidates: components["schemas"]["PatientCandidate"][];
+        };
+        /** BulkConfirmItem */
+        BulkConfirmItem: {
+            /** Id */
+            id: number;
+            /** Code */
+            code?: string | null;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** BulkConfirmRequest */
+        BulkConfirmRequest: {
+            /** Items */
+            items: components["schemas"]["BulkConfirmItem"][];
+        };
+        /** BulkConfirmResponse */
+        BulkConfirmResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Confirmed */
+            confirmed: number;
         };
         /** CalendarEventOut */
         CalendarEventOut: {
@@ -1984,6 +2263,41 @@ export interface components {
              * @default Cancelled by CRO
              */
             reason: string;
+        };
+        /** CareTeamAddRequest */
+        CareTeamAddRequest: {
+            /** Doctor Id */
+            doctor_id: number;
+            /**
+             * Role
+             * @default specialist
+             * @enum {string}
+             */
+            role: "primary" | "specialist" | "consultant";
+        };
+        /** CatalogItem */
+        CatalogItem: {
+            /** Code */
+            code: string;
+            /** Label Th */
+            label_th: string;
+            /** Unit */
+            unit: string;
+            /** Panel */
+            panel: string;
+            /** Ref Low */
+            ref_low: number;
+            /** Ref High */
+            ref_high: number;
+            /** Optimal Low */
+            optimal_low: number;
+            /** Optimal High */
+            optimal_high: number;
+        };
+        /** CatalogResponse */
+        CatalogResponse: {
+            /** Data */
+            data: components["schemas"]["CatalogItem"][];
         };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
@@ -2058,6 +2372,19 @@ export interface components {
              */
             updated_at: string;
         };
+        /** ConfirmRequest */
+        ConfirmRequest: {
+            /** Code */
+            code?: string | null;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
         /** CustomMessageRequest */
         CustomMessageRequest: {
             /** Message */
@@ -2076,6 +2403,18 @@ export interface components {
             display_name: string;
             /** Specialty */
             specialty?: string | null;
+        };
+        /** ExtractResponse */
+        ExtractResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Data */
+            data: components["schemas"]["MeasurementOut"][];
+            /**
+             * Parse Error
+             * @default false
+             */
+            parse_error: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2122,6 +2461,51 @@ export interface components {
         /** MeResponse */
         MeResponse: {
             user: components["schemas"]["schemas__auth__UserOut"];
+        };
+        /** MeasurementListResponse */
+        MeasurementListResponse: {
+            /** Data */
+            data: components["schemas"]["MeasurementOut"][];
+        };
+        /** MeasurementOut */
+        MeasurementOut: {
+            /** Id */
+            id: number;
+            /** Patient Id */
+            patient_id: number;
+            /** Report Id */
+            report_id?: number | null;
+            /** Code */
+            code: string;
+            /** Value */
+            value: number;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Measured At
+             * Format: date
+             */
+            measured_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "confirmed" | "rejected";
+            /** Raw Label */
+            raw_label?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /** Confirmed By */
+            confirmed_by?: number | null;
+            /** Confirmed At */
+            confirmed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** MedicalBundle */
         MedicalBundle: {
@@ -2611,6 +2995,8 @@ export interface components {
             end_at: string;
             /** Reason */
             reason?: string | null;
+            /** Video Link */
+            video_link?: string | null;
         };
         /** SessionUpdate */
         SessionUpdate: {
@@ -2629,6 +3015,22 @@ export interface components {
         SetVideoLinkRequest: {
             /** Video Link */
             video_link?: string | null;
+        };
+        /** SettingsOut */
+        SettingsOut: {
+            /** Notebooklm Url */
+            notebooklm_url?: string | null;
+            /** Google Calendar Id */
+            google_calendar_id?: string | null;
+            /** Service Account Email */
+            service_account_email?: string | null;
+        };
+        /** SettingsPut */
+        SettingsPut: {
+            /** Notebooklm Url */
+            notebooklm_url?: string | null;
+            /** Google Calendar Id */
+            google_calendar_id?: string | null;
         };
         /** SimpleOk */
         SimpleOk: {
@@ -3818,6 +4220,8 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string | null;
+                /** @description Only patients in the caller's care-team panel. */
+                mine?: boolean;
                 page?: number;
                 limit?: number;
             };
@@ -3985,6 +4389,110 @@ export interface operations {
             header?: never;
             path: {
                 patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_care_team_api_patients__patient_id__care_team_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_care_team_member_api_patients__patient_id__care_team_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareTeamAddRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_care_team_member_api_patients__patient_id__care_team__doctor_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+                doctor_id: number;
             };
             cookie?: never;
         };
@@ -4363,6 +4871,221 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_catalog_api_measurements_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogResponse"];
+                };
+            };
+        };
+    };
+    extract_measurements_api_reports__report_id__extract_measurements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_patient_measurements_api_patients__patient_id__measurements_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                codes?: string | null;
+            };
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_report_drafts_api_reports__report_id__measurement_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_measurement_api_measurements__measurement_id__confirm_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                measurement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_measurement_api_measurements__measurement_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                measurement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_confirm_measurements_api_measurements_bulk_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkConfirmResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4989,6 +5712,127 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_availability_api_schedule_availability_get: {
+        parameters: {
+            query?: {
+                doctor_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_availability_api_schedule_availability_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityPutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_api_account_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    put_settings_api_account_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
                 };
             };
             /** @description Validation Error */

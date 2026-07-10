@@ -11,7 +11,7 @@ from utils.phone import normalize_phone
 
 _LIST_COLUMNS = (
     "request_uid, status, patient_name, phone, requested_datetime_text, "
-    "symptom, booking_source, appointment_type, created_at"
+    "symptom, booking_source, appointment_type, assigned_doctor_id, created_at"
 )
 
 _DETAIL_COLUMNS = (

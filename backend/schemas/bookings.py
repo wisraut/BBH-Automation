@@ -20,6 +20,7 @@ class BookingListItem(BaseModel):
     symptom: str | None = None
     booking_source: BookingSource
     appointment_type: AppointmentType
+    assigned_doctor_id: int | None = None
     created_at: datetime
 
 

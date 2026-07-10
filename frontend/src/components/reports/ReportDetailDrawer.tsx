@@ -4,9 +4,10 @@
 // values) still link out to the patient page, but viewing no longer forces it.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { X, ExternalLink, Download, Loader2, ArrowUpRight } from 'lucide-react'
+import { X, ExternalLink, Download, Loader2, ArrowUpRight, Send } from 'lucide-react'
 
 import { useReport } from '../../hooks/useReport'
+import { useAccountSettings } from '../../hooks/useAccountSettings'
 import { useToast } from '../../hooks/useToast'
 import { openReportFile, downloadReportFile } from '../../lib/reportFile'
 import type { WorkspaceReport } from '../../hooks/useReportsWorkspace'
@@ -35,6 +36,7 @@ function extFor(mime?: string | null): string {
 
 export function ReportDetailDrawer({ report, onClose }: { report: WorkspaceReport; onClose: () => void }) {
   const q = useReport(report.report_id)
+  const settingsQ = useAccountSettings()
   const toast = useToast()
   const [open, setOpen] = useState(false)
 
@@ -52,6 +54,27 @@ export function ReportDetailDrawer({ report, onClose }: { report: WorkspaceRepor
 
   const doOpen = () => { void openReportFile(report.report_id).catch(() => toast.show('error', 'เปิดไฟล์ไม่สำเร็จ')) }
   const doDownload = () => { void downloadReportFile(report.report_id, `${report.title}${extFor(detail?.file_mime)}`).catch(() => toast.show('error', 'ดาวน์โหลดไม่สำเร็จ')) }
+
+  // NotebookLM has no ingestion API, so "forward" = open the doctor's own
+  // notebook + copy the report text to paste in. The link lives per-user on the
+  // Account page.
+  const doForward = () => {
+    const url = settingsQ.data?.notebooklm_url
+    if (!url) {
+      toast.show('error', 'ยังไม่ได้ตั้งลิงก์ NotebookLM ของคุณ — ตั้งค่าในหน้าบัญชีก่อน')
+      return
+    }
+    const text = detail?.extracted_text
+    if (text) {
+      void navigator.clipboard.writeText(text).then(
+        () => toast.show('success', 'คัดลอกเนื้อหารายงานแล้ว — เปิด NotebookLM ให้วางได้เลย'),
+        () => toast.show('success', 'เปิด NotebookLM แล้ว (คัดลอกอัตโนมัติไม่ได้)'),
+      )
+    } else {
+      toast.show('success', 'เปิด NotebookLM แล้ว (รายงานนี้ไม่มีข้อความให้คัดลอก)')
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 
   return (
     <>
@@ -108,9 +131,22 @@ export function ReportDetailDrawer({ report, onClose }: { report: WorkspaceRepor
             </div>
           ) : null}
 
+          <div>
+            <button
+              type="button"
+              onClick={doForward}
+              className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-green/40 bg-bbh-green-soft px-3 py-2 text-sm font-semibold text-bbh-green-dark transition-colors hover:bg-bbh-green hover:text-white ${FOCUS_RING}`}
+            >
+              <Send size={15} /> ส่งต่อไป NotebookLM
+            </button>
+            {settingsQ.data && !settingsQ.data.notebooklm_url ? (
+              <Link to="/account" className="ml-3 text-xs text-bbh-muted underline hover:text-bbh-green-dark">ตั้งลิงก์ NotebookLM ในหน้าบัญชี</Link>
+            ) : null}
+          </div>
+
           {detail?.notebooklm_url ? (
             <a href={detail.notebooklm_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 truncate text-sm text-bbh-green underline">
-              NotebookLM <ExternalLink size={13} />
+              NotebookLM (ของรายงานนี้) <ExternalLink size={13} />
             </a>
           ) : null}
 

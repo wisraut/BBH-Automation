@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { CheckCircle, Clock, KeyRound, LogOut, ShieldCheck, XCircle } from 'lucide-react'
+import { CheckCircle, Clock, KeyRound, Link2, LogOut, ShieldCheck, XCircle } from 'lucide-react'
 
+import { useAccountSettings, useSaveAccountSettings } from '../hooks/useAccountSettings'
 import { useChangePassword } from '../hooks/useChangePassword'
 import { useMyAuditLogs } from '../hooks/useMyAuditLogs'
 import { useToast } from '../hooks/useToast'
@@ -52,7 +53,24 @@ export function Account() {
   const [confirmPw, setConfirmPw] = useState('')
   const [pwError, setPwError] = useState<string | null>(null)
 
+  const settingsQ = useAccountSettings()
+  const saveSettings = useSaveAccountSettings()
+  const [notebookUrl, setNotebookUrl] = useState('')
+  useEffect(() => {
+    if (settingsQ.data) setNotebookUrl(settingsQ.data.notebooklm_url ?? '')
+  }, [settingsQ.data])
+
   if (!user) return null
+
+  async function handleSaveSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    try {
+      await saveSettings.mutateAsync({ notebooklm_url: notebookUrl.trim() || null })
+      toast.show('success', 'บันทึกการเชื่อมต่อแล้ว')
+    } catch (err) {
+      toast.show('error', err instanceof ApiError ? err.message : 'บันทึกไม่สำเร็จ')
+    }
+  }
 
   async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -189,6 +207,36 @@ export function Account() {
                 >
                   <ShieldCheck size={16} />
                   {change.isPending ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่านใหม่'}
+                </button>
+              </form>
+            </section>
+
+            {/* Personal integrations — per-user unique links (NotebookLM, ...) */}
+            <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6" style={{ animationDelay: '210ms' }}>
+              <div className="mb-2 flex items-center gap-2">
+                <Link2 size={18} className="text-bbh-green" />
+                <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">การเชื่อมต่อส่วนตัว</h2>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-bbh-muted">
+                ลิงก์ NotebookLM ส่วนตัวของคุณ — ตอนกด "ส่งต่อไป NotebookLM" ในหน้ารายงาน ระบบจะเปิด notebook นี้ พร้อมคัดลอกเนื้อหารายงานให้วางได้เลย
+              </p>
+              <form onSubmit={handleSaveSettings} className="space-y-3">
+                <label className="block">
+                  <span className="text-sm text-bbh-muted">ลิงก์ NotebookLM ของฉัน</span>
+                  <input
+                    type="url"
+                    value={notebookUrl}
+                    onChange={(e) => setNotebookUrl(e.target.value)}
+                    placeholder="https://notebooklm.google.com/notebook/..."
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={saveSettings.isPending || settingsQ.isLoading}
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
+                >
+                  {saveSettings.isPending ? 'กำลังบันทึก...' : 'บันทึก'}
                 </button>
               </form>
             </section>

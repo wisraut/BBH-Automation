@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { CheckCircle, Clock, KeyRound, Link2, LogOut, ShieldCheck, XCircle } from 'lucide-react'
+import { Check, CheckCircle, Clock, Copy, KeyRound, Link2, LogOut, ShieldCheck, XCircle } from 'lucide-react'
 
 import { useAccountSettings, useSaveAccountSettings } from '../hooks/useAccountSettings'
 import { useChangePassword } from '../hooks/useChangePassword'
@@ -57,6 +57,7 @@ export function Account() {
   const saveSettings = useSaveAccountSettings()
   const [notebookUrl, setNotebookUrl] = useState('')
   const [calendarId, setCalendarId] = useState('')
+  const [copiedEmail, setCopiedEmail] = useState(false)
   useEffect(() => {
     if (settingsQ.data) {
       setNotebookUrl(settingsQ.data.notebooklm_url ?? '')
@@ -77,6 +78,13 @@ export function Account() {
     } catch (err) {
       toast.show('error', err instanceof ApiError ? err.message : 'บันทึกไม่สำเร็จ')
     }
+  }
+
+  function copyServiceEmail(email: string) {
+    void navigator.clipboard.writeText(email).then(
+      () => { setCopiedEmail(true); window.setTimeout(() => setCopiedEmail(false), 1800) },
+      () => toast.show('error', 'คัดลอกไม่สำเร็จ'),
+    )
   }
 
   async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
@@ -249,11 +257,21 @@ export function Account() {
                   />
                 </label>
                 {settingsQ.data?.service_account_email ? (
-                  <p className="rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2 text-xs leading-relaxed text-bbh-muted">
-                    วิธีเชื่อม: เปิด Google Calendar ของคุณ → แชร์ปฏิทิน (สิทธิ์ "แก้ไขกิจกรรม") ให้อีเมลนี้{' '}
-                    <span className="break-all font-mono text-bbh-ink">{settingsQ.data.service_account_email}</span>{' '}
-                    แล้วใส่อีเมล Google ของคุณเป็น Calendar ID ด้านบน
-                  </p>
+                  <div className="rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2.5">
+                    <p className="text-xs leading-relaxed text-bbh-muted">
+                      วิธีเชื่อม: เปิด Google Calendar ของคุณ → แชร์ปฏิทิน (สิทธิ์ "แก้ไขกิจกรรม") ให้อีเมลนี้ แล้วใส่อีเมล Google ของคุณเป็น Calendar ID ด้านบน
+                    </p>
+                    <div className="mt-2 flex items-center gap-2 rounded-md border border-bbh-line bg-white px-2.5 py-1.5">
+                      <span className="min-w-0 flex-1 truncate font-mono text-xs text-bbh-ink">{settingsQ.data.service_account_email}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyServiceEmail(settingsQ.data!.service_account_email!)}
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors duration-200 ${copiedEmail ? 'bg-bbh-green-soft text-bbh-green-dark' : 'bg-bbh-green text-white hover:bg-bbh-green-dark'} ${FOCUS_RING}`}
+                      >
+                        {copiedEmail ? <><Check size={13} /> คัดลอกแล้ว</> : <><Copy size={13} /> คัดลอก</>}
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
                 <button
                   type="submit"

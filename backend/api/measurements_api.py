@@ -93,6 +93,11 @@ def confirm_measurement(
             status_code=404,
             detail={"code": "MEASUREMENT_NOT_FOUND", "message": "ไม่พบค่าที่ระบุ"},
         )
+    if existing["status"] != "draft":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "NOT_DRAFT", "message": "ยืนยันได้เฉพาะค่าที่รอยืนยัน"},
+        )
     measurement_repo.confirm(
         measurement_id,
         confirmed_by=user.get("id"),

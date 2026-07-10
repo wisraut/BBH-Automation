@@ -180,8 +180,10 @@ def confirm(
     args.append(measurement_id)
     with mysql_db() as conn:
         with conn.cursor() as cur:
+            # Only a draft may be confirmed. This blocks resurrecting a value the
+            # doctor already rejected (via a stale/duplicate confirm or bulk-confirm).
             rows = cur.execute(
-                f"UPDATE patient_measurements SET {', '.join(sets)} WHERE id = %s",
+                f"UPDATE patient_measurements SET {', '.join(sets)} WHERE id = %s AND status = 'draft'",
                 tuple(args),
             )
         conn.commit()

@@ -19,6 +19,7 @@ from core.email_templates import (
 from integrations import calendar_client
 from integrations.line_client import PRIMARY, push as line_push
 from repositories import (
+    availability_repo,
     booking_repo,
     patient_doctor_repo,
     patient_repo,
@@ -51,6 +52,36 @@ def _assert_doctor_available(
                     f"แพทย์ไม่ว่าง ({overlap['block_type']}) "
                     f"ช่วง {overlap['start_at']} - {overlap['end_at']}"
                 ),
+            },
+        )
+
+
+def _assert_within_availability(
+    *, doctor_id: int | None, start_at: datetime, duration_min: int
+) -> None:
+    """Reject slots outside a doctor's recurring open-for-booking template.
+    OPT-IN: a doctor with no template is unconstrained (backward-compatible).
+    Distinct from DOCTOR_BLOCKED (time-off) — this is 'outside open hours'."""
+    if not doctor_id:
+        return
+    if not availability_repo.has_template(int(doctor_id)):
+        return
+    end_at = start_at + timedelta(minutes=duration_min)
+    covered = (
+        end_at.date() == start_at.date()
+        and availability_repo.covers(
+            doctor_id=int(doctor_id),
+            day_of_week=start_at.weekday(),  # Mon=0..Sun=6, matches the template
+            start_time=start_at.strftime("%H:%M:%S"),
+            end_time=end_at.strftime("%H:%M:%S"),
+        )
+    )
+    if not covered:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DOCTOR_UNAVAILABLE",
+                "message": "เวลานี้อยู่นอกช่วงเวลาที่แพทย์เปิดรับนัด",
             },
         )
 
@@ -227,8 +258,14 @@ def approve_booking(
     # Doctor schedule block check: use the doctor selected in this approval
     # request, not only the doctor currently stored on the pending booking.
     effective_doctor_id = assigned_doctor_id or row.get("assigned_doctor_id")
+    _doctor_int = int(effective_doctor_id) if effective_doctor_id else None
+    # Open-hours (availability template) then time-off (blocks): both raise 409
+    # with distinct codes so the CRO UI can message precisely.
+    _assert_within_availability(
+        doctor_id=_doctor_int, start_at=start_at, duration_min=duration_min,
+    )
     _assert_doctor_available(
-        doctor_id=int(effective_doctor_id) if effective_doctor_id else None,
+        doctor_id=_doctor_int,
         start_at=start_at,
         duration_min=duration_min,
     )
@@ -528,9 +565,13 @@ def reschedule_booking(
              "message": "เวลาใหม่ชนนัดอื่น เลือกเวลาอื่น"},
         )
 
-    # Doctor block check (same guard as approve flow)
+    # Doctor open-hours + block check (same guards as approve flow)
+    _resched_doctor = int(row["assigned_doctor_id"]) if row.get("assigned_doctor_id") else None
+    _assert_within_availability(
+        doctor_id=_resched_doctor, start_at=new_start_at, duration_min=duration_min,
+    )
     _assert_doctor_available(
-        doctor_id=int(row["assigned_doctor_id"]) if row.get("assigned_doctor_id") else None,
+        doctor_id=_resched_doctor,
         start_at=new_start_at,
         duration_min=duration_min,
     )

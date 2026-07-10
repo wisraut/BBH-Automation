@@ -28,6 +28,7 @@ import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '..
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
 import { useAuth } from '../lib/auth'
+import { AvailabilitySection } from '../components/schedule/AvailabilitySection'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -449,6 +450,8 @@ export function Schedule() {
             </div>
 
             <div className="animate-rise" style={{ animationDelay: '140ms' }}>
+              <AvailabilitySection />
+
               <ScheduleBlocksSection />
             </div>
 

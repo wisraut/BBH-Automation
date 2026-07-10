@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { openReportFile, downloadReportFile } from '../lib/reportFile'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
@@ -90,6 +90,9 @@ export function Patients() {
   const [mine, setMine] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(queryPatientId)
   const [showPatientDetail, setShowPatientDetail] = useState(Boolean(queryPatientId))
+  // Desktop: collapse the patient list once a patient is open so the record gets
+  // the full width; a "รายชื่อ" button reopens it to switch patients.
+  const [listCollapsed, setListCollapsed] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<number | null>(queryReportId)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [viewMode, setViewMode] = useState<'detail' | 'chat'>('detail')
@@ -248,7 +251,7 @@ export function Patients() {
   return (
     <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-white">
       <section
-        className={`${showPatientDetail ? 'hidden lg:flex' : 'flex'} relative w-full shrink-0 flex-col border-bbh-line bg-white lg:w-80 lg:border-r`}
+        className={`${showPatientDetail ? 'hidden' : 'flex'} ${listCollapsed ? 'lg:hidden' : 'lg:flex'} relative w-full shrink-0 flex-col border-bbh-line bg-white lg:w-80 lg:border-r`}
       >
         <div className="space-y-3 border-b border-bbh-line p-4">
           <div className="flex items-center gap-2">
@@ -288,9 +291,19 @@ export function Patients() {
               </button>
             ) : null}
           </div>
-          <p className="font-mono text-xs tabular-nums text-bbh-muted">
-            {patientsQ.isLoading ? 'กำลังโหลด' : `${pagination?.total ?? 0} คนไข้`}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono text-xs tabular-nums text-bbh-muted">
+              {patientsQ.isLoading ? 'กำลังโหลด' : `${pagination?.total ?? 0} คนไข้`}
+            </p>
+            <button
+              type="button"
+              onClick={() => setListCollapsed(true)}
+              className={`hidden items-center gap-1 rounded-md border border-bbh-line px-2 py-1 text-xs text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:inline-flex ${FOCUS_RING}`}
+              title="พับรายชื่อ"
+            >
+              <PanelLeftClose size={14} /> พับ
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -313,6 +326,7 @@ export function Patients() {
                     onClick={() => {
                       setSelectedId(patient.id)
                       setShowPatientDetail(true)
+                      setListCollapsed(true)
                       setSelectedReportId(null)
                       setViewMode('detail')
                     }}
@@ -401,6 +415,17 @@ export function Patients() {
                 </p>
               </div>
               <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                {listCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => setListCollapsed(false)}
+                    className={`hidden items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:inline-flex ${FOCUS_RING}`}
+                    title="เปิดรายชื่อคนไข้"
+                  >
+                    <PanelLeft size={16} />
+                    รายชื่อ
+                  </button>
+                ) : null}
                 {canWritePatient ? (
                   <button type="button" onClick={() => setPatientModal('edit')} className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:flex-none ${FOCUS_RING}`}>
                     <Edit3 size={16} />

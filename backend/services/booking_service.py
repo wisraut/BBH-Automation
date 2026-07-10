@@ -21,6 +21,7 @@ from integrations.line_client import PRIMARY, push as line_push
 from repositories import (
     availability_repo,
     booking_repo,
+    doctor_settings_repo,
     patient_doctor_repo,
     patient_repo,
     schedule_block_repo,
@@ -331,6 +332,12 @@ def approve_booking(
         except Exception as exc:  # noqa: BLE001
             logger.warning("Care-team seed failed for booking %s: %s", uid, exc)
 
+    # Mirror the appointment onto the assigned doctor's own calendar (best-effort).
+    _mirror_to_doctor(
+        uid=uid, doctor_id=_doctor_int, old_mirror_event_id=row.get("doctor_calendar_event_id"),
+        summary=summary, description=description, start_at=start_at, duration_min=duration_min,
+    )
+
     _safe_push_patient(
         row.get("external_user_id"),
         f"ยืนยันนัด {patient_name}\n"
@@ -615,6 +622,15 @@ def reschedule_booking(
             logger.exception("Failed to cancel old calendar event %s for booking %s",
                              old_event, uid)
 
+    # Re-mirror onto the doctor's own calendar at the new time (best-effort).
+    _mirror_to_doctor(
+        uid=uid, doctor_id=_resched_doctor,
+        old_mirror_event_id=row.get("doctor_calendar_event_id"),
+        summary=f"BBH — {row.get('patient_name') or '-'}",
+        description=(reason or row.get("symptom") or ""),
+        start_at=new_start_at, duration_min=duration_min,
+    )
+
     # Notify patient via LINE (channel is line_main / external_user_id stored on booking).
     if row.get("channel", "").startswith("line") and row.get("external_user_id"):
         _safe_push_patient(
@@ -790,7 +806,48 @@ def cancel_booking(
             calendar_client.cancel_event(event_id)
         except Exception:  # noqa: BLE001 - calendar cleanup is best-effort after DB wins
             logger.exception("Failed to cancel Google Calendar event for booking %s", uid)
+    _cancel_doctor_mirror(
+        doctor_id=cancelled.get("assigned_doctor_id"),
+        mirror_event_id=cancelled.get("doctor_calendar_event_id"),
+    )
     return {"ok": True}
+
+
+def _mirror_to_doctor(
+    *, uid: str, doctor_id: int | None, old_mirror_event_id: str | None,
+    summary: str, description: str, start_at: datetime, duration_min: int,
+) -> None:
+    """Best-effort: mirror an approved booking onto the assigned doctor's OWN
+    Google Calendar (if they configured one on their account). Purely additive —
+    it never touches the primary shared-calendar event or the booking result, so
+    a mirror failure can't break approve/reschedule."""
+    try:
+        if not doctor_id or not calendar_client.is_configured():
+            return
+        cal = (doctor_settings_repo.get(int(doctor_id)) or {}).get("google_calendar_id")
+        if not cal:
+            return
+        if old_mirror_event_id:
+            calendar_client.cancel_event(old_mirror_event_id, calendar_id=cal)
+        ev = calendar_client.book_event(
+            summary=summary, description=description, start=start_at,
+            duration_min=duration_min, calendar_id=cal,
+        )
+        booking_repo.set_doctor_calendar_event(uid, ev["event_id"])
+    except Exception as exc:  # noqa: BLE001 — doctor mirror is best-effort
+        logger.warning("Doctor-calendar mirror failed for booking %s: %s", uid, exc)
+
+
+def _cancel_doctor_mirror(*, doctor_id: int | None, mirror_event_id: str | None) -> None:
+    """Best-effort removal of a booking's doctor-calendar mirror event."""
+    try:
+        if not mirror_event_id or not doctor_id or not calendar_client.is_configured():
+            return
+        cal = (doctor_settings_repo.get(int(doctor_id)) or {}).get("google_calendar_id")
+        if cal:
+            calendar_client.cancel_event(mirror_event_id, calendar_id=cal)
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.warning("Doctor-calendar mirror cancel failed: %s", exc)
 
 
 def _safe_push_patient(user_id: str | None, text: str) -> None:

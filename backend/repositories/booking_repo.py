@@ -18,7 +18,7 @@ _DETAIL_COLUMNS = (
     "request_uid, status, channel, external_user_id, patient_name, phone, "
     "requested_date, requested_time, requested_datetime_text, symptom, "
     "service_type, doctor_code, booking_source, appointment_type, duration_min, "
-    "calendar_event_id, calendar_event_url, calendar_status, "
+    "calendar_event_id, calendar_event_url, doctor_calendar_event_id, calendar_status, "
     "assigned_doctor_id, patient_id, notes, approved_by, approved_at, "
     "reminder_24h_sent_at, reminder_1h_sent_at, "
     "created_at, updated_at"
@@ -457,6 +457,19 @@ def update_approved(
         except Exception:
             conn.rollback()
             raise
+
+
+def set_doctor_calendar_event(uid: str, event_id: str | None) -> int:
+    """Store (or clear) the per-doctor mirror event id for a booking."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE booking_requests SET doctor_calendar_event_id = %s "
+                "WHERE request_uid = %s",
+                (event_id, uid),
+            )
+        conn.commit()
+    return rows
 
 
 def set_calendar_event(uid: str, event_id: str, event_url: str) -> int:

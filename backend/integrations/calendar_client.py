@@ -133,7 +133,8 @@ def book_event(summary: str, description: str, start: datetime,
                duration_min: int = DEFAULT_DURATION_MIN,
                attendee_emails: Optional[list] = None,
                transparent: bool = False,
-               location: str | None = None) -> dict:
+               location: str | None = None,
+               calendar_id: str | None = None) -> dict:
     """
     Create event in calendar.
     Returns: {event_id, html_link, start, end} on success
@@ -158,7 +159,7 @@ def book_event(summary: str, description: str, start: datetime,
         event["attendees"] = [{"email": e} for e in attendee_emails]
 
     created = _get_service().events().insert(
-        calendarId=GOOGLE_CALENDAR_ID, body=event
+        calendarId=(calendar_id or GOOGLE_CALENDAR_ID), body=event
     ).execute()
     return {
         "event_id":  created["id"],
@@ -168,10 +169,10 @@ def book_event(summary: str, description: str, start: datetime,
     }
 
 
-def cancel_event(event_id: str) -> bool:
+def cancel_event(event_id: str, calendar_id: str | None = None) -> bool:
     try:
         _get_service().events().delete(
-            calendarId=GOOGLE_CALENDAR_ID, eventId=event_id
+            calendarId=(calendar_id or GOOGLE_CALENDAR_ID), eventId=event_id
         ).execute()
         return True
     except Exception as e:

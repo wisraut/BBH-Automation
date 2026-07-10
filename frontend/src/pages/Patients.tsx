@@ -11,6 +11,7 @@ import { CareTeamSection } from '../components/patients/CareTeamSection'
 import { LabResultsSection } from '../components/patients/LabResultsSection'
 import { BiomarkerSection } from '../components/patients/BiomarkerSection'
 import { MeasurementReviewPanel } from '../components/reports/MeasurementReviewPanel'
+import { ReportFilterBar } from '../components/reports/ReportFilterBar'
 import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
@@ -161,6 +162,17 @@ export function Patients() {
   const pagination = patientsQ.data?.pagination
   const selectedPatient = patientQ.data ?? null
   const reports = useMemo(() => reportsQ.data?.data ?? [], [reportsQ.data])
+  const [reportTypeFilter, setReportTypeFilter] = useState<string>('all')
+  const [reportUnreadOnly, setReportUnreadOnly] = useState(false)
+  const [reportSearch, setReportSearch] = useState('')
+  const filteredReports = useMemo(() => {
+    const s = reportSearch.trim().toLowerCase()
+    return reports.filter((r) =>
+      (reportTypeFilter === 'all' || r.report_type === reportTypeFilter) &&
+      (!reportUnreadOnly || r.latest_analysis_at == null) &&
+      (s === '' || r.title.toLowerCase().includes(s) || r.report_type.toLowerCase().includes(s)),
+    )
+  }, [reports, reportTypeFilter, reportUnreadOnly, reportSearch])
   const analyses = analysesQ.data?.data ?? []
   const allBookings = useMemo(
     () => [...approvedQ.data, ...pendingQ.data, ...rejectedQ.data, ...cancelledQ.data],
@@ -513,13 +525,25 @@ export function Patients() {
                     ) : null}
                   </div>
 
-                  {reports.length === 0 ? (
+                  {reports.length > 0 ? (
+                    <ReportFilterBar
+                      reports={reports}
+                      activeType={reportTypeFilter}
+                      onType={setReportTypeFilter}
+                      unreadOnly={reportUnreadOnly}
+                      onUnreadToggle={() => setReportUnreadOnly((v) => !v)}
+                      search={reportSearch}
+                      onSearch={setReportSearch}
+                    />
+                  ) : null}
+
+                  {filteredReports.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-                      ยังไม่มี report
+                      {reports.length === 0 ? 'ยังไม่มี report' : 'ไม่พบเอกสารที่ตรงกับตัวกรอง'}
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {reports.map((report) => (
+                      {filteredReports.map((report) => (
                         <div
                           key={report.id}
                           className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors duration-200 ${

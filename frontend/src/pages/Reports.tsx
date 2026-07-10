@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,6 +10,7 @@ import {
 
 import { useAuth } from '../lib/auth'
 import { useReportsWorkspace, type ReportDecision, type WorkspaceReport } from '../hooks/useReportsWorkspace'
+import { ReportDetailDrawer } from '../components/reports/ReportDetailDrawer'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -44,13 +44,14 @@ const DECISION_FILTERS: Array<{ key: ReportDecision | 'all'; label: string }> = 
 const REPORT_TYPES = ['lab', 'imaging', 'history', 'prescription', 'referral', 'other']
 const SOURCES = ['web', 'line', 'email', 'whatsapp', 'walkin']
 
-function ReportRow({ r, index }: { r: WorkspaceReport; index: number }) {
+function ReportRow({ r, index, onOpen }: { r: WorkspaceReport; index: number; onOpen: (r: WorkspaceReport) => void }) {
   const decision = r.latest_decision ?? 'no_analysis'
   return (
-    <Link
-      to={`/patients?patient=${r.patient_id}&report=${r.report_id}`}
+    <button
+      type="button"
+      onClick={() => onOpen(r)}
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
-      className={`animate-rise grid grid-cols-[1fr_auto] gap-3 bg-white px-4 py-4 text-left transition-colors duration-200 hover:bg-bbh-surface lg:grid-cols-[180px_1fr_110px_140px_120px] ${FOCUS_RING}`}
+      className={`animate-rise grid w-full grid-cols-[1fr_auto] gap-3 bg-white px-4 py-4 text-left transition-colors duration-200 hover:bg-bbh-surface lg:grid-cols-[180px_1fr_110px_140px_120px] ${FOCUS_RING}`}
     >
       <div className="hidden lg:block">
         <p className="truncate text-sm font-semibold text-bbh-ink">{r.patient_name}</p>
@@ -79,7 +80,7 @@ function ReportRow({ r, index }: { r: WorkspaceReport; index: number }) {
           {DECISION_LABELS[decision] ?? decision}
         </span>
       </div>
-    </Link>
+    </button>
   )
 }
 
@@ -105,6 +106,7 @@ export function Reports() {
     limit: 30,
   })
   const data = q.data
+  const [selected, setSelected] = useState<WorkspaceReport | null>(null)
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,7 +127,7 @@ export function Reports() {
             </p>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">รายงาน</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              ค้นหา filter และดู report ของคนไข้ — คลิกเพื่อไปยังหน้าคนไข้และตัดสินใจ triage
+              ค้นหา filter และเปิดอ่าน report — คลิกที่รายการเพื่อดูรายงานในหน้านี้
             </p>
           </div>
           <button
@@ -240,7 +242,7 @@ export function Reports() {
                   <span className="text-right">สถานะ</span>
                 </div>
                 <div className="divide-y divide-bbh-line">
-                  {data.data.map((r, i) => <ReportRow key={r.report_id} r={r} index={i} />)}
+                  {data.data.map((r, i) => <ReportRow key={r.report_id} r={r} index={i} onOpen={setSelected} />)}
                 </div>
               </div>
 
@@ -276,6 +278,7 @@ export function Reports() {
           )}
         </div>
       </section>
+      {selected ? <ReportDetailDrawer report={selected} onClose={() => setSelected(null)} /> : null}
     </div>
   )
 }

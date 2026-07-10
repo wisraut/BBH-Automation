@@ -2,7 +2,7 @@
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
 
-import { API_BASE } from '../lib/apiBase'
+import { openReportFile, downloadReportFile } from '../lib/reportFile'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
@@ -30,7 +30,6 @@ import { useReportAnalyses } from '../hooks/useReportAnalyses'
 import { useUpdatePatient } from '../hooks/useUpdatePatient'
 import { useUploadReport } from '../hooks/useUploadReport'
 import { useToast } from '../hooks/useToast'
-import { getToken } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import type { components } from '../lib/api-types'
 
@@ -63,34 +62,6 @@ function matchingBookings(bookings: BookingItem[], patient?: { display_name?: st
     const bookingName = normalize(booking.patient_name)
     return Boolean((phone && bookingPhone === phone) || (name && bookingName === name))
   })
-}
-
-async function fetchReportBlob(reportId: number): Promise<Blob> {
-  const token = getToken()
-  const res = await fetch(`${API_BASE}/api/reports/${reportId}/file`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  })
-  if (!res.ok) throw new Error('Cannot fetch report file')
-  return res.blob()
-}
-
-async function openReportFile(reportId: number) {
-  const blob = await fetchReportBlob(reportId)
-  const url = URL.createObjectURL(blob)
-  window.open(url, '_blank', 'noopener,noreferrer')
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
-
-async function downloadReportFile(reportId: number, filename: string) {
-  const blob = await fetchReportBlob(reportId)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 export function Patients() {

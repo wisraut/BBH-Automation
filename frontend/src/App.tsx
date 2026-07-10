@@ -34,6 +34,29 @@ const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   lab_staff: '/reports',
 }
 
+// Which roles may open each path — mirrors the <ProtectedRoute allow> lists in
+// AppRoutes. Unlisted paths (e.g. /ai, /account) are open to any authenticated
+// user. Used to reject a stale post-login redirect target the new role can't see
+// (e.g. logout on a doctor page, then log back in as CRO).
+const ROUTE_ALLOW: Record<string, Role[]> = {
+  '/admin': ['admin'],
+  '/bookings': ['cro', 'admin'],
+  '/calendar': ['cro', 'admin'],
+  '/schedule': ['doctor', 'admin', 'nurse'],
+  '/doctor-calendar': ['doctor', 'admin', 'nurse'],
+  '/reports': ['doctor', 'admin', 'nurse', 'lab_staff'],
+  '/patients': ['cro', 'doctor', 'admin', 'nurse'],
+  '/users': ['admin'],
+  '/system-health': ['admin'],
+  '/alert-rules': ['admin'],
+  '/audit': ['admin'],
+}
+
+function canAccess(path: string, role: Role): boolean {
+  const allow = ROUTE_ALLOW[path]
+  return !allow || allow.includes(role)
+}
+
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/admin': { title: 'Admin Dashboard', subtitle: 'Action Required และภาพรวมระบบโรงพยาบาล' },
   '/bookings': {
@@ -76,9 +99,14 @@ function LoginPage() {
   }
   if (user) {
     // ProtectedRoute redirected to /login with state.from on auth-required pages;
-    // after successful login, send the user back to where they tried to go.
+    // after successful login, send the user back to where they tried to go — but
+    // only if the new role may actually open it. Otherwise (e.g. logout on a
+    // doctor page, then log in as CRO) go to the new role's home instead of
+    // landing on a "no access" page.
     const from = (location.state as { from?: string } | null)?.from
-    const target = from && from !== '/login' ? from : DEFAULT_PATH_BY_ROLE[user.role]
+    const target = from && from !== '/login' && canAccess(from, user.role)
+      ? from
+      : DEFAULT_PATH_BY_ROLE[user.role]
     return <Navigate to={target} replace />
   }
   return <Login />

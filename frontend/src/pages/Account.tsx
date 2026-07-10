@@ -56,8 +56,12 @@ export function Account() {
   const settingsQ = useAccountSettings()
   const saveSettings = useSaveAccountSettings()
   const [notebookUrl, setNotebookUrl] = useState('')
+  const [calendarId, setCalendarId] = useState('')
   useEffect(() => {
-    if (settingsQ.data) setNotebookUrl(settingsQ.data.notebooklm_url ?? '')
+    if (settingsQ.data) {
+      setNotebookUrl(settingsQ.data.notebooklm_url ?? '')
+      setCalendarId(settingsQ.data.google_calendar_id ?? '')
+    }
   }, [settingsQ.data])
 
   if (!user) return null
@@ -65,7 +69,10 @@ export function Account() {
   async function handleSaveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
-      await saveSettings.mutateAsync({ notebooklm_url: notebookUrl.trim() || null })
+      await saveSettings.mutateAsync({
+        notebooklm_url: notebookUrl.trim() || null,
+        google_calendar_id: calendarId.trim() || null,
+      })
       toast.show('success', 'บันทึกการเชื่อมต่อแล้ว')
     } catch (err) {
       toast.show('error', err instanceof ApiError ? err.message : 'บันทึกไม่สำเร็จ')
@@ -218,7 +225,7 @@ export function Account() {
                 <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">การเชื่อมต่อส่วนตัว</h2>
               </div>
               <p className="mb-4 text-sm leading-relaxed text-bbh-muted">
-                ลิงก์ NotebookLM ส่วนตัวของคุณ — ตอนกด "ส่งต่อไป NotebookLM" ในหน้ารายงาน ระบบจะเปิด notebook นี้ พร้อมคัดลอกเนื้อหารายงานให้วางได้เลย
+                ของส่วนตัวที่ระบบใช้ให้ — NotebookLM สำหรับปุ่ม "ส่งต่อไป NotebookLM" ในหน้ารายงาน และ Google Calendar ID สำหรับให้นัดขึ้นปฏิทินของคุณ (เก็บค่าไว้ก่อน ระบบจะ sync ให้ในขั้นถัดไป)
               </p>
               <form onSubmit={handleSaveSettings} className="space-y-3">
                 <label className="block">
@@ -231,6 +238,23 @@ export function Account() {
                     className={`${FIELD_CLASS} ${FOCUS_RING}`}
                   />
                 </label>
+                <label className="block">
+                  <span className="text-sm text-bbh-muted">Google Calendar ID ของฉัน</span>
+                  <input
+                    type="text"
+                    value={calendarId}
+                    onChange={(e) => setCalendarId(e.target.value)}
+                    placeholder="you@gmail.com"
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  />
+                </label>
+                {settingsQ.data?.service_account_email ? (
+                  <p className="rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2 text-xs leading-relaxed text-bbh-muted">
+                    วิธีเชื่อม: เปิด Google Calendar ของคุณ → แชร์ปฏิทิน (สิทธิ์ "แก้ไขกิจกรรม") ให้อีเมลนี้{' '}
+                    <span className="break-all font-mono text-bbh-ink">{settingsQ.data.service_account_email}</span>{' '}
+                    แล้วใส่อีเมล Google ของคุณเป็น Calendar ID ด้านบน
+                  </p>
+                ) : null}
                 <button
                   type="submit"
                   disabled={saveSettings.isPending || settingsQ.isLoading}

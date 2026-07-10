@@ -8,6 +8,7 @@ Requires:
 
 All times stored as Asia/Bangkok TZ.
 """
+import json
 import os
 import threading
 from datetime import datetime, timedelta, timezone
@@ -49,6 +50,18 @@ def _get_service():
 
 def is_configured() -> bool:
     return bool(GOOGLE_CALENDAR_ID) and os.path.exists(GOOGLE_SERVICE_ACCOUNT_FILE)
+
+
+def service_account_email() -> Optional[str]:
+    """The service account's email — doctors share their own Google Calendar with
+    this address (edit access) so we can write their bookings to it."""
+    try:
+        if not os.path.exists(GOOGLE_SERVICE_ACCOUNT_FILE):
+            return None
+        with open(GOOGLE_SERVICE_ACCOUNT_FILE, encoding="utf-8") as fh:
+            return json.load(fh).get("client_email")
+    except Exception:
+        return None
 
 
 def check_availability(start: datetime, duration_min: int = DEFAULT_DURATION_MIN) -> bool:

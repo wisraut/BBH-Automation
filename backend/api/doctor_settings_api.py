@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from core.security import require_user
+from integrations import calendar_client
 from repositories import doctor_settings_repo
 
 router = APIRouter(prefix="/api/account/settings", tags=["account-settings"])
@@ -15,16 +16,27 @@ _User = Annotated[dict, Depends(require_user())]
 
 class SettingsOut(BaseModel):
     notebooklm_url: str | None = None
+    google_calendar_id: str | None = None
+    # Read-only: the address a doctor shares their Google Calendar with.
+    service_account_email: str | None = None
 
 
 class SettingsPut(BaseModel):
     notebooklm_url: str | None = Field(default=None, max_length=512)
+    google_calendar_id: str | None = Field(default=None, max_length=255)
+
+
+def _out(row: dict | None) -> dict:
+    return {
+        "notebooklm_url": (row or {}).get("notebooklm_url"),
+        "google_calendar_id": (row or {}).get("google_calendar_id"),
+        "service_account_email": calendar_client.service_account_email(),
+    }
 
 
 @router.get("", response_model=SettingsOut)
 def get_settings(user: _User) -> dict:
-    row = doctor_settings_repo.get(int(user["id"]))
-    return {"notebooklm_url": (row or {}).get("notebooklm_url")}
+    return _out(doctor_settings_repo.get(int(user["id"])))
 
 
 @router.put("", response_model=SettingsOut)
@@ -35,5 +47,11 @@ def put_settings(body: SettingsPut, user: _User) -> dict:
             status_code=422,
             detail={"code": "INVALID_URL", "message": "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://"},
         )
-    doctor_settings_repo.upsert(int(user["id"]), notebooklm_url=url)
-    return {"notebooklm_url": url}
+    cal = (body.google_calendar_id or "").strip() or None
+    if cal and "@" not in cal:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_CALENDAR_ID", "message": "Calendar ID มักเป็นอีเมล Google ของคุณ"},
+        )
+    doctor_settings_repo.upsert(int(user["id"]), notebooklm_url=url, google_calendar_id=cal)
+    return _out({"notebooklm_url": url, "google_calendar_id": cal})

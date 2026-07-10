@@ -58,17 +58,27 @@ def replace_for_doctor(
 
 
 def covers(*, doctor_id: int, day_of_week: int, start_time: str, end_time: str) -> bool:
-    """True if the candidate window [start_time, end_time] on `day_of_week` falls
-    entirely inside any single template range for that doctor."""
+    """True if the candidate window [start_time, end_time] on `day_of_week` is
+    covered by the doctor's open hours. Adjacent/overlapping template ranges are
+    merged first, so a booking spanning e.g. 09:00-12:00 + 12:00-17:00 counts as
+    covered (times are zero-padded HH:MM:SS, so string order is chronological)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT 1 FROM doctor_availability
+                SELECT TIME_FORMAT(start_time, '%%H:%%i:%%s') AS s,
+                       TIME_FORMAT(end_time,   '%%H:%%i:%%s') AS e
+                FROM doctor_availability
                 WHERE doctor_id = %s AND day_of_week = %s
-                  AND start_time <= %s AND end_time >= %s
-                LIMIT 1
+                ORDER BY start_time ASC
                 """,
-                (doctor_id, day_of_week, start_time, end_time),
+                (doctor_id, day_of_week),
             )
-            return cur.fetchone() is not None
+            ranges = [(r["s"], r["e"]) for r in cur.fetchall()]
+    merged: list[list[str]] = []
+    for s, e in ranges:
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return any(s <= start_time and end_time <= e for s, e in merged)

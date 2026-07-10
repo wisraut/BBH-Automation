@@ -27,12 +27,13 @@ export function AvailabilitySection() {
   const [rows, setRows] = useState<Row[]>([])
   const [dirty, setDirty] = useState(false)
 
-  // Load server template into local editable state once fetched.
+  // Load server template into local editable state — but never clobber the
+  // doctor's unsaved edits when a background refetch resolves.
   useEffect(() => {
-    if (!q.data) return
+    if (!q.data || dirty) return
     setRows(q.data.data.map((r) => ({ key: nextKey(), day_of_week: r.day_of_week, start_time: r.start_time, end_time: r.end_time })))
     setDirty(false)
-  }, [q.data])
+  }, [q.data, dirty])
 
   if (!doctorId) return null
 

@@ -123,6 +123,11 @@ def reject_measurement(
             status_code=404,
             detail={"code": "MEASUREMENT_NOT_FOUND", "message": "ไม่พบค่าที่ระบุ"},
         )
+    if existing["status"] != "draft":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "NOT_DRAFT", "message": "ปฏิเสธได้เฉพาะค่าที่รอยืนยัน"},
+        )
     measurement_repo.reject(measurement_id, confirmed_by=user.get("id"))
     audit_service.record_access(
         request, user,
@@ -138,22 +143,23 @@ def bulk_confirm_measurements(
 ) -> dict:
     """Confirm many drafts at once (with per-row edits)."""
     confirmed = 0
-    patient_id: int | None = None
     for item in body.items:
         existing = measurement_repo.get_by_id(item.id)
         if not existing:
             continue
-        patient_id = existing.get("patient_id")
-        confirmed += measurement_repo.confirm(
+        rows = measurement_repo.confirm(
             item.id,
             confirmed_by=user.get("id"),
             code=item.code, value=item.value, unit=item.unit,
             measured_at=item.measured_at, note=item.note,
         )
-    audit_service.record_access(
-        request, user,
-        action="bulk_confirm_measurements", subject_type="patient",
-        subject_id=patient_id or 0, patient_id=patient_id,
-        extra={"count": confirmed},
-    )
+        if rows:
+            confirmed += rows
+            # Audit per measurement with its OWN patient — a bulk may (in theory)
+            # span patients, so a single last-patient audit row would mis-scope.
+            audit_service.record_access(
+                request, user,
+                action="confirm_measurement", subject_type="measurement",
+                subject_id=item.id, patient_id=existing.get("patient_id"),
+            )
     return {"ok": True, "confirmed": confirmed}

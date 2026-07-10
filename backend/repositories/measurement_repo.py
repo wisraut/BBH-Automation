@@ -191,14 +191,15 @@ def confirm(
 
 
 def reject(measurement_id: int, *, confirmed_by: int | None) -> int:
-    """Discard a draft (kept for audit — never hard-deleted)."""
+    """Discard a draft (kept for audit — never hard-deleted). Only a draft may be
+    rejected, so a stale/duplicate reject can't wipe a doctor-confirmed value."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
                 """
                 UPDATE patient_measurements
                 SET status = 'rejected', confirmed_by = %s, confirmed_at = NOW()
-                WHERE id = %s
+                WHERE id = %s AND status = 'draft'
                 """,
                 (confirmed_by, measurement_id),
             )

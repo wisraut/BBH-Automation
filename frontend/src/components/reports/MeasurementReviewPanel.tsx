@@ -127,8 +127,10 @@ export function MeasurementReviewPanel({
   }
 
   const onConfirmAll = () => {
-    if (drafts.length === 0) return
-    bulkConfirm.mutate({ items: drafts.map((d) => ({ id: d.id })), reportId, patientId })
+    // Skip unknown-code drafts — the per-row Confirm blocks them, so bulk must too.
+    const ready = drafts.filter((d) => d.code !== 'unknown')
+    if (ready.length === 0) return
+    bulkConfirm.mutate({ items: ready.map((d) => ({ id: d.id })), reportId, patientId })
   }
 
   return (

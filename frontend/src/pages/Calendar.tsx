@@ -277,9 +277,10 @@ export function Calendar() {
       ...cancelledQ.data,
       ...rejectedQ.data,
     ]
-    // Doctor-scoped: show only this doctor's bookings. "แพทย์ทุกคน" ('') = all.
+    // Doctor-scoped: this doctor's bookings PLUS any still-unassigned (pending)
+    // request, so the CRO never loses new requests that need a doctor. '' = all.
     if (selectedDoctorId !== '') {
-      all = all.filter((b) => b.assigned_doctor_id === selectedDoctorId)
+      all = all.filter((b) => b.assigned_doctor_id === selectedDoctorId || b.assigned_doctor_id == null)
     }
     return mapByDate(all, (booking) => parseBookingDate(booking.requested_datetime_text))
   }, [approvedQ.data, pendingQ.data, cancelledQ.data, rejectedQ.data, selectedDoctorId])

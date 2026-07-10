@@ -536,6 +536,11 @@ def reschedule_booking(
                 calendar_client.cancel_event(old_event)
             except Exception:  # noqa: BLE001
                 logger.exception("Failed to cancel old calendar event %s", old_event)
+        # Remove the doctor-calendar mirror too, else it lingers at the old time.
+        _cancel_doctor_mirror(
+            doctor_id=row.get("assigned_doctor_id"),
+            mirror_event_id=row.get("doctor_calendar_event_id"),
+        )
 
         if row.get("channel", "").startswith("line") and row.get("external_user_id"):
             _safe_push_patient(

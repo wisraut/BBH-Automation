@@ -297,6 +297,7 @@ def reschedule_to_pending(
                         requested_datetime_text = NULL,
                         calendar_event_id = NULL,
                         calendar_event_url = NULL,
+                        doctor_calendar_event_id = NULL,
                         calendar_status = 'not_created',
                         approved_at = NULL,
                         approved_by = NULL,
@@ -724,7 +725,8 @@ def update_cancelled(*, uid: str, reason: str, cancelled_by: str) -> dict[str, A
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, calendar_event_id
+                    SELECT id, calendar_event_id, assigned_doctor_id,
+                           doctor_calendar_event_id
                     FROM booking_requests
                     WHERE request_uid = %s AND status = 'approved'
                     FOR UPDATE
@@ -760,7 +762,11 @@ def update_cancelled(*, uid: str, reason: str, cancelled_by: str) -> dict[str, A
                     detail={"reason": reason},
                 )
             conn.commit()
-            return {"calendar_event_id": booking.get("calendar_event_id")}
+            return {
+                "calendar_event_id": booking.get("calendar_event_id"),
+                "assigned_doctor_id": booking.get("assigned_doctor_id"),
+                "doctor_calendar_event_id": booking.get("doctor_calendar_event_id"),
+            }
         except Exception:
             conn.rollback()
             raise

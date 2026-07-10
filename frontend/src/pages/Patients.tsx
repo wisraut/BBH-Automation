@@ -8,6 +8,8 @@ import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
 import { CareTeamSection } from '../components/patients/CareTeamSection'
+import { LabResultsSection } from '../components/patients/LabResultsSection'
+import { MeasurementReviewPanel } from '../components/reports/MeasurementReviewPanel'
 import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { AnalysisPanel } from '../components/reports/AnalysisPanel'
@@ -445,6 +447,8 @@ export function Patients() {
                   <PatientMedicalRecords patientId={selectedPatient.id} />
                 </section>
 
+                <LabResultsSection patientId={selectedPatient.id} />
+
                 <PatientCallLog patientId={selectedPatient.id} />
 
                 <section>
@@ -593,6 +597,10 @@ export function Patients() {
                     onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }, { onSuccess: () => toast.show('success', 'บันทึก triage สำเร็จ'), onError: () => toast.show('error', 'บันทึก triage ไม่สำเร็จ') }) : undefined}
                   />
                 </section>
+
+                {selectedReportId && canAnalyze ? (
+                  <MeasurementReviewPanel reportId={selectedReportId} patientId={selectedPatient.id} />
+                ) : null}
               </aside>
             </div>
           </div>

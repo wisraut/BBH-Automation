@@ -9,6 +9,7 @@ import { PatientCallLog } from '../components/patients/PatientCallLog'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
 import { CareTeamSection } from '../components/patients/CareTeamSection'
 import { LabResultsSection } from '../components/patients/LabResultsSection'
+import { BiomarkerSection } from '../components/patients/BiomarkerSection'
 import { MeasurementReviewPanel } from '../components/reports/MeasurementReviewPanel'
 import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
@@ -448,6 +449,8 @@ export function Patients() {
                 </section>
 
                 <LabResultsSection patientId={selectedPatient.id} />
+
+                <BiomarkerSection patientId={selectedPatient.id} />
 
                 <PatientCallLog patientId={selectedPatient.id} />
 

@@ -20,6 +20,9 @@ from services import measurement_catalog
 from services.pii_redactor import redact_text
 
 _MAX_ITEMS = 100
+# patient_measurements.value is DECIMAL(12,4): drop anything out of range so a
+# giant number in a report can't overflow the column and 500 the extract.
+_VALUE_LIMIT = 99_999_999
 
 _SYSTEM = (
     "คุณเป็นระบบสกัดค่าแล็บเชิงตัวเลขจากข้อความผลตรวจทางการแพทย์. "
@@ -138,6 +141,8 @@ def extract_measurements(*, report_id: int, user: dict[str, Any]) -> dict[str, A
         value, unit = measurement_catalog.normalize_value_unit(
             code, value, item.get("unit")
         )
+        if abs(value) > _VALUE_LIMIT:
+            continue
         rows.append({
             "code": code,
             "value": value,

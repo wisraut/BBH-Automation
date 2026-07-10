@@ -34,10 +34,15 @@ class ExtractResponse(BaseModel):
     parse_error: bool = False
 
 
+# patient_measurements.value is DECIMAL(12,4): |value| must stay < 1e8.
+_VALUE_MIN = -99_999_999
+_VALUE_MAX = 99_999_999
+
+
 class ConfirmRequest(BaseModel):
     # All optional: doctor may just confirm the extracted values, or edit first.
     code: str | None = Field(default=None, max_length=32)
-    value: float | None = None
+    value: float | None = Field(default=None, ge=_VALUE_MIN, le=_VALUE_MAX)
     unit: str | None = Field(default=None, max_length=24)
     measured_at: date | None = None
     note: str | None = Field(default=None, max_length=255)
@@ -46,7 +51,7 @@ class ConfirmRequest(BaseModel):
 class BulkConfirmItem(BaseModel):
     id: int
     code: str | None = Field(default=None, max_length=32)
-    value: float | None = None
+    value: float | None = Field(default=None, ge=_VALUE_MIN, le=_VALUE_MAX)
     unit: str | None = Field(default=None, max_length=24)
     measured_at: date | None = None
     note: str | None = Field(default=None, max_length=255)

@@ -7,6 +7,7 @@ import {
   CalendarOff,
   CheckCircle2,
   ClipboardList,
+  CalendarDays,
   ExternalLink,
   FileText,
   Loader2,
@@ -418,6 +419,12 @@ export function Schedule() {
                 </button>
               ))}
             </div>
+            <Link
+              to="/doctor-calendar"
+              className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              <CalendarDays size={15} /> ปฏิทินเต็ม
+            </Link>
             <button
               type="button"
               onClick={() => q.refetch()}

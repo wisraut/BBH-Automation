@@ -22,6 +22,7 @@ export function ReportFilterBar({
   onUnreadToggle,
   search,
   onSearch,
+  onReset,
 }: {
   reports: ReportLike[]
   activeType: string
@@ -30,7 +31,9 @@ export function ReportFilterBar({
   onUnreadToggle: () => void
   search: string
   onSearch: (value: string) => void
+  onReset: () => void
 }) {
+  const anyActive = activeType !== 'all' || unreadOnly || search.trim() !== ''
   const counts = new Map<string, number>()
   let unread = 0
   for (const r of reports) {
@@ -77,6 +80,11 @@ export function ReportFilterBar({
               ยังไม่วิเคราะห์ ({unread})
             </button>
           </>
+        ) : null}
+        {anyActive ? (
+          <button type="button" onClick={onReset} className="ml-auto text-xs text-bbh-muted underline transition-colors hover:text-bbh-ink">
+            ล้างตัวกรอง
+          </button>
         ) : null}
       </div>
     </div>

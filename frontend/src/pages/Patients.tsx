@@ -49,6 +49,16 @@ function formatDate(iso?: string | null): string {
   })
 }
 
+// Patient detail is split into tabs so a doctor isn't scrolling one long column
+// of clinical modules (collapsible/tab organization — clinical-dashboard density
+// guidance). The report workspace stays persistent in the right aside.
+const PATIENT_TABS = [
+  { key: 'overview', label: 'ภาพรวม' },
+  { key: 'labs', label: 'ผลแล็บ' },
+  { key: 'activity', label: 'กิจกรรม' },
+] as const
+type PatientTab = (typeof PATIENT_TABS)[number]['key']
+
 function normalize(value?: string | null): string {
   return (value ?? '').trim().toLowerCase()
 }
@@ -133,6 +143,7 @@ export function Patients() {
   const pagination = patientsQ.data?.pagination
   const selectedPatient = patientQ.data ?? null
   const reports = useMemo(() => reportsQ.data?.data ?? [], [reportsQ.data])
+  const [mainTab, setMainTab] = useState<PatientTab>('overview')
   const [reportTypeFilter, setReportTypeFilter] = useState<string>('all')
   const [reportUnreadOnly, setReportUnreadOnly] = useState(false)
   const [reportSearch, setReportSearch] = useState('')
@@ -424,23 +435,45 @@ export function Patients() {
                   </div>
                 </div>
 
-                <CareTeamSection patientId={selectedPatient.id} />
+                <div className="inline-flex rounded-xl border border-bbh-line bg-white p-1 text-sm font-medium">
+                  {PATIENT_TABS.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setMainTab(t.key)}
+                      className={`rounded-lg px-4 py-1.5 transition-colors duration-200 ${FOCUS_RING} ${mainTab === t.key ? 'bg-bbh-green text-white' : 'text-bbh-muted hover:text-bbh-ink'}`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
 
-                <section>
-                  <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประวัติการแพทย์</h2>
-                  <PatientMedicalRecords patientId={selectedPatient.id} />
-                </section>
+                {mainTab === 'overview' ? (
+                  <>
+                    <CareTeamSection patientId={selectedPatient.id} />
+                    <section>
+                      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประวัติการแพทย์</h2>
+                      <PatientMedicalRecords patientId={selectedPatient.id} />
+                    </section>
+                  </>
+                ) : null}
 
-                <LabResultsSection patientId={selectedPatient.id} />
+                {mainTab === 'labs' ? (
+                  <>
+                    <LabResultsSection patientId={selectedPatient.id} />
+                    <BiomarkerSection patientId={selectedPatient.id} />
+                  </>
+                ) : null}
 
-                <BiomarkerSection patientId={selectedPatient.id} />
-
-                <PatientCallLog patientId={selectedPatient.id} />
-
-                <section>
-                  <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Timeline</h2>
-                  <PatientTimeline reports={reports} bookings={patientBookings} onSelectReport={setSelectedReportId} />
-                </section>
+                {mainTab === 'activity' ? (
+                  <>
+                    <PatientCallLog patientId={selectedPatient.id} />
+                    <section>
+                      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Timeline</h2>
+                      <PatientTimeline reports={reports} bookings={patientBookings} onSelectReport={setSelectedReportId} />
+                    </section>
+                  </>
+                ) : null}
               </section>
 
               <aside className="space-y-4">
@@ -505,6 +538,7 @@ export function Patients() {
                       onUnreadToggle={() => setReportUnreadOnly((v) => !v)}
                       search={reportSearch}
                       onSearch={setReportSearch}
+                      onReset={() => { setReportTypeFilter('all'); setReportUnreadOnly(false); setReportSearch('') }}
                     />
                   ) : null}
 
@@ -596,8 +630,14 @@ export function Patients() {
                   />
                 </section>
 
-                {selectedReportId && canAnalyze ? (
-                  <MeasurementReviewPanel reportId={selectedReportId} patientId={selectedPatient.id} />
+                {canAnalyze ? (
+                  selectedReportId ? (
+                    <MeasurementReviewPanel reportId={selectedReportId} patientId={selectedPatient.id} />
+                  ) : (
+                    <section className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-center text-xs text-bbh-muted">
+                      เลือก report ด้านบนเพื่อสกัดค่าแล็บด้วย AI
+                    </section>
+                  )
                 ) : null}
               </aside>
             </div>

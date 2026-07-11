@@ -354,7 +354,7 @@ export function Patients() {
         </div>
       </section>
 
-      <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto p-6 md:p-8 lg:p-10'}`}>
+      <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
             เลือกคนไข้จากรายการด้านซ้าย
@@ -384,8 +384,13 @@ export function Patients() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-5xl space-y-5">
-            {/* Prominent, top-left list toggle (desktop) — one button for both
+          <div className="mx-auto w-full max-w-5xl space-y-5">
+            {/* w-full is REQUIRED: <main> is a flex-col container, so a flex child
+                with mx-auto but no explicit width shrinks to its content's
+                max-content instead of filling. That made the record width vary per
+                patient AND per tab. w-full pins it to 100% (capped at max-w-5xl),
+                so the width is constant regardless of what content is inside.
+                Prominent, top-left list toggle (desktop) — one button for both
                 collapse and expand so it never blends with the record actions. */}
             <button
               type="button"
@@ -433,7 +438,12 @@ export function Patients() {
               </div>
             </section>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+            {/* Report workspace is a FIXED 360px column; the tab content column
+                takes all remaining width. Fixed aside = the tab column is a
+                constant width on every tab, so switching ภาพรวม/ผลแล็บ/กิจกรรม
+                never changes the content width (previously the fr-sized aside
+                flexed per tab and made labs widest). */}
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <section className="min-w-0 space-y-4">
                 <div className="grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-3">
                   <div className="bg-white p-4">
@@ -463,32 +473,39 @@ export function Patients() {
                   ))}
                 </div>
 
-                {mainTab === 'overview' ? (
-                  <>
-                    <CareTeamSection patientId={selectedPatient.id} />
-                    <section>
-                      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประวัติการแพทย์</h2>
-                      <PatientMedicalRecords patientId={selectedPatient.id} />
-                    </section>
-                  </>
-                ) : null}
+                {/* ONE persistent panel element for all three tabs — React swaps only
+                    the children, so the panel width is identical on every tab by
+                    construction (not three separate divs sized independently).
+                    min-w-0 stops any wide child (Biomarker grid / sparkline) from
+                    expanding it; sub-sections are bare to avoid a double border. */}
+                <div className="min-w-0 space-y-6 rounded-xl border border-bbh-line bg-white p-4">
+                  {mainTab === 'overview' ? (
+                    <>
+                      <CareTeamSection patientId={selectedPatient.id} />
+                      <section>
+                        <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประวัติการแพทย์</h2>
+                        <PatientMedicalRecords patientId={selectedPatient.id} />
+                      </section>
+                    </>
+                  ) : null}
 
-                {mainTab === 'labs' ? (
-                  <>
-                    <LabResultsSection patientId={selectedPatient.id} />
-                    <BiomarkerSection patientId={selectedPatient.id} />
-                  </>
-                ) : null}
+                  {mainTab === 'labs' ? (
+                    <>
+                      <LabResultsSection patientId={selectedPatient.id} />
+                      <BiomarkerSection patientId={selectedPatient.id} />
+                    </>
+                  ) : null}
 
-                {mainTab === 'activity' ? (
-                  <>
-                    <PatientCallLog patientId={selectedPatient.id} />
-                    <section>
-                      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Timeline</h2>
-                      <PatientTimeline reports={reports} bookings={patientBookings} onSelectReport={setSelectedReportId} />
-                    </section>
-                  </>
-                ) : null}
+                  {mainTab === 'activity' ? (
+                    <>
+                      <PatientCallLog patientId={selectedPatient.id} />
+                      <section>
+                        <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Timeline</h2>
+                        <PatientTimeline reports={reports} bookings={patientBookings} onSelectReport={setSelectedReportId} />
+                      </section>
+                    </>
+                  ) : null}
+                </div>
               </section>
 
               <aside className="space-y-4">

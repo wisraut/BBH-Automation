@@ -50,7 +50,7 @@ function SectionCard({
   onAdd?: () => void
 }) {
   return (
-    <section className="rounded-2xl border border-bbh-line bg-white p-6 shadow-sm">
+    <section>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon size={18} className={accent} />

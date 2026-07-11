@@ -291,19 +291,9 @@ export function Patients() {
               </button>
             ) : null}
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-mono text-xs tabular-nums text-bbh-muted">
-              {patientsQ.isLoading ? 'กำลังโหลด' : `${pagination?.total ?? 0} คนไข้`}
-            </p>
-            <button
-              type="button"
-              onClick={() => setListCollapsed(true)}
-              className={`hidden items-center gap-1 rounded-md border border-bbh-line px-2 py-1 text-xs text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:inline-flex ${FOCUS_RING}`}
-              title="พับรายชื่อ"
-            >
-              <PanelLeftClose size={14} /> พับ
-            </button>
-          </div>
+          <p className="font-mono text-xs tabular-nums text-bbh-muted">
+            {patientsQ.isLoading ? 'กำลังโหลด' : `${pagination?.total ?? 0} คนไข้`}
+          </p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -394,7 +384,18 @@ export function Patients() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-6xl space-y-5">
+          <div className="mx-auto max-w-5xl space-y-5">
+            {/* Prominent, top-left list toggle (desktop) — one button for both
+                collapse and expand so it never blends with the record actions. */}
+            <button
+              type="button"
+              onClick={() => setListCollapsed((v) => !v)}
+              className={`hidden items-center gap-2 self-start rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200 lg:inline-flex ${FOCUS_RING} ${listCollapsed ? 'border-bbh-green bg-bbh-green-soft text-bbh-green-dark hover:bg-bbh-green hover:text-white' : 'border-bbh-line bg-white text-bbh-ink hover:border-bbh-green hover:text-bbh-green-dark'}`}
+              title={listCollapsed ? 'เปิดรายชื่อคนไข้' : 'พับรายชื่อคนไข้'}
+            >
+              {listCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+              {listCollapsed ? 'รายชื่อคนไข้' : 'พับรายชื่อ'}
+            </button>
             <button
               type="button"
               onClick={() => setShowPatientDetail(false)}
@@ -415,17 +416,6 @@ export function Patients() {
                 </p>
               </div>
               <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                {listCollapsed ? (
-                  <button
-                    type="button"
-                    onClick={() => setListCollapsed(false)}
-                    className={`hidden items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:inline-flex ${FOCUS_RING}`}
-                    title="เปิดรายชื่อคนไข้"
-                  >
-                    <PanelLeft size={16} />
-                    รายชื่อ
-                  </button>
-                ) : null}
                 {canWritePatient ? (
                   <button type="button" onClick={() => setPatientModal('edit')} className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:flex-none ${FOCUS_RING}`}>
                     <Edit3 size={16} />

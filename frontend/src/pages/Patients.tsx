@@ -434,7 +434,7 @@ export function Patients() {
             </section>
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-              <section className="space-y-4">
+              <section className="min-w-0 space-y-4">
                 <div className="grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-3">
                   <div className="bg-white p-4">
                     <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Reports</p>

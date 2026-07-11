@@ -144,7 +144,7 @@ export function LabResultsSection({ patientId }: { patientId: number }) {
           ยังไม่มีค่าแล็บที่ยืนยัน — เลือก report แล้วกด "สกัดค่าแล็บ" เพื่อดึงค่าจากผลตรวจ
         </div>
       ) : (
-        <div className="space-y-4 rounded-xl border border-bbh-line bg-white p-4">
+        <div className="space-y-4">
           {PANEL_ORDER.map(([key, label]) => {
             const items = byPanel.get(key)
             if (!items || items.length === 0) return null

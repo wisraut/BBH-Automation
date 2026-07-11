@@ -3,15 +3,11 @@ import {
   Activity,
   ArrowLeft,
   BellRing,
-  Bot,
-  FlaskConical,
   History,
-  Inbox,
   CalendarClock,
   CalendarDays,
   ClipboardList,
   FileText,
-  LayoutDashboard,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
@@ -40,7 +36,6 @@ interface NavItem {
   label: string
   icon: LucideIcon
   roles: Role[]
-  soon?: boolean // parked: visible on the roadmap but not wired to real data yet
 }
 
 // Admin sidebar shows only admin-scoped items. To enter another role's workspace
@@ -62,21 +57,6 @@ const NAV: NavItem[] = [
   { to: '/account', label: 'บัญชี', icon: UserCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
 ]
 
-// Doctor Workspace has its own ordered nav (spec §2) with doctor-specific labels
-// ("คนไข้ของฉัน", "ผลแล็บ") that differ from the shared NAV. Kept separate so the
-// CRO/admin/nurse/lab nav above is untouched. Used when the effective role is doctor
-// (including admin viewing-as-doctor).
-const DOCTOR_NAV: NavItem[] = [
-  { to: '/today', label: 'วันนี้', icon: LayoutDashboard, roles: ['doctor'] },
-  { to: '/patients', label: 'คนไข้ของฉัน', icon: Users, roles: ['doctor'] },
-  { to: '/documents', label: 'กล่องเอกสาร', icon: Inbox, roles: ['doctor'] },
-  { to: '/lab-results', label: 'ผลแล็บ', icon: FlaskConical, roles: ['doctor'] },
-  { to: '/availability', label: 'ตารางว่าง', icon: CalendarClock, roles: ['doctor'], soon: true },
-  { to: '/biomarker', label: 'Biomarker', icon: Activity, roles: ['doctor'], soon: true },
-  { to: '/ai', label: 'AI ผู้ช่วย', icon: Bot, roles: ['doctor'] },
-  { to: '/account', label: 'บัญชี', icon: UserCog, roles: ['doctor'] },
-]
-
 interface SidebarProps {
   role: Role
   actualRole?: Role
@@ -88,7 +68,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ role, actualRole, viewAs, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
-  const items = role === 'doctor' ? DOCTOR_NAV : NAV.filter((item) => item.roles.includes(role))
+  const items = NAV.filter((item) => item.roles.includes(role))
   const showBackToAdmin = Boolean(viewAs && actualRole === 'admin')
   // Preserve view-as query so admin stays in the shadowed role while navigating
   const withViewAs = (path: string) => (viewAs ? `${path}?as=${viewAs}` : path)
@@ -179,7 +159,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
                 key={item.to}
                 to={withViewAs(item.to)}
                 onClick={onClose}
-                title={collapsed ? `${item.label}${item.soon ? ' (เร็วๆนี้)' : ''}` : undefined}
+                title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   `mb-1 flex items-center rounded-xl text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                     collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
@@ -190,23 +170,10 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
                   }`
                 }
               >
-                {({ isActive }) => (
-                  <>
-                    <Icon size={18} className="shrink-0" />
-                    <span className={collapsed ? 'sr-only lg:hidden' : 'truncate'}>
-                      {item.label}
-                    </span>
-                    {item.soon && !collapsed ? (
-                      <span
-                        className={`ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${
-                          isActive ? 'bg-white/25 text-white' : 'bg-bbh-surface text-bbh-muted'
-                        }`}
-                      >
-                        เร็วๆนี้
-                      </span>
-                    ) : null}
-                  </>
-                )}
+                <Icon size={18} className="shrink-0" />
+                <span className={collapsed ? 'sr-only lg:hidden' : 'truncate'}>
+                  {item.label}
+                </span>
               </NavLink>
             )
           })}

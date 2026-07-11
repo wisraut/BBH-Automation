@@ -28,7 +28,6 @@ import { Modal } from '../components/Modal'
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
-import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { useAuth } from '../lib/auth'
 import { AvailabilitySection } from '../components/schedule/AvailabilitySection'
 
@@ -362,7 +361,6 @@ function ReportRow({ r }: { r: ScheduleReport }) {
 
 export function Schedule() {
   const [windowDays, setWindowDays] = useState<7 | 14 | 30>(7)
-  const [reschedule, setReschedule] = useState<{ uid: string; text: string | null } | null>(null)
   const dateFrom = useMemo(() => todayIso(), [])
   const dateTo = useMemo(() => addDaysIso(dateFrom, windowDays), [dateFrom, windowDays])
   const q = useMySchedule({ dateFrom, dateTo })

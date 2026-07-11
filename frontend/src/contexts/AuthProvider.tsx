@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AuthContext } from '../lib/auth'
-import type { AuthContextValue, DashboardUser, Role } from '../lib/auth'
+import type { AuthContextValue, DashboardUser } from '../lib/auth'
 import { api, clearToken, getToken, setToken } from '../lib/api'
 import { setOwner as setAiOwner } from '../lib/aiStore'
 
@@ -15,18 +15,6 @@ type LoginResponse = {
 type MeResponse = {
   user: DashboardUser
 }
-
-// DEV-ONLY UI preview: `VITE_DEV_ROLE=doctor npm run dev` fakes an authenticated
-// user of that role so a workspace can be reviewed locally without a real login.
-// Never active in a production build (guarded by import.meta.env.DEV). Data-fetch
-// pages will 401 (no real token) and show empty/error states; local-state pages
-// (availability/book/biomarker) render fully.
-const _VALID_ROLES: Role[] = ['admin', 'doctor', 'cro', 'nurse', 'lab_staff']
-const _devRole = import.meta.env.DEV ? (import.meta.env.VITE_DEV_ROLE as string | undefined) : undefined
-const DEV_MOCK_USER: DashboardUser | null =
-  _devRole && (_VALID_ROLES as string[]).includes(_devRole)
-    ? { id: 0, email: `dev+${_devRole}@local`, display_name: 'หมอพรีวิว', role: _devRole as Role }
-    : null
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DashboardUser | null>(null)
@@ -43,11 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true
 
     async function hydrate() {
-      // DEV mock: skip the network; the fake user is already set.
-      if (DEV_MOCK_USER) {
-        setIsReady(true)
-        return
-      }
       if (!getToken()) {
         setIsReady(true)
         return
@@ -67,8 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hydrate()
 
     const handleUnauthorized = () => {
-      // Keep the DEV mock user logged in despite 401s from data endpoints.
-      if (DEV_MOCK_USER) return
       clearToken()
       setUser(null)
     }

@@ -16,16 +16,12 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { AlertRules } from './pages/AlertRules'
 import { AuditLog } from './pages/AuditLog'
 import { AiAssistant } from './pages/AiAssistant'
-import { Availability } from './pages/Availability'
-import { Biomarker } from './pages/Biomarker'
-import { Book } from './pages/Book'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
 import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
-import { Today } from './pages/Today'
 import { SystemHealth } from './pages/SystemHealth'
 import { Users } from './pages/Users'
 import { Login } from './routes/Login'
@@ -33,7 +29,7 @@ import { Login } from './routes/Login'
 const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   cro: '/bookings',
   admin: '/admin',
-  doctor: '/today',
+  doctor: '/schedule',
   nurse: '/patients',
   lab_staff: '/reports',
 }
@@ -71,7 +67,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/schedule': { title: 'สรุปงานแพทย์' },
   '/doctor-calendar': { title: 'ปฏิทินแพทย์', subtitle: 'นัดหมาย เวลาที่ไม่อยู่ และ availability ของแพทย์' },
   '/patients': { title: 'คนไข้' },
-  '/reports': { title: 'ผลแล็บ' },
+  '/reports': { title: 'รายงานแพทย์' },
   '/ai': { title: 'AI Assistant' },
   '/users': { title: 'ผู้ใช้ระบบ' },
   '/system-health': { title: 'สถานะระบบ' },
@@ -125,7 +121,6 @@ const ADMIN_PATHS = ['/admin', '/users', '/system-health', '/alert-rules', '/aud
 const ROLE_OF_PATH: Record<string, Role> = {
   '/bookings': 'cro',
   '/calendar': 'cro',
-  '/today': 'doctor',
   '/schedule': 'doctor',
   '/doctor-calendar': 'doctor',
 }
@@ -189,14 +184,6 @@ function AppRoutes() {
           <Route element={<ProtectedRoute allow={['cro', 'admin']} />}>
             <Route path="bookings" element={<Bookings />} />
             <Route path="calendar" element={<Calendar />} />
-          </Route>
-          <Route element={<ProtectedRoute allow={['doctor', 'admin']} />}>
-            <Route path="today" element={<Today />} />
-            <Route path="book" element={<Book />} />
-            <Route path="availability" element={<Availability />} />
-            <Route path="biomarker" element={<Biomarker />} />
-            <Route path="documents" element={<Documents />} />
-            <Route path="lab-results" element={<LabResults />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />

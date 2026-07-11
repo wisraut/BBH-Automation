@@ -30,6 +30,12 @@ def log_message(body: LogMessageRequest, x_internal_token: str | None = Header(N
     """n8n calls this after Dify replies so we can render chat history."""
     _require_internal_token(x_internal_token)
     if body.direction == "in":
+        # The primary LINE webhook already logs line_main inbound reliably
+        # (before acking LINE). Skip it here so n8n doesn't create a duplicate
+        # that would pollute RAG memory (load_history) and CRO chat history.
+        # Other channels have no bridge-side inbound log, so keep them.
+        if body.channel == "line_main":
+            return {"ok": True, "id": None, "skipped": "duplicate_line_main_inbound"}
         mid = message_repo.log_inbound(
             channel=body.channel, external_user_id=body.external_user_id, text=body.text,
         )

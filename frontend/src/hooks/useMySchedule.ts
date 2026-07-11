@@ -16,6 +16,7 @@ export interface ScheduleAppointment {
   status: string
   calendar_event_id: string | null
   calendar_event_url: string | null
+  video_link: string | null
   created_at: string
 }
 

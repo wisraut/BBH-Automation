@@ -1,4 +1,4 @@
-﻿import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
   Activity,
   ArrowLeft,
@@ -50,7 +50,8 @@ const NAV: NavItem[] = [
   { to: '/admin', label: 'Admin', icon: ShieldCheck, roles: ['admin'] },
   { to: '/bookings', label: 'การจอง', icon: ClipboardList, roles: ['cro'] },
   { to: '/calendar', label: 'ปฏิทิน', icon: CalendarDays, roles: ['cro'] },
-  { to: '/schedule', label: 'ตารางงาน', icon: CalendarClock, roles: ['doctor', 'nurse'] },
+  { to: '/schedule', label: 'วันนี้', icon: CalendarClock, roles: ['doctor', 'nurse'] },
+  { to: '/doctor-calendar', label: 'ปฏิทินแพทย์', icon: CalendarDays, roles: ['doctor', 'nurse'] },
   { to: '/patients', label: 'คนไข้', icon: Users, roles: ['cro', 'doctor', 'nurse'] },
   { to: '/reports', label: 'รายงาน', icon: FileText, roles: ['doctor', 'nurse', 'lab_staff'] },
   { to: '/ai', label: 'AI Assistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
@@ -103,7 +104,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
         }`}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-bbh-line bg-white/95 shadow-2xl shadow-bbh-ink/20 backdrop-blur transition-[transform,width] duration-200 lg:static lg:z-auto lg:max-w-none lg:translate-x-0 lg:bg-white/90 lg:shadow-bbh-card ${collapsed ? 'lg:w-20' : 'lg:w-64'} ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 transition-[transform,width] duration-200 lg:static lg:z-auto lg:max-w-none lg:translate-x-0 lg:shadow-none ${collapsed ? 'lg:w-20' : 'lg:w-64'} ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -117,7 +118,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
               />
               <div className="min-w-0 flex-1">
                 <p className="font-serif text-base font-semibold leading-none text-bbh-ink">BBH</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-bbh-muted">Portal</p>
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">Portal</p>
               </div>
             </>
           ) : (
@@ -180,12 +181,12 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
                 onClick={onClose}
                 title={collapsed ? `${item.label}${item.soon ? ' (เร็วๆนี้)' : ''}` : undefined}
                 className={({ isActive }) =>
-                  `mb-1 flex items-center rounded-xl text-sm font-semibold transition ${
+                  `mb-1 flex items-center rounded-xl text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                     collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
                   } ${
                     isActive
-                      ? 'bg-bbh-green text-white shadow-md shadow-bbh-green/20'
-                      : `hover:bg-bbh-green-soft hover:text-bbh-green-dark ${item.soon ? 'text-bbh-muted/70' : 'text-bbh-muted'}`
+                      ? 'bg-bbh-green text-white shadow-sm shadow-bbh-green/20'
+                      : 'text-bbh-muted hover:bg-bbh-green-soft hover:text-bbh-green-dark'
                   }`
                 }
               >

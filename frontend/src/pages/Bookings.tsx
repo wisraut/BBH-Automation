@@ -1,5 +1,5 @@
-﻿import { useState } from 'react'
-import { AlertTriangle, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, Loader2, Plus, Stethoscope, X } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus, Stethoscope, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { NewBookingModal } from '../components/bookings/NewBookingModal'
@@ -10,18 +10,37 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useAssignDoctor } from '../hooks/useAssignDoctor'
 import { useBooking } from '../hooks/useBooking'
 import { useBookings } from '../hooks/useBookings'
-import type { BookingStatus } from '../hooks/useBookings'
+import type { BookingGroup, BookingStatus } from '../hooks/useBookings'
 import { useDoctors } from '../hooks/useDoctors'
 import { useToast } from '../hooks/useToast'
 import { ApiError } from '../lib/api'
 
-const FILTERS: { key: BookingStatus | 'all'; label: string }[] = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'pending_approval', label: 'รอยืนยัน' },
-  { key: 'approved', label: 'ยืนยันแล้ว' },
-  { key: 'no_show', label: 'No-show' },
-  { key: 'rejected', label: 'ปฏิเสธ' },
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
+const TABS: { key: BookingGroup; label: string }[] = [
+  { key: 'active', label: 'กำลังดำเนินการ' },
+  { key: 'history', label: 'ประวัติ' },
 ]
+
+// Status pills scoped to each tab. 'all' means "no status filter — show the
+// whole group" and the backend group param drives the list.
+const FILTERS_BY_TAB: Record<BookingGroup, { key: BookingStatus | 'all'; label: string }[]> = {
+  active: [
+    { key: 'all', label: 'ทั้งหมด' },
+    { key: 'pending_approval', label: 'รอยืนยัน' },
+    { key: 'approved', label: 'ยืนยันแล้ว' },
+  ],
+  history: [
+    { key: 'all', label: 'ทั้งหมด' },
+    { key: 'no_show', label: 'No-show' },
+    { key: 'rejected', label: 'ปฏิเสธ' },
+    { key: 'cancelled', label: 'ยกเลิก' },
+    { key: 'expired', label: 'หมดอายุ' },
+  ],
+}
 
 const PAGE_LIMIT = 20
 
@@ -38,7 +57,8 @@ function formatRelative(iso: string): string {
 }
 
 export function Bookings() {
-  const [filter, setFilter] = useState<BookingStatus | 'all'>('pending_approval')
+  const [tab, setTab] = useState<BookingGroup>('active')
+  const [filter, setFilter] = useState<BookingStatus | 'all'>('all')
   const [page, setPage] = useState(1)
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
   const [newBookingOpen, setNewBookingOpen] = useState(false)
@@ -46,12 +66,23 @@ export function Bookings() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
 
+  const filters = FILTERS_BY_TAB[tab]
+
   const list = useBookings({
+    // When no specific status is picked, drive the list by the tab's group.
     status: filter === 'all' ? undefined : filter,
+    group: filter === 'all' ? tab : undefined,
     page,
     limit: PAGE_LIMIT,
   })
   const detail = useBooking(selectedUid)
+
+  function handleTab(key: BookingGroup) {
+    setTab(key)
+    setFilter('all')
+    setPage(1)
+    setSelectedUid(null)
+  }
 
   function handleFilter(key: BookingStatus | 'all') {
     setFilter(key)
@@ -63,137 +94,192 @@ export function Bookings() {
   const total = list.data?.pagination.total ?? 0
 
   return (
-    <div className="flex h-full min-w-0 overflow-hidden rounded-2xl bg-white/70 backdrop-blur">
-      <section className={`${selectedUid ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-white via-white to-bbh-green-soft/30 p-4 md:p-7`}>
-        <div className="mb-8 flex flex-wrap items-center gap-2 rounded-2xl border border-bbh-line bg-white/80 p-3 shadow-sm">
-          {FILTERS.map((item) => {
-            const active = item.key === filter
+    <div className="flex h-full min-w-0 overflow-hidden bg-white">
+      <section
+        className={`${selectedUid ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col overflow-y-auto bg-white p-6 md:p-8 lg:p-10`}
+      >
+        {/* Masthead — instrument label + serif heading, primary action on the right */}
+        <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+              CRO Bookings
+            </p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">คำขอจองนัด</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
+              ตรวจสอบ ยืนยัน เลื่อน และจัดการคำขอจองนัดของคนไข้
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNewBookingOpen(true)}
+            className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
+          >
+            <Plus size={16} /> จองใหม่
+          </button>
+        </div>
+
+        {/* Lifecycle tabs — segmented control; green reserved for the active tab */}
+        <div
+          className="animate-rise mb-4 inline-flex rounded-lg border border-bbh-line bg-white p-1"
+          role="tablist"
+          style={{ animationDelay: '40ms' }}
+        >
+          {TABS.map((item) => {
+            const active = item.key === tab
             return (
               <button
                 key={item.key}
                 type="button"
-                onClick={() => handleFilter(item.key)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                role="tab"
+                aria-selected={active}
+                onClick={() => handleTab(item.key)}
+                className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors duration-200 ${FOCUS_RING} ${
                   active
-                    ? 'bg-bbh-green text-white shadow-md shadow-bbh-green/15'
-                    : 'border border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green'
+                    ? 'bg-bbh-green text-white'
+                    : 'bg-transparent text-bbh-muted hover:text-bbh-green-dark'
                 }`}
               >
                 {item.label}
               </button>
             )
           })}
-          <span className="ml-0 text-xs text-bbh-muted sm:ml-auto">{total} รายการ</span>
-          <button
-            type="button"
-            onClick={() => setNewBookingOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-bbh-green px-4 py-2 text-sm font-semibold text-white shadow-md shadow-bbh-green/15 transition hover:bg-bbh-green-dark"
-          >
-            <Plus size={16} /> จองใหม่
-          </button>
         </div>
 
-        {list.isLoading ? (
-          <div className="space-y-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-2xl bg-bbh-surface" />
-            ))}
-          </div>
-        ) : null}
-
-        {list.isError ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <p className="font-semibold">โหลดข้อมูลไม่สำเร็จ</p>
-            <p className="mt-1 text-xs">
-              {list.error instanceof ApiError ? list.error.message : 'กรุณาลองใหม่'}
-            </p>
-            <button
-              type="button"
-              onClick={() => void list.refetch()}
-              className="mt-2 rounded-lg border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-            >
-              ลองใหม่
-            </button>
-          </div>
-        ) : null}
-
-        {!list.isLoading && !list.isError && list.data && list.data.data.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-bbh-line bg-white p-12 text-center">
-            <p className="font-serif text-lg text-bbh-ink">ยังไม่มีรายการในฟิลเตอร์นี้</p>
-            <p className="mt-2 text-sm text-bbh-muted">ลองเปลี่ยนฟิลเตอร์ด้านบน</p>
-          </div>
-        ) : null}
-
-        <div className="space-y-2">
-          {list.data?.data.map((row) => {
-            const active = row.request_uid === selectedUid
+        {/* Filter rail — hairline pills; green reserved for the active filter */}
+        <div className="animate-rise mb-8 flex flex-wrap items-center gap-2" style={{ animationDelay: '70ms' }}>
+          {filters.map((item) => {
+            const active = item.key === filter
             return (
               <button
-                key={row.request_uid}
+                key={item.key}
                 type="button"
-                onClick={() => setSelectedUid(row.request_uid)}
-                className={`flex w-full items-center gap-4 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition ${
+                onClick={() => handleFilter(item.key)}
+                aria-pressed={active}
+                className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-200 ${FOCUS_RING} ${
                   active
-                    ? 'border-bbh-green shadow-bbh-card ring-4 ring-bbh-green/10'
-                    : 'border-bbh-line hover:border-bbh-green/40 hover:shadow-bbh-card'
+                    ? 'border-bbh-green bg-bbh-green text-white'
+                    : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
                 }`}
               >
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-bbh-ink">
-                      {row.patient_name ?? '-'}
-                    </p>
-                    <SourceBadge source={row.booking_source} />
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-bbh-muted">
-                    {row.phone ?? '-'} · {row.requested_datetime_text ?? '-'}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-bbh-muted">
-                    {row.symptom ?? '-'}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <StatusBadge status={row.status} />
-                  <span className="text-[11px] text-bbh-muted">
-                    {formatRelative(row.created_at)}
-                  </span>
-                </div>
+                {item.label}
               </button>
             )
           })}
+          <span className="ml-auto font-mono text-xs tabular-nums text-bbh-muted">{total} รายการ</span>
         </div>
 
-        {totalPages > 1 ? (
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
-            >
-              <ChevronLeft size={16} /> ก่อนหน้า
-            </button>
-            <span className="text-bbh-muted">
-              หน้า {page} / {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="flex items-center gap-1 rounded-xl border border-bbh-line px-3 py-1.5 font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green disabled:opacity-40"
-            >
-              ถัดไป <ChevronRight size={16} />
-            </button>
-          </div>
-        ) : null}
+        <div className="animate-rise" style={{ animationDelay: '140ms' }}>
+          {list.isLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-16 animate-pulse rounded-xl bg-bbh-surface" />
+              ))}
+            </div>
+          ) : null}
+
+          {list.isError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+              <p className="font-semibold">โหลดข้อมูลไม่สำเร็จ</p>
+              <p className="mt-1 text-xs">
+                {list.error instanceof ApiError ? list.error.message : 'กรุณาลองใหม่'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void list.refetch()}
+                className={`mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition-colors duration-200 hover:bg-red-100 ${FOCUS_RING}`}
+              >
+                ลองใหม่
+              </button>
+            </div>
+          ) : null}
+
+          {!list.isLoading && !list.isError && list.data && list.data.data.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-bbh-line bg-white p-12 text-center">
+              <p className="font-serif text-lg text-bbh-ink">ยังไม่มีรายการในฟิลเตอร์นี้</p>
+              <p className="mt-2 text-sm text-bbh-muted">ลองเปลี่ยนฟิลเตอร์ด้านบน</p>
+            </div>
+          ) : null}
+
+          {!list.isLoading && !list.isError && list.data && list.data.data.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
+              <div className="divide-y divide-bbh-line">
+                {list.data.data.map((row, i) => {
+                  const active = row.request_uid === selectedUid
+                  return (
+                    <button
+                      key={row.request_uid}
+                      type="button"
+                      onClick={() => setSelectedUid(row.request_uid)}
+                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                      className={`animate-rise relative flex w-full items-center gap-4 px-4 py-4 text-left transition-colors duration-200 ${FOCUS_RING} ${
+                        active ? 'bg-bbh-green-soft/60' : 'bg-white hover:bg-bbh-surface'
+                      }`}
+                    >
+                      {/* selected lead rail — green reserved for the active row */}
+                      {active ? (
+                        <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-bbh-green" />
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-bbh-ink">
+                            {row.patient_name ?? '-'}
+                          </p>
+                          <SourceBadge source={row.booking_source} />
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-bbh-muted">
+                          <span className="font-mono tabular-nums">{row.phone ?? '-'}</span> ·{' '}
+                          <span className="font-mono tabular-nums">{row.requested_datetime_text ?? '-'}</span>
+                        </p>
+                        <p className="mt-1 truncate text-xs text-bbh-muted">{row.symptom ?? '-'}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <StatusBadge status={row.status} />
+                        <span className="font-mono text-[11px] tabular-nums text-bbh-muted">
+                          {formatRelative(row.created_at)}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {totalPages > 1 ? (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
+              >
+                <ChevronLeft size={16} /> ก่อนหน้า
+              </button>
+              <span className="font-mono text-sm tabular-nums text-bbh-muted">
+                หน้า {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
+              >
+                ถัดไป <ChevronRight size={16} />
+              </button>
+            </div>
+          ) : null}
+        </div>
       </section>
 
-      <aside className={`${selectedUid ? 'block' : 'hidden lg:block'} w-full overflow-y-auto bg-white/95 p-4 md:p-6 lg:w-[420px] lg:border-l lg:border-bbh-line`}>
+      <aside
+        className={`${selectedUid ? 'block' : 'hidden lg:block'} animate-rise w-full overflow-y-auto bg-white p-6 md:p-8 lg:w-[420px] lg:border-l lg:border-bbh-line`}
+        style={{ animationDelay: '120ms' }}
+      >
         {selectedUid ? (
           <button
             type="button"
             onClick={() => setSelectedUid(null)}
-            className="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-sm font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className={`mb-6 inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
           >
             <ChevronLeft size={16} />
             กลับไปรายการ
@@ -201,39 +287,39 @@ export function Bookings() {
         ) : null}
         {!selectedUid ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
-            <div className="rounded-3xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
+            <div className="rounded-xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
               เลือกรายการเพื่อดูรายละเอียด
             </div>
           </div>
         ) : detail.isLoading ? (
-          <div className="h-32 animate-pulse rounded-2xl bg-bbh-surface" />
+          <div className="h-32 animate-pulse rounded-xl bg-bbh-surface" />
         ) : detail.isError ? (
           <p className="text-sm text-red-700">โหลดรายละเอียดไม่สำเร็จ</p>
         ) : detail.data ? (
           <div className="space-y-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-bbh-muted">คนไข้</p>
-              <p className="mt-1 font-serif text-2xl font-semibold text-bbh-ink">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">คนไข้</p>
+              <p className="mt-2 font-serif text-2xl font-semibold text-bbh-ink">
                 {detail.data.patient_name ?? '-'}
               </p>
-              <p className="text-sm text-bbh-muted">{detail.data.phone ?? '-'}</p>
+              <p className="font-mono text-sm tabular-nums text-bbh-muted">{detail.data.phone ?? '-'}</p>
               <div className="mt-2 flex items-center gap-2">
                 <StatusBadge status={detail.data.status} />
                 <SourceBadge source={detail.data.booking_source} />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-bbh-line p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
+            <div className="rounded-xl border border-bbh-line bg-white p-4">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
                 เวลาที่ลูกค้าขอ
               </p>
-              <p className="mt-1 text-sm text-bbh-ink">
+              <p className="mt-1 font-mono text-sm tabular-nums text-bbh-ink">
                 {detail.data.requested_datetime_text ?? '-'}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-bbh-line p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
+            <div className="rounded-xl border border-bbh-line bg-white p-4">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
                 อาการ / รายละเอียด
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
@@ -246,15 +332,16 @@ export function Bookings() {
                 href={detail.data.calendar_event_url}
                 target="_blank"
                 rel="noreferrer"
-                className="block rounded-2xl border border-bbh-green/30 bg-bbh-green-soft p-4 text-sm font-medium text-bbh-green-dark hover:bg-bbh-green-soft/70"
+                className={`flex items-center justify-between gap-2 rounded-xl border border-bbh-green/30 bg-bbh-green-soft px-4 py-3 text-sm font-medium text-bbh-green-dark transition-colors duration-200 hover:bg-bbh-green-soft/70 ${FOCUS_RING}`}
               >
-                เปิด Google Calendar event ↗
+                เปิด Google Calendar event
+                <ExternalLink size={15} />
               </a>
             ) : null}
 
             {detail.data.notes ? (
-              <div className="rounded-2xl border border-bbh-line p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-muted">
+              <div className="rounded-xl border border-bbh-line bg-white p-4">
+                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
                   หมายเหตุ
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
@@ -268,14 +355,14 @@ export function Bookings() {
                 <button
                   type="button"
                   onClick={() => setApproveOpen(true)}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-bbh-green px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bbh-green-dark"
+                  className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
                 >
                   <Check size={16} /> ยืนยันนัด
                 </button>
                 <button
                   type="button"
                   onClick={() => setRejectOpen(true)}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                  className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 ${FOCUS_RING}`}
                 >
                   <X size={16} /> ปฏิเสธ
                 </button>
@@ -291,7 +378,7 @@ export function Bookings() {
                   <button
                     type="button"
                     onClick={() => setRescheduleOpen(true)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-ink transition-all duration-200 hover:border-bbh-green hover:text-bbh-green-dark"
+                    className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
                   >
                     <CalendarIcon size={16} /> เลื่อนนัด
                   </button>
@@ -325,6 +412,7 @@ export function Bookings() {
         open={newBookingOpen}
         onClose={() => setNewBookingOpen(false)}
         onCreated={(requestUid) => {
+          setTab('active')
           setFilter('pending_approval')
           setPage(1)
           setSelectedUid(requestUid)
@@ -360,7 +448,7 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
   }
 
   return (
-    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
       <div className="flex items-start gap-2">
         <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
         <div className="flex-1">
@@ -374,7 +462,7 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
         <select
           value={doctorId}
           onChange={(e) => setDoctorId(e.target.value === '' ? '' : Number(e.target.value))}
-          className="min-w-[180px] flex-1 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm"
+          className={`min-w-[180px] flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm transition-colors duration-200 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 ${FOCUS_RING}`}
         >
           <option value="">— เลือกแพทย์ —</option>
           {(doctorsQ.data?.data ?? []).map((d) => (
@@ -387,7 +475,7 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
           type="button"
           onClick={submit}
           disabled={assign.isPending || doctorId === ''}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-amber-700 disabled:opacity-60 ${FOCUS_RING}`}
         >
           {assign.isPending ? <Loader2 size={14} className="animate-spin" /> : <Stethoscope size={14} />}
           บันทึก

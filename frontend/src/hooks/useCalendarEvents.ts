@@ -11,6 +11,8 @@ export type CalendarEvent = {
   start: string
   end: string
   all_day: boolean
+  location: string | null
+  video_link: string | null
 }
 
 type CalendarEventsResponse = {

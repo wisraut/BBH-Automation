@@ -12,6 +12,12 @@ interface Props {
   onSuccess?: () => void
 }
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
+const FIELD_CLASS =
+  'w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
+
 function localIsoNow(): string {
   const d = new Date(Date.now() + 60 * 60 * 1000)
   d.setMinutes(0, 0, 0)
@@ -68,7 +74,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             type="checkbox"
             checked={tbd}
             onChange={(e) => setTbd(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0"
+            className={`mt-0.5 h-4 w-4 shrink-0 accent-bbh-green ${FOCUS_RING}`}
           />
           <span>
             <span className="font-medium">ยังไม่กำหนดเวลา</span>
@@ -87,7 +93,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             disabled={tbd}
             value={whenLocal}
             onChange={(e) => setWhenLocal(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-bbh-surface"
+            className={`mt-1 ${FIELD_CLASS} disabled:cursor-not-allowed disabled:bg-bbh-surface`}
           />
         </label>
         <label className="block text-sm font-medium text-bbh-ink">
@@ -98,7 +104,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             rows={2}
             maxLength={255}
             placeholder="เช่น คนไข้ขอเลื่อน, ตรงกับวันหยุด"
-            className="mt-1 w-full rounded-lg border border-bbh-line px-3 py-2 text-sm"
+            className={`mt-1 ${FIELD_CLASS}`}
           />
         </label>
         {m.error ? (
@@ -112,8 +118,18 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             : 'ระบบจะยกเลิก Google Calendar event เดิม สร้าง event ใหม่ ส่ง LINE แจ้งคนไข้ และแจ้งแพทย์ประจำตัวทางอีเมล'}
         </p>
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
-          <button type="submit" disabled={m.isPending} className="inline-flex items-center gap-2 rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="submit"
+            disabled={m.isPending}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
+          >
             {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Calendar size={14} />}
             {tbd ? 'ยืนยันเลื่อน (รอเวลาใหม่)' : 'ยืนยันเลื่อนนัด'}
           </button>

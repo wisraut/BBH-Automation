@@ -31,17 +31,17 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
         className="absolute inset-0 bg-bbh-ink/45 backdrop-blur-[2px]"
       />
       <div
-        className={`relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[28px] rounded-b-none border border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 md:max-h-[calc(100vh-5rem)] md:rounded-[28px] ${
+        className={`relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 md:max-h-[calc(100vh-5rem)] md:rounded-2xl ${
           size === 'lg' ? 'max-w-2xl' : 'max-w-md'
         }`}
       >
         <div className="h-1 bg-bbh-green" />
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-bbh-line bg-bbh-surface px-4 py-4 md:px-7">
-          <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl md:text-xl">{title}</h2>
+          <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-transparent p-2 text-bbh-muted transition hover:border-bbh-line hover:bg-white hover:text-bbh-ink"
+            className="rounded-full border border-transparent p-2 text-bbh-muted transition hover:border-bbh-line hover:bg-white hover:text-bbh-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             aria-label="ปิด"
           >
             <X size={18} />

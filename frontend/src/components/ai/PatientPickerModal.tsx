@@ -5,6 +5,11 @@ import { Modal } from '../Modal'
 import { usePatients } from '../../hooks/usePatients'
 import type { components } from '../../lib/api-types'
 
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+
 type PatientListItem = components['schemas']['PatientListItem']
 
 interface PatientPickerModalProps {
@@ -28,12 +33,12 @@ export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModal
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="ค้นหาด้วยชื่อ / HN / เบอร์"
-            className="h-11 w-full rounded-2xl border border-bbh-line bg-white pl-9 pr-3 text-sm outline-none focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10"
+            className="h-11 w-full rounded-lg border border-bbh-line bg-white pl-9 pr-3 text-sm text-bbh-ink transition-colors duration-200 placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
             autoFocus
           />
         </div>
 
-        <div className="max-h-80 overflow-y-auto rounded-2xl border border-bbh-line">
+        <div className="max-h-80 overflow-y-auto rounded-lg border border-bbh-line bg-white">
           {isLoading ? (
             <p className="p-6 text-center text-sm text-bbh-muted">กำลังโหลด...</p>
           ) : rows.length === 0 ? (
@@ -45,17 +50,19 @@ export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModal
                   <button
                     type="button"
                     onClick={() => { onPick(p); onClose() }}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-bbh-green-soft"
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-bbh-ink">{p.display_name}</p>
                       <p className="text-xs text-bbh-muted">
-                        {p.hn ? `HN ${p.hn} · ` : ''}{p.phone ?? '-'}
+                        {p.hn ? <span className="font-mono tabular-nums">HN {p.hn}</span> : null}
+                        {p.hn ? ' · ' : ''}
+                        <span className="font-mono tabular-nums">{p.phone ?? '-'}</span>
                       </p>
                     </div>
                     <div className="text-right text-xs text-bbh-muted">
-                      <p>นัด: {p.total_bookings}</p>
-                      <p>Report: {p.total_reports}</p>
+                      <p>นัด: <span className="font-mono tabular-nums">{p.total_bookings}</span></p>
+                      <p>Report: <span className="font-mono tabular-nums">{p.total_reports}</span></p>
                     </div>
                   </button>
                 </li>

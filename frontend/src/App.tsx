@@ -21,8 +21,7 @@ import { Biomarker } from './pages/Biomarker'
 import { Book } from './pages/Book'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
-import { Documents } from './pages/Documents'
-import { LabResults } from './pages/LabResults'
+import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
@@ -39,6 +38,29 @@ const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   lab_staff: '/reports',
 }
 
+// Which roles may open each path — mirrors the <ProtectedRoute allow> lists in
+// AppRoutes. Unlisted paths (e.g. /ai, /account) are open to any authenticated
+// user. Used to reject a stale post-login redirect target the new role can't see
+// (e.g. logout on a doctor page, then log back in as CRO).
+const ROUTE_ALLOW: Record<string, Role[]> = {
+  '/admin': ['admin'],
+  '/bookings': ['cro', 'admin'],
+  '/calendar': ['cro', 'admin'],
+  '/schedule': ['doctor', 'admin', 'nurse'],
+  '/doctor-calendar': ['doctor', 'admin', 'nurse'],
+  '/reports': ['doctor', 'admin', 'nurse', 'lab_staff'],
+  '/patients': ['cro', 'doctor', 'admin', 'nurse'],
+  '/users': ['admin'],
+  '/system-health': ['admin'],
+  '/alert-rules': ['admin'],
+  '/audit': ['admin'],
+}
+
+function canAccess(path: string, role: Role): boolean {
+  const allow = ROUTE_ALLOW[path]
+  return !allow || allow.includes(role)
+}
+
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/admin': { title: 'Admin Dashboard', subtitle: 'Action Required และภาพรวมระบบโรงพยาบาล' },
   '/bookings': {
@@ -46,13 +68,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
   },
   '/calendar': { title: 'ปฏิทิน' },
-  '/today': { title: 'วันนี้', subtitle: 'สรุปงานที่ต้องจัดการวันนี้' },
-  '/schedule': { title: 'ตารางนัด' },
-  '/book': { title: 'ลงนัดเอง', subtitle: 'ลงนัด → ส่งเข้าคิว CRO ยืนยัน' },
-  '/availability': { title: 'ตารางว่างของฉัน', subtitle: 'กำหนดเวลาว่างให้ระบบเสนอเวลาจอง' },
-  '/biomarker': { title: 'Biomarker', subtitle: 'แนวโน้มค่าตรวจเทียบ optimal range' },
-  '/documents': { title: 'กล่องเอกสาร', subtitle: 'เอกสารที่ CRO อัปโหลดและมอบหมายให้คุณ' },
-  '/lab-results': { title: 'ผลแล็บ (ละเอียด)', subtitle: 'ค่าตรวจแตกรายตัว · ค่าอ้างอิง · สถานะ' },
+  '/schedule': { title: 'สรุปงานแพทย์' },
+  '/doctor-calendar': { title: 'ปฏิทินแพทย์', subtitle: 'นัดหมาย เวลาที่ไม่อยู่ และ availability ของแพทย์' },
   '/patients': { title: 'คนไข้' },
   '/reports': { title: 'ผลแล็บ' },
   '/ai': { title: 'AI Assistant' },
@@ -86,9 +103,14 @@ function LoginPage() {
   }
   if (user) {
     // ProtectedRoute redirected to /login with state.from on auth-required pages;
-    // after successful login, send the user back to where they tried to go.
+    // after successful login, send the user back to where they tried to go — but
+    // only if the new role may actually open it. Otherwise (e.g. logout on a
+    // doctor page, then log in as CRO) go to the new role's home instead of
+    // landing on a "no access" page.
     const from = (location.state as { from?: string } | null)?.from
-    const target = from && from !== '/login' ? from : DEFAULT_PATH_BY_ROLE[user.role]
+    const target = from && from !== '/login' && canAccess(from, user.role)
+      ? from
+      : DEFAULT_PATH_BY_ROLE[user.role]
     return <Navigate to={target} replace />
   }
   return <Login />
@@ -105,9 +127,7 @@ const ROLE_OF_PATH: Record<string, Role> = {
   '/calendar': 'cro',
   '/today': 'doctor',
   '/schedule': 'doctor',
-  '/book': 'doctor',
-  '/availability': 'doctor',
-  '/biomarker': 'doctor',
+  '/doctor-calendar': 'doctor',
 }
 const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
 
@@ -134,7 +154,7 @@ function DashboardLayout() {
   const effectiveRole: Role = viewAs ?? user.role
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
+    <div className="flex h-screen overflow-hidden bg-white text-bbh-ink">
       <Sidebar
         role={effectiveRole}
         actualRole={user.role}
@@ -146,7 +166,11 @@ function DashboardLayout() {
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
-        <main className="flex-1 overflow-hidden p-4 md:p-7 lg:p-8">
+        {/* Open, edge-to-edge work surface for every route: pages are full-bleed
+            to the sidebar/topbar (which carry their own hairline borders), so no
+            page reads as a floating card on a gradient. Each page owns its own
+            internal scroll and hairline-ruled panels — see AdminDashboard. */}
+        <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>
@@ -176,6 +200,7 @@ function AppRoutes() {
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />
+            <Route path="doctor-calendar" element={<DoctorCalendar />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse', 'lab_staff']} />}>
             <Route path="reports" element={<Reports />} />

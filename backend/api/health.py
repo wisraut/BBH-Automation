@@ -1,4 +1,5 @@
 """Health and service metadata endpoints."""
+import hmac
 import time
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -35,7 +36,8 @@ def _require_internal_token(x_internal_token: str | None) -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="BRIDGE_INTERNAL_TOKEN is not configured",
         )
-    if x_internal_token != BRIDGE_INTERNAL_TOKEN:
+    # Constant-time compare — avoid leaking the token via response timing.
+    if not x_internal_token or not hmac.compare_digest(x_internal_token, BRIDGE_INTERNAL_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid internal token",

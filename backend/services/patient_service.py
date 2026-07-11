@@ -10,8 +10,12 @@ from utils.pagination import paginate
 TZ_BANGKOK = timezone(timedelta(hours=7))
 
 
-def list_patients(*, search: str | None, page: int, limit: int) -> dict[str, Any]:
-    rows, total = patient_repo.list_patients(search=search, page=page, limit=limit)
+def list_patients(
+    *, search: str | None, page: int, limit: int, panel_doctor_id: int | None = None,
+) -> dict[str, Any]:
+    rows, total = patient_repo.list_patients(
+        search=search, page=page, limit=limit, panel_doctor_id=panel_doctor_id,
+    )
     return paginate(rows=rows, total=total, page=page, limit=limit)
 
 

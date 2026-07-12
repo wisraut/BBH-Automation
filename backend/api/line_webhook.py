@@ -1,4 +1,4 @@
-"""Primary LINE webhook: routes all messages to n8n, falls back to Dify CRO flow."""
+"""Primary LINE webhook: routes all messages to n8n, falls back to the CRO flow."""
 import asyncio
 import json
 import time
@@ -63,7 +63,7 @@ async def _reply_unsupported(reply_token: str) -> None:
 @router.post("/webhook")
 async def webhook(request: Request, background_tasks: BackgroundTasks):
     # LINE webhook must return 200 within ~1-2s or LINE retries the event.
-    # All slow work (n8n + Dify) is scheduled as a background task.
+    # All slow work (n8n + AI) is scheduled as a background task.
     t0 = time.perf_counter()
     body = await request.body()
     signature = request.headers.get("X-Line-Signature", "")
@@ -139,7 +139,7 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
 async def _handle_event_async(event: dict) -> None:
     """Process one LINE event off the webhook hot path; never raises.
 
-    The Dify CRO fallback is sync (DB + HTTP + LINE reply) — running it
+    The CRO fallback is sync (DB + HTTP + LINE reply) — running it
     directly here would block the asyncio event loop and starve other
     webhook requests. asyncio.to_thread moves it off the loop.
     """
@@ -195,7 +195,7 @@ async def _try_handle_public_with_n8n(event: dict) -> bool:
         resp.raise_for_status()
         result = resp.json()
     except Exception:
-        log.exception("n8n public LINE flow failed; falling back to CRO Dify flow")
+        log.exception("n8n public LINE flow failed; falling back to CRO flow")
         return False
 
     answer = result.get("answer")

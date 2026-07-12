@@ -44,7 +44,7 @@ def try_register(line_uid: str, patient_code: str) -> tuple:
 
 
 def handle_message(reply_token: str, line_uid: str, text: str) -> None:
-    """Router: logout → unbind / อื่นๆ → Dify role=patient (graph จัด emergency เอง)"""
+    """Router: logout → unbind / อื่นๆ → own LLM patient advisor (safety gate จัด emergency)"""
     if text.strip().lower() == "logout":
         with get_db() as conn:
             with conn.cursor() as cur:

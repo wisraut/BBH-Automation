@@ -225,8 +225,8 @@ export interface paths {
         };
         /**
          * Get Session
-         * @description Return the Dify conversation_id + effective AI mode for this LINE user.
-         *     n8n branches on `effective_mode` before deciding whether to call Dify.
+         * @description Return the cached conversation id + effective AI mode for this LINE user.
+         *     n8n branches on `effective_mode` before deciding whether to call the RAG bot.
          */
         get: operations["get_session_internal_session__channel___user_id__get"];
         put?: never;
@@ -270,7 +270,7 @@ export interface paths {
         put?: never;
         /**
          * Log Message
-         * @description n8n calls this after Dify replies so we can render chat history.
+         * @description n8n calls this after the bot replies so we can render chat history.
          */
         post: operations["log_message_internal_message_post"];
         delete?: never;
@@ -662,7 +662,7 @@ export interface paths {
         /**
          * Patient Ai Summary
          * @description Generate a short pre-visit Thai brief by passing the medical bundle
-         *     (PII-redacted) to the staff Dify app. Cached client-side per session.
+         *     (PII-redacted) to the staff AI assistant. Cached client-side per session.
          */
         get: operations["patient_ai_summary_api_patients__patient_id__ai_summary_get"];
         put?: never;
@@ -880,7 +880,7 @@ export interface paths {
         put?: never;
         /**
          * Analyze Report
-         * @description Run Dify analysis for a report. Patient data crosses out to external
+         * @description Run AI analysis for a report. Patient data crosses out to external
          *     LLM here (PII-redacted in ai_service) — audit is mandatory.
          */
         post: operations["analyze_report_api_reports__report_id__analyze_post"];

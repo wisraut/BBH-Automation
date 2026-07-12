@@ -119,7 +119,7 @@ def _compose_message(*, message: str, patient_id: int | None) -> str:
     """Assemble context blocks + user question into a single prompt string.
 
     Output is PDPA-scrubbed: PII patterns + the pinned patient's name are
-    masked before the prompt leaves the bridge for Dify/OpenRouter/Gemini.
+    masked before the prompt leaves the bridge for OpenRouter/Gemini.
     """
     parts: list[str] = []
 

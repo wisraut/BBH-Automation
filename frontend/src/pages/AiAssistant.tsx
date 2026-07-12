@@ -171,7 +171,7 @@ export function AiAssistant() {
           <div className="min-w-0">
             <p className="font-serif text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
             <p className="truncate font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">
-              {ctx.label} · Dify + Gemini Flash
+              {ctx.label} · Gemini Flash
             </p>
           </div>
         </div>

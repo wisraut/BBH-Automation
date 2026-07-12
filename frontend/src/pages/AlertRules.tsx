@@ -258,7 +258,6 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
             <li>eval_stuck_reports: <span className="text-bbh-ink">{'{"minutes": 5}'}</span></li>
             <li>eval_stale_cro_approvals: <span className="text-bbh-ink">{'{"hours": 24}'}</span></li>
             <li>eval_failed_line_pushes: <span className="text-bbh-ink">{'{"window_minutes": 60, "min_count": 1}'}</span></li>
-            <li>eval_bridge_dify_disconnected: <span className="text-bbh-ink">{'{"consecutive_fails": 2, "timeout_seconds": 5}'}</span></li>
           </ul>
         </div>
 

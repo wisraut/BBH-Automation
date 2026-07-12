@@ -76,7 +76,7 @@ def update_patient(
 @router.get("/{patient_id}/ai-summary")
 def patient_ai_summary(patient_id: int, request: Request, user: _DoctorOrAdmin) -> dict:
     """Generate a short pre-visit Thai brief by passing the medical bundle
-    (PII-redacted) to the staff Dify app. Cached client-side per session."""
+    (PII-redacted) to the staff AI assistant. Cached client-side per session."""
     result = patient_summary_service.generate_summary(patient_id, user=user)
     audit_service.record_access(
         request, user,

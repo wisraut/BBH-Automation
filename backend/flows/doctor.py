@@ -177,7 +177,7 @@ def notify_new_report(doctor_id: str, patient_name: str, report_id: str) -> None
 
 
 def analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> None:
-    """Pipeline: atomic lock → context → Dify → save → push"""
+    """Pipeline: atomic lock → context → AI → save → push"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

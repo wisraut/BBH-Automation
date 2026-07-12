@@ -9,7 +9,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     conversation_id: str = Field(default="", max_length=64)
     # When provided, backend pulls patient/bookings/reports and prepends
-    # a context block to the message before sending to Dify.
+    # a context block to the message before sending to the LLM.
     patient_id: int | None = Field(default=None, ge=1)
 
 

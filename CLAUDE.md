@@ -40,7 +40,7 @@
 
 1. **บันทึก error/bug ทุกอย่างลง `ERRORS.md` ทันทีที่เจอ** ตาม format ที่กำหนดไว้ในไฟล์นั้น
 2. **บันทึกทุกสิ่งที่แก้ไข/เพิ่มทุกครั้งที่ทำงานเสร็จ** (bug fix / feature / refactor) — อัพเดต **Status checklist ใน `CLAUDE.md`** + เพิ่ม **Changelog entry บนสุดของตารางใน `CHANGELOG.md`** (แยกไฟล์แล้ว ไม่ auto-load เข้า spawn — ประหยัด token)
-3. **อ่านสถานะ Dify จริงทุกครั้งที่เริ่ม session** — ทำตาม 5 ขั้นตอนนี้ตามลำดับ:
+3. **[OBSOLETE ตั้งแต่ 2026-07-12 — Dify ถูกถอดออกจากทุก runtime path + โค้ดแล้ว]** ~~อ่านสถานะ Dify จริงทุกครั้งที่เริ่ม session~~ — ไม่มี Dify ให้อ่านอีกต่อไป (container หยุด + code purged). AI ปัจจุบัน = own-RAG (`backend/rag/`); ตรวจสถานะด้วยการอ่านโค้ด `backend/rag/service.py` + endpoint `POST /internal/rag/answer`. ขั้นตอน DB/API query ด้านล่างเก็บไว้เป็นประวัติเฉยๆ:
 
    **ขั้นที่ 1 — อ่าน app info ผ่าน public API (ต้องทำเสมอ)**
    ```
@@ -137,7 +137,7 @@
 - **บทเรียน:** ถ้า root CLAUDE.md บอกว่า "ห้ามใช้คำ X" → ต้องตรวจว่าคำ X มีอยู่ในไฟล์อื่นของ repo ไหม **ทุกครั้ง** ถ้ามี → ลบ/แก้เพื่อกัน context pollution ก่อนเริ่มงานอื่น
 - **สำคัญสำหรับ session ถัดไป:** ก่อนพูดถึง "BBH" ในข้อความใดๆ → grep `clinic|คลินิก` ใน repo ก่อน ถ้ายังเจอแบบที่เป็น BBH (ไม่ใช่ 3rd-party) ให้แก้ทันที
 
-### สถานะ Dify ณ ปัจจุบัน (verified 2026-06-24)
+### สถานะ Dify — ถอดออกครบแล้ว (2026-07-12): container หยุด + code purged; block ด้านล่างเก็บเป็นประวัติ
 
 ```
 App 1 (LINE bot): Patient Summary
@@ -313,8 +313,8 @@ idx_meds_patient     ON current_medications(patient_id, is_active)
 ```
 LINE_CHANNEL_ID       = 2010199885
 LINE_CHANNEL_SECRET   = (.env)
-DIFY_API_URL          = http://localhost/v1
-DIFY_API_KEY          = (.env — Patient Summary app)
+DIFY_API_URL          = (ลบแล้ว 2026-07-12 — ไม่มี Dify)
+DIFY_API_KEY          = (ลบแล้ว 2026-07-12 — ไม่มี Dify)
 GMAIL_EMAIL           = wisrutyaemprayur@gmail.com
 GMAIL_APP_PASSWORD    = (.env — App Password)
 EMAIL_POLL_INTERVAL   = 120 (วินาที)
@@ -349,6 +349,7 @@ PostgreSQL (hospital_db):
 - [x] **[Red-team] Emergency safety gate hardened** — `is_emergency` เพิ่ม `_normalize` (ตัด zero-width + ลบ whitespace) + co-occurrence (อวัยวะ+อาการ) + synonym/EN กัน bypass การพิมพ์ธรรมชาติ (เว้นวรรค/reorder/colloquial "หายใจไม่ค่อยออก"/อังกฤษ) ที่เดิมทำให้คนไข้ฉุกเฉินหลุด escalate; residual = พิมพ์ผิดหนัก → แนะนำ LLM emergency-classifier ชั้นสอง. **Red-team (2026-07-08): ทุก finding ที่เจอ fixed+deploy หมดแล้ว** — emergency gate, pii bypass, booking input-length, Batch A validation, rate-limit LLM path, report/lab upload hardening, + MED (Google thread-safety / stale-event self-heal). **cro อ่าน medical record = ตั้งใจตาม policy รพ. (read-only+audited) — อย่า tighten (มี comment กันไว้)**. **ยังไม่ได้เทส:** prompt injection กับ real KB hits, LINE webhook signature, admin/alert endpoints. ดู memory `project_red_team_findings_2026_07` + CHANGELOG
 - [x] **Doctor Calendar month/week switch** — `/doctor-calendar` สลับสัปดาห์/เดือน; month view pattern แบบ CRO แต่ใช้ appointment/block ของหมอ พร้อม inspector รายวัน (อัปเดต 2026-07-07)
 - [x] **Bot Ops MySQL** — `bot_sessions` + `booking_requests` + `booking_audit_logs`
+- [x] **Dify dead code ถอดออกครบ (2026-07-12)** — ลบ `dify_patches/` (9 ไฟล์), `USE_OWN_RAG` flag (config+session+n8n → hardwire RAG), `_DIFY_TRIAGE_PATTERN` (dead), Dify docstrings/comments ที่บรรยาย runtime ผิด, DIFY env; n8n node "Ask Dify + Reply" → "Ask RAG + Reply" (ลบ else-branch Dify); เทส `call_dify` → `call_rag` ยิง `/internal/rag/answer`; regen-safe hand-edit `api-types.ts`. **เก็บไว้:** คอลัมน์ DB `dify_conversation_id`/`dify_answer` (repurpose เป็น provider-agnostic id ใช้จริง), migrations, lineage comment ที่ถูกต้อง. **ยังไม่ deploy** (แก้ repo อย่างเดียว — n8n live ต้อง patch SQLite แยก, bridge ต้อง rebuild)
 
 ### ⚠️ รอ Test / ปัญหาค้าง
 
@@ -374,7 +375,7 @@ PostgreSQL (hospital_db):
 - เส้น LINE มี routing prefix → ถ้าเอามาใช้กับ web จะตอบ "AUTO: สวัสดีค่ะ..." เหมือน bot ลูกค้า
 - Staff ต้องการ chat แบบ free-form ไม่ใช่ classifier
 
-**สถานะ Dify:** container ทั้ง stack หยุดแล้ว (เหลือ `docker-db_postgres-1` = legacy hospital_db); `DIFY_*` env + `dify_client.py` + n8n else-branch ยังเหลือเป็น dead code (ไม่มี runtime path วิ่งเข้า) — rollback ต้อง start Dify container กลับก่อน
+**สถานะ Dify:** ถอดออกครบแล้ว (2026-07-12) — `dify_client.py`, `DIFY_*` env, `USE_OWN_RAG` flag, n8n else-branch ลบหมด ไม่มี dead code เหลือ; container ทั้ง stack ยังหยุดอยู่ (เหลือ `docker-db_postgres-1` = legacy hospital_db); rollback ต้อง revert commit ที่ถอด + start Dify container กลับ (ไม่มี flag ให้สลับแล้ว)
 - ปนกัน = prompt confuse, ตอบไม่ตรงเป้า
 
 ### AI ไม่มี DB access (security policy)

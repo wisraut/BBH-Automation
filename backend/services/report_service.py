@@ -35,9 +35,6 @@ ALLOWED_MIMES = {
 }
 MAX_EXTRACTED_CHARS = 50_000   # cap stored/analyzed text (DB bloat + LLM cost)
 MAX_PDF_PAGES = 100            # cap pages parsed (decompression-bomb guard)
-_DIFY_TRIAGE_PATTERN = re.compile(
-    r"(accept|reject|review)", re.IGNORECASE
-)
 
 # System persona for lab-report analysis. Replaces the old Dify "doctor" app.
 # There is no medical-book Knowledge Base anymore (that lived in Dify), so the
@@ -540,7 +537,7 @@ def _build_context(*, patient: dict[str, Any], report: dict[str, Any]) -> str:
 
 
 def _detect_triage(answer: str) -> str:
-    """Look for 'Triage: <decision>' line in Dify output."""
+    """Look for 'Triage: <decision>' line in the model output."""
     m = re.search(r"Triage\s*:\s*(accept|reject|review)", answer, re.IGNORECASE)
     if m:
         return m.group(1).lower()

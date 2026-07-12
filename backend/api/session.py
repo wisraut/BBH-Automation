@@ -1,4 +1,4 @@
-"""Internal session API — read/write Dify conversation_id + AI mode per user."""
+"""Internal session API — read/write conversation id + AI mode per user."""
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from api.health import _require_internal_token
-from core.config import BOT_OPS_DB_CONFIG, BOT_SESSION_CONV_TTL_MIN, USE_OWN_RAG, log
+from core.config import BOT_OPS_DB_CONFIG, BOT_SESSION_CONV_TTL_MIN, log
 from repositories import message_repo
 from utils.ai_mode import AUTO_PAUSE_MINUTES, compute_effective
 
@@ -27,7 +27,7 @@ class LogMessageRequest(BaseModel):
 
 @message_router.post("")
 def log_message(body: LogMessageRequest, x_internal_token: str | None = Header(None)):
-    """n8n calls this after Dify replies so we can render chat history."""
+    """n8n calls this after the bot replies so we can render chat history."""
     _require_internal_token(x_internal_token)
     if body.direction == "in":
         # The primary LINE webhook already logs line_main inbound reliably
@@ -58,8 +58,8 @@ def _db():
 
 @router.get("/{channel}/{user_id}")
 def get_session(channel: str, user_id: str, x_internal_token: str | None = Header(None)):
-    """Return the Dify conversation_id + effective AI mode for this LINE user.
-    n8n branches on `effective_mode` before deciding whether to call Dify."""
+    """Return the cached conversation id + effective AI mode for this LINE user.
+    n8n branches on `effective_mode` before deciding whether to call the RAG bot."""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -88,7 +88,6 @@ def get_session(channel: str, user_id: str, x_internal_token: str | None = Heade
             "current_state": "idle",
             "ai_mode": "auto",
             "ai_pause_until": None,
-            "use_own_rag": USE_OWN_RAG,
             **eff,
         }
 
@@ -111,7 +110,6 @@ def get_session(channel: str, user_id: str, x_internal_token: str | None = Heade
         "current_state": row["current_state"],
         "ai_mode": row.get("ai_mode") or "auto",
         "ai_pause_until": row["ai_pause_until"].isoformat() if row.get("ai_pause_until") else None,
-        "use_own_rag": USE_OWN_RAG,
         **eff,
     }
 

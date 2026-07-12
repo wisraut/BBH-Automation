@@ -65,8 +65,8 @@ schtasks /Create /SC DAILY ^
 1. `.env.staging` — copy จาก `.env` แล้วแก้:
    - `BOT_OPS_DB_NAME=bbh_bot_ops_staging` (สร้าง DB ใหม่)
    - `JWT_SECRET=<staging-secret-คนละค่า-กับ-prod>`
-   - `DIFY_API_URL=http://localhost:8001/v1` (ถ้ามี Dify แยก) หรือใช้
-     prod Dify ก็ได้แต่ระวัง KB เดียวกัน
+   - `OPENROUTER_API_KEY=<staging key หรือ prod key>` (own-RAG/staff LLM;
+     Dify ถูกถอดออกแล้ว 2026-07-12 — ไม่มี `DIFY_*` อีกต่อไป)
    - `LINE_*` — channel test แยก หรือ disable webhook
    - `GMAIL_*` — disable poller บน staging (ตั้ง `EMAIL_POLL_INTERVAL=0`
      หรือใช้ inbox ทิ้ง)

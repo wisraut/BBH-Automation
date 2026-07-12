@@ -5,17 +5,17 @@ test_patient_flow.py — Patient Advisor Flow Test (ครบวงจร)
 
 Components tested:
   PostgreSQL hospital_db  → REAL
-  Dify AI (Gemini Flash)  → REAL (3 branches via if_else_role + if_else_emergency)
+  Own LLM (Gemini Flash)  → REAL (patient-advisor routing + emergency gate)
   Bridge HTTP webhook     → REAL (FastAPI / signature verify / routing)
   LINE API calls          → CAPTURED (intercepted ใน direct test, fail gracefully ใน HTTP test)
 
 Flow:
-  Phase 1 — Services health (DB, Dify, Bridge server)
+  Phase 1 — Services health (DB, Bridge server)
   Phase 2 — _is_patient + _try_register_patient (4 cases: registered/already_me/already_taken/not_found)
-  Phase 3 — _handle_patient_message direct: ปกติ → Dify role=patient → ได้ disclaimer
+  Phase 3 — _handle_patient_message direct: ปกติ → own LLM (patient advisor) → ได้ disclaimer
   Phase 4 — _handle_patient_message direct: emergency keyword → ได้ "โทร 1669"
   Phase 5 — _handle_patient_message direct: logout → line_uid=NULL
-  Phase 6 — HTTP Webhook → POST signed event → background task → Dify (สำหรับ PT001)
+  Phase 6 — HTTP Webhook → POST signed event → background task → AI (สำหรับ PT001)
   Phase 7 — Verify dify_conversation_id persisted + audit_logs 'advice_requested'
 """
 import sys
@@ -49,8 +49,7 @@ DB_CONFIG = {
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "")
 SERVER_PORT  = int(os.getenv("SERVER_PORT", 8000))
 SERVER_URL   = f"http://localhost:{SERVER_PORT}"
-DIFY_API_URL = os.getenv("DIFY_API_URL", "http://localhost/v1")
-DIFY_API_KEY = os.getenv("DIFY_API_KEY")
+INTERNAL_TOKEN = os.getenv("BRIDGE_INTERNAL_TOKEN", "")
 
 PASS = "✅ PASS"
 FAIL = "❌ FAIL"
@@ -129,23 +128,28 @@ def phase_1_health() -> None:
     except Exception as e:
         check("PostgreSQL hospital_db", False, str(e)[:60])
 
-    # Dify
-    try:
-        r = httpx.get(
-            f"{DIFY_API_URL}/info",
-            headers={"Authorization": f"Bearer {DIFY_API_KEY}"},
-            timeout=15,
-        )
-        check("Dify API /info", r.status_code == 200, f"HTTP {r.status_code}")
-    except Exception as e:
-        check("Dify API /info", False, str(e)[:60])
-
     # Bridge — optional (จะรันใน Phase 6)
+    bridge_up = False
     try:
         r = httpx.get(f"{SERVER_URL}/", timeout=3)
-        check("Bridge server /", r.status_code == 200, "online")
+        bridge_up = r.status_code == 200
+        check("Bridge server /", bridge_up, "online")
     except Exception:
         check("Bridge server /", False, "offline (Phase 6 จะข้าม)")
+
+    # Own-LLM readiness (OpenRouter/Gemini) — Phase 3/6 depend on it. Non-fatal,
+    # but flags an LLM outage up front instead of a confusing hang later.
+    if bridge_up:
+        try:
+            r = httpx.post(
+                f"{SERVER_URL}/internal/rag/answer",
+                headers={"X-Internal-Token": INTERNAL_TOKEN, "Content-Type": "application/json"},
+                json={"text": "สวัสดี"}, timeout=60,
+            )
+            llm_ok = r.status_code == 200 and bool(r.json().get("route_prefix"))
+            check("Own LLM backend (/internal/rag/answer)", llm_ok, f"HTTP {r.status_code}")
+        except Exception as e:
+            check("Own LLM backend (/internal/rag/answer)", False, str(e)[:60])
 
     # PT001 exists
     with get_db() as conn:
@@ -192,7 +196,7 @@ def phase_2_register() -> None:
 # ─── Phase 3: Patient Normal Advice ────────────────────────────────────────────
 
 def phase_3_advice_normal() -> None:
-    banner("PHASE 3: _handle_patient_message — Normal (Dify role=patient)")
+    banner("PHASE 3: _handle_patient_message — Normal (own LLM patient advisor)")
     from flows import patient as patient_flow
 
     captured_msgs.clear()
@@ -317,7 +321,7 @@ def phase_6_http_webhook() -> None:
     )
     check("POST /webhook คืน 200 ทันที", r.status_code == 200, f"HTTP {r.status_code}")
 
-    # รอ background task ทำ Dify call + update DB
+    # รอ background task ทำ AI call + update DB
     deadline = time.time() + 180
     matched = False
     while time.time() < deadline:

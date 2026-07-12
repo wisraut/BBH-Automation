@@ -177,7 +177,7 @@
     },
     {
       "id": "n-call-dify",
-      "name": "Call Dify",
+      "name": "Call RAG",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -186,13 +186,13 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $vars.DIFY_API_URL + \"/chat-messages\" }}",
+        "url": "http://hospital-bridge:8000/internal/rag/answer",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $vars.DIFY_API_KEY }}"
+              "name": "X-Internal-Token",
+              "value": "={{ $vars.BRIDGE_INTERNAL_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -202,7 +202,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({inputs:{role:\"public_inquiry\"},query:$json.text,response_mode:\"blocking\",conversation_id:\"\",user:\"public:\"+$json.user_id}) }}"
+        "jsonBody": "={{ JSON.stringify({channel:\"line_main\",external_user_id:$json.user_id,text:$json.text}) }}"
       }
     },
     {
@@ -258,7 +258,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({replyToken:$('Parse Events').item.json.reply_token,messages:[{type:'text',text:$('Call Dify').item.json.answer||'ขออภัยค่ะ ระบบไม่พร้อมให้บริการในขณะนี้'}]}) }}"
+        "jsonBody": "={{ JSON.stringify({replyToken:$('Parse Events').item.json.reply_token,messages:[{type:'text',text:$('Call RAG').item.json.answer||'ขออภัยค่ะ ระบบไม่พร้อมให้บริการในขณะนี้'}]}) }}"
       }
     }
   ],
@@ -296,7 +296,7 @@
         ],
         [
           {
-            "node": "Call Dify",
+            "node": "Call RAG",
             "type": "main",
             "index": 0
           }
@@ -336,7 +336,7 @@
         ]
       ]
     },
-    "Call Dify": {
+    "Call RAG": {
       "main": [
         [
           {

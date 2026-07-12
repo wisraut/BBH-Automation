@@ -162,12 +162,14 @@ def print_followup(work: Path) -> None:
 
     2. Restart all stacks so they pick up the restored data:
          cd dify/docker && docker compose restart
-         docker restart hospital-bot-ops-db hospital-n8n docker-weaviate-1
+         docker restart hospital-bot-ops-db hospital-n8n
          docker compose -f docker-compose.bridge.yaml up -d --build
 
     3. Verify by hitting:
          curl http://localhost:8000/        (bridge health)
-         curl http://localhost/v1/info -H "Authorization: Bearer $DIFY_API_KEY"
+         curl -X POST http://localhost:8000/internal/rag/answer \\
+              -H "X-Internal-Token: $BRIDGE_INTERNAL_TOKEN" \\
+              -H "Content-Type: application/json" -d '{"text":"สวัสดี"}'
     """)
 
 

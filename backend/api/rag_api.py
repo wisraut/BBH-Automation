@@ -16,7 +16,11 @@ router = APIRouter(prefix="/internal/rag")
 class AnswerRequest(BaseModel):
     channel: str = "line_main"
     external_user_id: str = ""
-    text: str = Field(min_length=1, max_length=2000)
+    # LINE text messages can be up to 5000 chars; cap here matches that so a
+    # long-but-legitimate patient message isn't 422-rejected (which the n8n node
+    # would surface as the generic "ระบบไม่พร้อม" error, indistinguishable from
+    # an outage). 5000 still bounds LLM cost per turn.
+    text: str = Field(min_length=1, max_length=5000)
 
 
 @router.post("/answer")

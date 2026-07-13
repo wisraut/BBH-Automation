@@ -1,4 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus, Search, Trash2, Upload } from 'lucide-react'
 
@@ -44,7 +46,7 @@ const FOCUS_RING =
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '-'
-  return new Date(iso).toLocaleDateString('th-TH', {
+  return new Date(iso).toLocaleDateString(dateLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 }
@@ -53,9 +55,9 @@ function formatDate(iso?: string | null): string {
 // of clinical modules (collapsible/tab organization — clinical-dashboard density
 // guidance). The report workspace stays persistent in the right aside.
 const PATIENT_TABS = [
-  { key: 'overview', label: 'ภาพรวม' },
-  { key: 'labs', label: 'ผลแล็บ' },
-  { key: 'activity', label: 'กิจกรรม' },
+  { key: 'overview' },
+  { key: 'labs' },
+  { key: 'activity' },
 ] as const
 type PatientTab = (typeof PATIENT_TABS)[number]['key']
 
@@ -75,6 +77,7 @@ function matchingBookings(bookings: BookingItem[], patient?: { display_name?: st
 }
 
 export function Patients() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const toast = useToast()
   const canWritePatient = user?.role === 'cro' || user?.role === 'admin'
@@ -190,20 +193,20 @@ export function Patients() {
         onSuccess: (patient) => {
           setSelectedId(patient.id)
           setShowPatientDetail(true)
-          toast.show('success', 'สร้างคนไข้สำเร็จ')
+          toast.show('success', t('patients.toast.createSuccess'))
           setPatientModal(null)
         },
-        onError: () => toast.show('error', 'สร้างคนไข้ไม่สำเร็จ'),
+        onError: () => toast.show('error', t('patients.toast.createFailed')),
       })
       return
     }
     if (selectedId == null) return
     updatePatient.mutate({ id: selectedId, body: body as PatientUpdateRequest }, {
       onSuccess: () => {
-        toast.show('success', 'บันทึกข้อมูลคนไข้สำเร็จ')
+        toast.show('success', t('patients.toast.saveSuccess'))
         setPatientModal(null)
       },
-      onError: () => toast.show('error', 'บันทึกข้อมูลคนไข้ไม่สำเร็จ'),
+      onError: () => toast.show('error', t('patients.toast.saveFailed')),
     })
   }
 
@@ -212,22 +215,22 @@ export function Patients() {
     uploadReport.mutate({ patientId: selectedId, formData }, {
       onSuccess: (result) => {
         setSelectedReportId(result.id)
-        toast.show('success', result.notified_doctor ? 'อัพโหลด Report สำเร็จ และแจ้งเตือนหมอทางอีเมลแล้ว' : 'อัพโหลด Report สำเร็จ')
+        toast.show('success', result.notified_doctor ? t('patients.toast.uploadSuccessNotified') : t('patients.toast.uploadSuccess'))
         setUploadOpen(false)
       },
-      onError: () => toast.show('error', 'อัพโหลด Report ไม่สำเร็จ'),
+      onError: () => toast.show('error', t('patients.toast.uploadFailed')),
     })
   }
 
   function deleteReportById(reportId: number) {
     if (selectedId == null) return
-    if (!window.confirm('ลบ Report นี้ใช่ไหม? การลบจะลบไฟล์และผลวิเคราะห์ที่เกี่ยวข้องทั้งหมด')) return
+    if (!window.confirm(t('patients.confirmDeleteReport'))) return
     deleteReport.mutate({ reportId, patientId: selectedId }, {
       onSuccess: () => {
         if (selectedReportId === reportId) setSelectedReportId(null)
-        toast.show('success', 'ลบ Report สำเร็จ')
+        toast.show('success', t('patients.toast.deleteReportSuccess'))
       },
-      onError: () => toast.show('error', 'ลบ Report ไม่สำเร็จ'),
+      onError: () => toast.show('error', t('patients.toast.deleteReportFailed')),
     })
   }
 
@@ -239,9 +242,9 @@ export function Patients() {
       {
         onSuccess: () => {
           setNotebookUrlDraft('')
-          toast.show('success', 'บันทึก link NotebookLM สำเร็จ')
+          toast.show('success', t('patients.toast.notebookUrlSuccess'))
         },
-        onError: () => toast.show('error', 'บันทึก link NotebookLM ไม่สำเร็จ'),
+        onError: () => toast.show('error', t('patients.toast.notebookUrlFailed')),
       }
     )
   }
@@ -261,7 +264,7 @@ export function Patients() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="ค้นหาชื่อ HN หรือเบอร์โทร"
+                placeholder={t('patients.searchPlaceholder')}
                 className="h-11 w-full rounded-lg border border-bbh-line py-2 pl-9 pr-3 text-sm text-bbh-ink placeholder:text-bbh-muted transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
               />
             </div>
@@ -275,9 +278,9 @@ export function Patients() {
                     ? 'border-bbh-green bg-bbh-green-soft text-bbh-green-dark'
                     : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
                 }`}
-                title="แสดงเฉพาะคนไข้ในความดูแลของฉัน"
+                title={t('patients.myPatientsTooltip')}
               >
-                คนไข้ของฉัน
+                {t('patients.myPatients')}
               </button>
             ) : null}
             {canWritePatient ? (
@@ -285,14 +288,14 @@ export function Patients() {
                 type="button"
                 onClick={() => setPatientModal('create')}
                 className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-bbh-green text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
-                title="เพิ่มคนไข้"
+                title={t('patients.addPatient')}
               >
                 <Plus size={18} />
               </button>
             ) : null}
           </div>
           <p className="font-mono text-xs tabular-nums text-bbh-muted">
-            {patientsQ.isLoading ? 'กำลังโหลด' : `${pagination?.total ?? 0} คนไข้`}
+            {patientsQ.isLoading ? t('common.loading') : t('patients.patientCount', { count: pagination?.total ?? 0 })}
           </p>
         </div>
 
@@ -303,7 +306,7 @@ export function Patients() {
             </div>
           ) : patients.length === 0 ? (
             <div className="mt-8 rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-              ไม่พบคนไข้
+              {t('patients.notFound')}
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -329,7 +332,7 @@ export function Patients() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-bbh-ink">{patient.display_name}</p>
                         <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-bbh-muted">
-                          {patient.hn ?? 'ยังไม่มี HN'} · {patient.phone ?? 'ไม่มีเบอร์'}
+                          {patient.hn ?? t('patients.noHn')} · {patient.phone ?? t('patients.noPhone')}
                         </p>
                       </div>
                       <span className="shrink-0 rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 font-mono text-[11px] tabular-nums text-bbh-muted">
@@ -345,11 +348,11 @@ export function Patients() {
 
         <div className="flex items-center justify-between border-t border-bbh-line p-3 text-xs text-bbh-muted">
           <button type="button" disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className={`rounded-lg border border-bbh-line bg-white px-3 py-1.5 font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>
-            ก่อนหน้า
+            {t('patients.prev')}
           </button>
           <span className="font-mono tabular-nums">{page} / {totalPages}</span>
           <button type="button" disabled={page >= totalPages} onClick={() => setPage((v) => v + 1)} className={`rounded-lg border border-bbh-line bg-white px-3 py-1.5 font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>
-            ถัดไป
+            {t('patients.next')}
           </button>
         </div>
       </section>
@@ -357,7 +360,7 @@ export function Patients() {
       <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
-            เลือกคนไข้จากรายการด้านซ้าย
+            {t('patients.selectPatient')}
           </div>
         ) : viewMode === 'chat' ? (
           <div className="flex h-full min-h-0 flex-col">
@@ -368,11 +371,11 @@ export function Patients() {
                 className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
               >
                 <ChevronLeft size={16} />
-                กลับข้อมูลคนไข้
+                {t('patients.backToPatientInfo')}
               </button>
               <div className="min-w-0 text-right">
                 <p className="truncate font-serif text-lg font-semibold text-bbh-ink">{selectedPatient.display_name}</p>
-                <p className="font-mono text-xs tabular-nums text-bbh-muted">{selectedPatient.hn ?? 'ไม่มี HN'} · {selectedPatient.phone ?? 'ไม่มีเบอร์'}</p>
+                <p className="font-mono text-xs tabular-nums text-bbh-muted">{selectedPatient.hn ?? t('patients.noHnShort')} · {selectedPatient.phone ?? t('patients.noPhone')}</p>
               </div>
             </div>
             <div className="flex-1 min-h-0">
@@ -396,10 +399,10 @@ export function Patients() {
               type="button"
               onClick={() => setListCollapsed((v) => !v)}
               className={`hidden items-center gap-2 self-start rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200 lg:inline-flex ${FOCUS_RING} ${listCollapsed ? 'border-bbh-green bg-bbh-green-soft text-bbh-green-dark hover:bg-bbh-green hover:text-white' : 'border-bbh-line bg-white text-bbh-ink hover:border-bbh-green hover:text-bbh-green-dark'}`}
-              title={listCollapsed ? 'เปิดรายชื่อคนไข้' : 'พับรายชื่อคนไข้'}
+              title={listCollapsed ? t('patients.openListTooltip') : t('patients.collapseListTooltip')}
             >
               {listCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-              {listCollapsed ? 'รายชื่อคนไข้' : 'พับรายชื่อ'}
+              {listCollapsed ? t('patients.patientList') : t('patients.collapseList')}
             </button>
             <button
               type="button"
@@ -407,24 +410,24 @@ export function Patients() {
               className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
             >
               <ChevronLeft size={16} />
-              กลับไปรายการ
+              {t('patients.backToList')}
             </button>
             <section className="animate-rise flex flex-wrap items-start justify-between gap-4 border-b border-bbh-line pb-4">
               <div>
                 <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Patient Record</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <h1 className="font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{selectedPatient.display_name}</h1>
-                  <span className="rounded-full border border-bbh-line bg-bbh-surface px-2.5 py-1 font-mono text-xs tabular-nums text-bbh-muted">{selectedPatient.hn ?? 'ไม่มี HN'}</span>
+                  <span className="rounded-full border border-bbh-line bg-bbh-surface px-2.5 py-1 font-mono text-xs tabular-nums text-bbh-muted">{selectedPatient.hn ?? t('patients.noHnShort')}</span>
                 </div>
                 <p className="mt-2 text-sm text-bbh-muted">
-                  <span className="font-mono tabular-nums">{selectedPatient.phone ?? 'ไม่มีเบอร์'}</span> · {selectedPatient.email ?? 'ไม่มีอีเมล'} · เกิด <span className="font-mono tabular-nums">{formatDate(selectedPatient.dob)}</span>
+                  <span className="font-mono tabular-nums">{selectedPatient.phone ?? t('patients.noPhone')}</span> · {selectedPatient.email ?? t('patients.noEmail')} · {t('patients.born')} <span className="font-mono tabular-nums">{formatDate(selectedPatient.dob)}</span>
                 </p>
               </div>
               <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                 {canWritePatient ? (
                   <button type="button" onClick={() => setPatientModal('edit')} className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:flex-none ${FOCUS_RING}`}>
                     <Edit3 size={16} />
-                    แก้ไข
+                    {t('common.edit')}
                   </button>
                 ) : null}
                 <button type="button" onClick={() => setViewMode('chat')} className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:flex-none ${FOCUS_RING}`}>
@@ -433,7 +436,7 @@ export function Patients() {
                 </button>
                 <button type="button" onClick={() => setUploadOpen(true)} className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-bbh-green px-3 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark sm:flex-none ${FOCUS_RING}`}>
                   <Upload size={16} />
-                  อัพโหลด Report
+                  {t('patients.uploadReport')}
                 </button>
               </div>
             </section>
@@ -461,14 +464,14 @@ export function Patients() {
                 </div>
 
                 <div className="inline-flex rounded-xl border border-bbh-line bg-white p-1 text-sm font-medium">
-                  {PATIENT_TABS.map((t) => (
+                  {PATIENT_TABS.map((tab) => (
                     <button
-                      key={t.key}
+                      key={tab.key}
                       type="button"
-                      onClick={() => setMainTab(t.key)}
-                      className={`rounded-lg px-4 py-1.5 transition-colors duration-200 ${FOCUS_RING} ${mainTab === t.key ? 'bg-bbh-green text-white' : 'text-bbh-muted hover:text-bbh-ink'}`}
+                      onClick={() => setMainTab(tab.key)}
+                      className={`rounded-lg px-4 py-1.5 transition-colors duration-200 ${FOCUS_RING} ${mainTab === tab.key ? 'bg-bbh-green text-white' : 'text-bbh-muted hover:text-bbh-ink'}`}
                     >
-                      {t.label}
+                      {t(`patients.tabs.${tab.key}`)}
                     </button>
                   ))}
                 </div>
@@ -483,7 +486,7 @@ export function Patients() {
                     <>
                       <CareTeamSection patientId={selectedPatient.id} />
                       <section>
-                        <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประวัติการแพทย์</h2>
+                        <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('patients.medicalHistory')}</h2>
                         <PatientMedicalRecords patientId={selectedPatient.id} />
                       </section>
                     </>
@@ -518,10 +521,10 @@ export function Patients() {
                           type="button"
                           onClick={() => openReportFile(selectedReportId)}
                           className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-2.5 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-                          title="เปิด report ในแท็บใหม่"
+                          title={t('patients.openReportTooltip')}
                         >
                           <ExternalLink size={14} />
-                          เปิดไฟล์
+                          {t('patients.openFile')}
                         </button>
                         <button
                           type="button"
@@ -536,10 +539,10 @@ export function Patients() {
                             void downloadReportFile(selectedReportId, `${fallback}${ext}`)
                           }}
                           className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-2.5 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-                          title="ดาวน์โหลดไฟล์ลงเครื่อง"
+                          title={t('patients.downloadTooltip')}
                         >
                           <Download size={14} />
-                          ดาวน์โหลด
+                          {t('patients.download')}
                         </button>
                         <button
                           type="button"
@@ -547,15 +550,15 @@ export function Patients() {
                             if (!selectedId) return
                             const link = `${window.location.origin}/patients?patient=${selectedId}&report=${selectedReportId}`
                             void navigator.clipboard.writeText(link).then(
-                              () => toast.show('success', 'คัดลอกลิงก์แล้ว'),
-                              () => toast.show('error', 'คัดลอกไม่สำเร็จ'),
+                              () => toast.show('success', t('patients.toast.linkCopied')),
+                              () => toast.show('error', t('patients.toast.copyFailed')),
                             )
                           }}
                           className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-2.5 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-                          title="คัดลอกลิงก์เข้า report นี้"
+                          title={t('patients.copyLinkTooltip')}
                         >
                           <Link2 size={14} />
-                          คัดลอกลิงก์
+                          {t('patients.copyLink')}
                         </button>
                       </div>
                     ) : null}
@@ -576,7 +579,7 @@ export function Patients() {
 
                   {filteredReports.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-                      {reports.length === 0 ? 'ยังไม่มี report' : 'ไม่พบเอกสารที่ตรงกับตัวกรอง'}
+                      {reports.length === 0 ? t('patients.noReports') : t('patients.noReportsMatchFilter')}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -598,7 +601,7 @@ export function Patients() {
                             type="button"
                             onClick={() => deleteReportById(report.id)}
                             disabled={deleteReport.isPending}
-                            title="ลบ report"
+                            title={t('patients.deleteReportTooltip')}
                             className={`shrink-0 rounded-lg p-1.5 text-bbh-muted transition-colors duration-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
                           >
                             <Trash2 size={15} />
@@ -625,7 +628,7 @@ export function Patients() {
                           {reportQ.data.notebooklm_url}
                         </a>
                       ) : (
-                        <p className="mb-2 text-xs text-bbh-muted">ยังไม่มี link NotebookLM — อัพโหลด report นี้เข้า NotebookLM เองผ่านเว็บ แล้ววาง link ไว้ที่นี่</p>
+                        <p className="mb-2 text-xs text-bbh-muted">{t('patients.notebookLmHint')}</p>
                       )}
                       {canAnalyze ? (
                         <form onSubmit={submitNotebookUrl} className="flex gap-2">
@@ -633,7 +636,7 @@ export function Patients() {
                             type="url"
                             value={notebookUrlDraft}
                             onChange={(e) => setNotebookUrlDraft(e.target.value)}
-                            placeholder="วาง link NotebookLM ที่นี่"
+                            placeholder={t('patients.notebookLmPlaceholder')}
                             className="h-9 flex-1 rounded-lg border border-bbh-line px-3 text-xs transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
                           />
                           <button
@@ -641,7 +644,7 @@ export function Patients() {
                             disabled={setNotebookLmUrl.isPending || !notebookUrlDraft.trim()}
                             className={`h-9 shrink-0 rounded-lg bg-bbh-green px-3 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
                           >
-                            บันทึก
+                            {t('common.save')}
                           </button>
                         </form>
                       ) : null}
@@ -657,8 +660,8 @@ export function Patients() {
                     canDecide={canAnalyze}
                     analyzing={analyzeReport.isPending}
                     decidingId={decideTriage.isPending ? decideTriage.variables?.analysisId ?? null : null}
-                    onAnalyze={selectedReportId && canAnalyze ? () => analyzeReport.mutate({ reportId: selectedReportId }, { onSuccess: () => toast.show('success', 'วิเคราะห์ Report สำเร็จ'), onError: () => toast.show('error', 'วิเคราะห์ Report ไม่สำเร็จ') }) : undefined}
-                    onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }, { onSuccess: () => toast.show('success', 'บันทึก triage สำเร็จ'), onError: () => toast.show('error', 'บันทึก triage ไม่สำเร็จ') }) : undefined}
+                    onAnalyze={selectedReportId && canAnalyze ? () => analyzeReport.mutate({ reportId: selectedReportId }, { onSuccess: () => toast.show('success', t('patients.toast.analyzeSuccess')), onError: () => toast.show('error', t('patients.toast.analyzeFailed')) }) : undefined}
+                    onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }, { onSuccess: () => toast.show('success', t('patients.toast.triageSuccess')), onError: () => toast.show('error', t('patients.toast.triageFailed')) }) : undefined}
                   />
                 </section>
 
@@ -667,7 +670,7 @@ export function Patients() {
                     <MeasurementReviewPanel reportId={selectedReportId} patientId={selectedPatient.id} />
                   ) : (
                     <section className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-center text-xs text-bbh-muted">
-                      เลือก report ด้านบนเพื่อสกัดค่าแล็บด้วย AI
+                      {t('patients.selectReportForExtraction')}
                     </section>
                   )
                 ) : null}

@@ -1,4 +1,6 @@
-﻿import { Brain, Check, CircleAlert, FileSearch, X } from 'lucide-react'
+﻿import { useTranslation } from 'react-i18next'
+import { dateLocale } from '../../i18n/datetime'
+import { Brain, Check, CircleAlert, FileSearch, X } from 'lucide-react'
 
 import type { AnalysisOut } from '../../hooks/useReportAnalyses'
 
@@ -42,10 +44,11 @@ export function AnalysisPanel({
   onDecide,
   analyzing,
 }: AnalysisPanelProps) {
+  const { t } = useTranslation()
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-bbh-ink">AI analyses</h3>
+        <h3 className="text-sm font-semibold text-bbh-ink">{t('analysisPanel.heading')}</h3>
         {onAnalyze ? (
           <button
             type="button"
@@ -54,7 +57,7 @@ export function AnalysisPanel({
             className={`inline-flex items-center gap-2 rounded-lg border border-bbh-green px-3 py-1.5 text-xs font-semibold text-bbh-green transition-colors duration-200 hover:bg-bbh-green-soft disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
           >
             <Brain size={15} />
-            วิเคราะห์
+            {t('analysisPanel.analyze')}
           </button>
         ) : null}
       </div>
@@ -63,7 +66,7 @@ export function AnalysisPanel({
         <div className="h-24 animate-pulse rounded-xl bg-bbh-surface" />
       ) : analyses.length === 0 ? (
         <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-          ยังไม่มีผลวิเคราะห์
+          {t('analysisPanel.empty')}
         </div>
       ) : (
         analyses.map((analysis) => (
@@ -74,7 +77,7 @@ export function AnalysisPanel({
                 {analysis.triage_decision}
               </span>
               <span className="font-mono text-xs tabular-nums text-bbh-muted">
-                {new Date(analysis.created_at).toLocaleString('th-TH')}
+                {new Date(analysis.created_at).toLocaleString(dateLocale())}
               </span>
             </div>
             <div className="max-h-56 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-bbh-ink">
@@ -90,7 +93,7 @@ export function AnalysisPanel({
                     disabled={decidingId === analysis.id}
                     className={`rounded-lg border border-bbh-line bg-white px-3 py-1.5 text-xs font-semibold text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
                   >
-                    ยืนยัน {decision}
+                    {t('analysisPanel.confirmDecision', { decision })}
                   </button>
                 ))}
               </div>

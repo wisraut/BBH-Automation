@@ -2,6 +2,7 @@
 // UNCONFIRMED drafts; the doctor edits/confirms each (or rejects) before any
 // value is trusted by the LabResults/Biomarker views. Only doctor/admin see this.
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Wand2, Check, X, Loader2, CheckCheck } from 'lucide-react'
 
 import {
@@ -29,6 +30,7 @@ function DraftRow({
   reportId: number
   patientId: number
 }) {
+  const { t } = useTranslation()
   const [code, setCode] = useState(draft.code)
   const [value, setValue] = useState(String(draft.value))
   const [unit, setUnit] = useState(draft.unit ?? '')
@@ -56,7 +58,7 @@ function DraftRow({
           onChange={(e) => setCode(e.target.value)}
           className={`h-8 min-w-0 flex-1 rounded-md border border-bbh-line bg-white px-2 text-xs text-bbh-ink ${FOCUS_RING}`}
         >
-          <option value="unknown">— เลือกค่า —</option>
+          <option value="unknown">{t('measurementReviewPanel.selectMeasurement')}</option>
           {catalog.map((c) => <option key={c.code} value={c.code}>{c.label_th}</option>)}
         </select>
         <input
@@ -68,7 +70,7 @@ function DraftRow({
         <input
           value={unit}
           onChange={(e) => setUnit(e.target.value)}
-          placeholder="หน่วย"
+          placeholder={t('measurementReviewPanel.unit')}
           className={`h-8 w-16 rounded-md border border-bbh-line bg-white px-2 text-xs text-bbh-ink ${FOCUS_RING}`}
         />
         <input
@@ -81,7 +83,7 @@ function DraftRow({
           type="button"
           onClick={onConfirm}
           disabled={busy || code === 'unknown'}
-          title="ยืนยัน"
+          title={t('common.confirm')}
           className={`grid h-8 w-8 shrink-0 place-items-center rounded-md bg-bbh-green text-white transition-colors hover:bg-bbh-green-dark disabled:opacity-50 ${FOCUS_RING}`}
         >
           {confirm.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -90,14 +92,14 @@ function DraftRow({
           type="button"
           onClick={() => reject.mutate({ id: draft.id, patientId, reportId })}
           disabled={busy}
-          title="ปฏิเสธ"
+          title={t('measurementReviewPanel.reject')}
           className={`grid h-8 w-8 shrink-0 place-items-center rounded-md border border-bbh-line text-bbh-muted transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-50 ${FOCUS_RING}`}
         >
           {reject.isPending ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
         </button>
       </div>
       {draft.raw_label && draft.raw_label.toLowerCase() !== code ? (
-        <p className="mt-1 truncate font-mono text-[10px] text-bbh-muted">จากผลตรวจ: {draft.raw_label}</p>
+        <p className="mt-1 truncate font-mono text-[10px] text-bbh-muted">{t('measurementReviewPanel.fromLabResult', { label: draft.raw_label })}</p>
       ) : null}
     </div>
   )
@@ -110,6 +112,7 @@ export function MeasurementReviewPanel({
   reportId: number
   patientId: number
 }) {
+  const { t } = useTranslation()
   const catalogQ = useMeasurementCatalog()
   const draftsQ = useReportMeasurementDrafts(reportId)
   const extract = useExtractMeasurements()
@@ -136,7 +139,7 @@ export function MeasurementReviewPanel({
   return (
     <section className="rounded-xl border border-bbh-line bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">สกัดค่าแล็บ (AI)</h2>
+        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('measurementReviewPanel.heading')}</h2>
         <button
           type="button"
           onClick={onExtract}
@@ -144,25 +147,25 @@ export function MeasurementReviewPanel({
           className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-3 py-1.5 text-xs font-semibold text-bbh-ink transition-colors hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-50 ${FOCUS_RING}`}
         >
           {extract.isPending ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
-          {drafts.length > 0 ? 'สกัดใหม่' : 'สกัดค่าแล็บ'}
+          {drafts.length > 0 ? t('measurementReviewPanel.reExtract') : t('measurementReviewPanel.extract')}
         </button>
       </div>
 
       <p className="mb-3 text-[11px] leading-5 text-bbh-muted">
-        AI จะอ่านค่าจากข้อความผลตรวจ แล้วให้แพทย์ตรวจ/แก้/ยืนยันก่อนบันทึก — ค่าที่ยังไม่ยืนยันจะไม่ถูกนำไปแสดงผล
+        {t('measurementReviewPanel.description')}
       </p>
 
       {extract.isError ? (
-        <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">สกัดค่าไม่สำเร็จ — report อาจไม่มีข้อความ (scanned) ให้กรอกเอง</p>
+        <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{t('measurementReviewPanel.extractFailed')}</p>
       ) : null}
       {parseError ? (
-        <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">อ่านค่าอัตโนมัติไม่ได้จาก report นี้ — กรอกค่าเองได้ในภายหลัง</p>
+        <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{t('measurementReviewPanel.parseError')}</p>
       ) : null}
 
       {drafts.length > 0 ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-bbh-muted">{drafts.length} ค่ารอยืนยัน</p>
+            <p className="text-xs text-bbh-muted">{t('measurementReviewPanel.pendingCount', { count: drafts.length })}</p>
             <button
               type="button"
               onClick={onConfirmAll}
@@ -170,7 +173,7 @@ export function MeasurementReviewPanel({
               className={`inline-flex items-center gap-1.5 rounded-lg bg-bbh-green px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-bbh-green-dark disabled:opacity-50 ${FOCUS_RING}`}
             >
               {bulkConfirm.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />}
-              ยืนยันทั้งหมด
+              {t('measurementReviewPanel.confirmAll')}
             </button>
           </div>
           {drafts.map((d) => (
@@ -178,7 +181,7 @@ export function MeasurementReviewPanel({
           ))}
         </div>
       ) : !extract.isPending ? (
-        <p className="text-xs text-bbh-muted">ยังไม่มีค่าที่รอยืนยัน — กด "สกัดค่าแล็บ" เพื่อดึงค่าจากผลตรวจ</p>
+        <p className="text-xs text-bbh-muted">{t('measurementReviewPanel.emptyHint')}</p>
       ) : null}
     </section>
   )

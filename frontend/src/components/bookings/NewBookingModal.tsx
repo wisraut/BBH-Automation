@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Modal } from '../Modal'
 import { useCreateBooking } from '../../hooks/useCreateBooking'
@@ -21,12 +22,12 @@ const FOCUS_RING =
 const FIELD_CLASS =
   'w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
 
-const SOURCE_OPTIONS: { value: BookingSource; label: string }[] = [
-  { value: 'phone', label: 'โทรศัพท์' },
-  { value: 'line', label: 'LINE' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'email', label: 'Email' },
-  { value: 'walkin', label: 'Walk-in' },
+const SOURCE_OPTIONS: { value: BookingSource; labelKey: string }[] = [
+  { value: 'phone', labelKey: 'newBookingModal.source.phone' },
+  { value: 'line', labelKey: 'newBookingModal.source.line' },
+  { value: 'whatsapp', labelKey: 'newBookingModal.source.whatsapp' },
+  { value: 'email', labelKey: 'newBookingModal.source.email' },
+  { value: 'walkin', labelKey: 'newBookingModal.source.walkin' },
 ]
 
 function defaultDateTime() {
@@ -45,6 +46,7 @@ function splitLocalDateTime(value: string) {
 }
 
 export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalProps) {
+  const { t } = useTranslation()
   const [patientName, setPatientName] = useState('')
   const [phone, setPhone] = useState('')
   const [dateTime, setDateTime] = useState(defaultDateTime())
@@ -75,21 +77,21 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
         symptom: symptom.trim(),
         booking_source: source,
       })
-      toast.show('success', `สร้างคำขอจองของ ${patientName.trim()} สำเร็จ`)
+      toast.show('success', t('newBookingModal.createSuccess', { name: patientName.trim() }))
       onCreated(created.request_uid)
       onClose()
     } catch (error) {
-      const msg = error instanceof ApiError ? error.message : 'สร้างคำขอจองไม่สำเร็จ'
+      const msg = error instanceof ApiError ? error.message : t('newBookingModal.createFailed')
       toast.show('error', msg)
     }
   }
 
   return (
-    <Modal open={open} title="จองใหม่" onClose={onClose} size="lg">
+    <Modal open={open} title={t('newBookingModal.title')} onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block">
-            <span className="text-sm font-medium text-bbh-ink">ชื่อคนไข้</span>
+            <span className="text-sm font-medium text-bbh-ink">{t('newBookingModal.patientName')}</span>
             <input
               value={patientName}
               onChange={(event) => setPatientName(event.target.value)}
@@ -99,7 +101,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-bbh-ink">เบอร์โทร</span>
+            <span className="text-sm font-medium text-bbh-ink">{t('newBookingModal.phone')}</span>
             <input
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
@@ -109,7 +111,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-bbh-ink">วันเวลา</span>
+            <span className="text-sm font-medium text-bbh-ink">{t('newBookingModal.dateTime')}</span>
             <input
               type="datetime-local"
               value={dateTime}
@@ -120,7 +122,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-bbh-ink">Source</span>
+            <span className="text-sm font-medium text-bbh-ink">{t('newBookingModal.sourceLabel')}</span>
             <select
               value={source}
               onChange={(event) => setSource(event.target.value as BookingSource)}
@@ -128,7 +130,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             >
               {SOURCE_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
-                  {item.label}
+                  {t(item.labelKey)}
                 </option>
               ))}
             </select>
@@ -136,7 +138,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
         </div>
 
         <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">อาการ</span>
+          <span className="text-sm font-medium text-bbh-ink">{t('newBookingModal.symptom')}</span>
           <textarea
             value={symptom}
             onChange={(event) => setSymptom(event.target.value)}
@@ -153,14 +155,14 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
             disabled={createBooking.isPending}
             className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={createBooking.isPending}
             className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
-            {createBooking.isPending ? 'กำลังสร้าง...' : 'สร้างคำขอจอง'}
+            {createBooking.isPending ? t('newBookingModal.creating') : t('newBookingModal.submit')}
           </button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Save, UserRound } from 'lucide-react'
 
 import { Modal } from '../Modal'
@@ -41,6 +42,7 @@ function clean(value: string): string | null {
 }
 
 export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmit }: PatientFormModalProps) {
+  const { t } = useTranslation()
   const [form, setForm] = useState<FormState>(EMPTY)
 
   useEffect(() => {
@@ -73,10 +75,10 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
   }
 
   return (
-    <Modal open={open} title={mode === 'create' ? 'เพิ่มคนไข้' : 'แก้ไขคนไข้'} onClose={onClose} size="md">
+    <Modal open={open} title={mode === 'create' ? t('patientFormModal.addTitle') : t('patientFormModal.editTitle')} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-sm font-medium text-bbh-ink">
-          ชื่อคนไข้
+          {t('patientFormModal.fullName')}
           <input
             required
             value={form.display_name}
@@ -87,7 +89,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
 
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
-            เบอร์โทร
+            {t('patientFormModal.phone')}
             <input
               value={form.phone}
               onChange={(e) => update('phone', e.target.value)}
@@ -95,7 +97,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             />
           </label>
           <label className="block text-sm font-medium text-bbh-ink">
-            อีเมล
+            {t('patientFormModal.email')}
             <input
               type="email"
               value={form.email}
@@ -107,7 +109,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
 
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
-            วันเกิด
+            {t('patientFormModal.dob')}
             <input
               type="date"
               value={form.dob}
@@ -116,22 +118,22 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             />
           </label>
           <label className="block text-sm font-medium text-bbh-ink">
-            เพศ
+            {t('patientFormModal.sex')}
             <select
               value={form.gender}
               onChange={(e) => update('gender', e.target.value as Gender)}
               className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
             >
-              <option value="unknown">ไม่ระบุ</option>
-              <option value="female">หญิง</option>
-              <option value="male">ชาย</option>
-              <option value="other">อื่น ๆ</option>
+              <option value="unknown">{t('patientFormModal.sexUnknown')}</option>
+              <option value="female">{t('patientFormModal.sexFemale')}</option>
+              <option value="male">{t('patientFormModal.sexMale')}</option>
+              <option value="other">{t('patientFormModal.sexOther')}</option>
             </select>
           </label>
         </div>
 
         <label className="block text-sm font-medium text-bbh-ink">
-          หมายเหตุ
+          {t('patientFormModal.notes')}
           <textarea
             rows={4}
             value={form.notes}
@@ -142,7 +144,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
 
         <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} className="h-11 rounded-xl border border-bbh-line px-4 text-sm text-bbh-muted hover:text-bbh-ink sm:h-auto sm:py-2">
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -150,7 +152,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-bbh-green px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:py-2"
           >
             {mode === 'create' ? <UserRound size={16} /> : <Save size={16} />}
-            บันทึก
+            {t('common.save')}
           </button>
         </div>
       </form>

@@ -3,9 +3,10 @@
 // while the model is "thinking" does not cancel or lose the response.
 import { useCallback, useSyncExternalStore } from 'react'
 
+import i18n from '../i18n'
 import { getToken } from '../lib/api'
 import { API_BASE } from '../lib/apiBase'
-import { aiActions, getSnapshot, subscribe } from '../lib/aiStore'
+import { aiActions, getSnapshot, subscribe, NEW_SESSION_TITLE } from '../lib/aiStore'
 import { useAiSessions } from './useAiSessions'
 
 export type { ChatMessage } from '../lib/aiStore'
@@ -96,10 +97,10 @@ async function runStream(sid: string, clean: string, convId: string, pinnedPatie
       aiActions.patchById(sid, () => ({ convId: convFromStream }))
     }
     if (!assistantCreated) {
-      aiActions.setError(sid, 'AI ไม่ตอบ — ลองใหม่')
+      aiActions.setError(sid, i18n.t('aiChat.noResponse'))
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่'
+    const msg = err instanceof Error ? err.message : i18n.t('aiChat.genericError')
     aiActions.setError(sid, msg)
   } finally {
     aiActions.setLoading(sid, false)
@@ -133,7 +134,7 @@ export function useAiChat() {
         { id: crypto.randomUUID(), role: 'user', text: clean, ts: new Date() },
       ],
       title:
-        s.messages.length === 0 || s.title === 'สนทนาใหม่'
+        s.messages.length === 0 || s.title === NEW_SESSION_TITLE
           ? deriveTitle(clean)
           : s.title,
     }))

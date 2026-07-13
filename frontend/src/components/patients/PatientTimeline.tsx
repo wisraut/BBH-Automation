@@ -1,4 +1,6 @@
-﻿import { CalendarDays, FileText } from 'lucide-react'
+﻿import { useTranslation } from 'react-i18next'
+import { dateLocale } from '../../i18n/datetime'
+import { CalendarDays, FileText } from 'lucide-react'
 
 import { SourceBadge } from '../SourceBadge'
 import { StatusBadge } from '../StatusBadge'
@@ -24,7 +26,7 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('th-TH', {
+  return new Date(iso).toLocaleDateString(dateLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 }
@@ -54,12 +56,13 @@ interface PatientTimelineProps {
 }
 
 export function PatientTimeline({ reports, bookings, onSelectReport }: PatientTimelineProps) {
+  const { t } = useTranslation()
   const items = [...reportItems(reports), ...bookingItems(bookings)].sort((a, b) => b.at.localeCompare(a.at))
 
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-        ยังไม่มี timeline ของคนไข้รายนี้
+        {t('patientTimeline.empty')}
       </div>
     )
   }
@@ -90,7 +93,7 @@ export function PatientTimeline({ reports, bookings, onSelectReport }: PatientTi
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-bbh-muted">
-                  <span className="font-mono tabular-nums">{formatDate(item.report.uploaded_at)}</span> · {item.report.has_extracted_text ? 'มีข้อความสำหรับวิเคราะห์' : 'ยังไม่มีข้อความ OCR'}
+                  <span className="font-mono tabular-nums">{formatDate(item.report.uploaded_at)}</span> · {item.report.has_extracted_text ? t('patientTimeline.hasText') : t('patientTimeline.noOcrText')}
                 </p>
               </div>
             </button>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
 import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, CheckCircle, Clock, Copy, KeyRound, Link2, LogOut, ShieldCheck, XCircle } from 'lucide-react'
 
 import { useAccountSettings, useSaveAccountSettings } from '../hooks/useAccountSettings'
@@ -8,7 +10,6 @@ import { useMyAuditLogs } from '../hooks/useMyAuditLogs'
 import { useToast } from '../hooks/useToast'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import type { Role } from '../lib/auth'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -19,30 +20,16 @@ const FOCUS_RING =
 const FIELD_CLASS =
   'mt-1.5 h-11 w-full rounded-lg border border-bbh-line bg-white px-3 text-sm outline-none transition-colors duration-200 focus:border-bbh-green focus:ring-2 focus:ring-bbh-green/30'
 
-const ROLE_LABELS: Record<Role, string> = {
-  admin: 'ผู้ดูแลระบบ',
-  doctor: 'แพทย์',
-  cro: 'เจ้าหน้าที่ CRO',
-  nurse: 'พยาบาล',
-  lab_staff: 'เจ้าหน้าที่แล็บ',
-}
-
-const EVENT_LABELS: Record<string, string> = {
-  login_success: 'เข้าสู่ระบบสำเร็จ',
-  login_fail: 'เข้าสู่ระบบไม่สำเร็จ',
-  logout: 'ออกจากระบบ',
-  password_change: 'เปลี่ยนรหัสผ่าน',
-}
-
 function formatDateTime(iso?: string | null): string {
   if (!iso) return '-'
-  return new Date(iso).toLocaleString('th-TH', {
+  return new Date(iso).toLocaleString(dateLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
 }
 
 export function Account() {
+  const { t } = useTranslation()
   const { user, logout } = useAuth()
   const audit = useMyAuditLogs(15)
   const change = useChangePassword()
@@ -74,16 +61,16 @@ export function Account() {
         notebooklm_url: notebookUrl.trim() || null,
         google_calendar_id: calendarId.trim() || null,
       })
-      toast.show('success', 'บันทึกการเชื่อมต่อแล้ว')
+      toast.show('success', t('account.integrationsSaved'))
     } catch (err) {
-      toast.show('error', err instanceof ApiError ? err.message : 'บันทึกไม่สำเร็จ')
+      toast.show('error', err instanceof ApiError ? err.message : t('account.saveFailed'))
     }
   }
 
   function copyServiceEmail(email: string) {
     void navigator.clipboard.writeText(email).then(
       () => { setCopiedEmail(true); window.setTimeout(() => setCopiedEmail(false), 1800) },
-      () => toast.show('error', 'คัดลอกไม่สำเร็จ'),
+      () => toast.show('error', t('account.copyFailed')),
     )
   }
 
@@ -91,22 +78,22 @@ export function Account() {
     event.preventDefault()
     setPwError(null)
     if (newPw.length < 10) {
-      setPwError('รหัสผ่านใหม่ต้องอย่างน้อย 10 ตัวอักษร')
+      setPwError(t('account.pwTooShort'))
       return
     }
     if (newPw !== confirmPw) {
-      setPwError('รหัสผ่านยืนยันไม่ตรงกัน')
+      setPwError(t('account.pwMismatch'))
       return
     }
     try {
       await change.mutateAsync({ old_password: oldPw, new_password: newPw })
-      toast.show('success', 'เปลี่ยนรหัสผ่านสำเร็จ')
+      toast.show('success', t('account.pwChanged'))
       setOldPw('')
       setNewPw('')
       setConfirmPw('')
       void audit.refetch()
     } catch (err) {
-      setPwError(err instanceof ApiError ? err.message : 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
+      setPwError(err instanceof ApiError ? err.message : t('account.pwChangeFailed'))
     }
   }
 
@@ -118,9 +105,9 @@ export function Account() {
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
             Account
           </p>
-          <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">บัญชีของฉัน</h1>
+          <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('account.title')}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-            จัดการโปรไฟล์ เปลี่ยนรหัสผ่าน และตรวจสอบกิจกรรมการเข้าใช้งานล่าสุดของคุณ
+            {t('account.subtitle')}
           </p>
         </div>
 
@@ -142,17 +129,17 @@ export function Account() {
               </div>
               <dl className="mt-6 divide-y divide-bbh-line text-sm">
                 <div className="flex items-center justify-between gap-3 py-3">
-                  <dt className="text-bbh-muted">บทบาท</dt>
-                  <dd className="font-semibold text-bbh-ink">{ROLE_LABELS[user.role]}</dd>
+                  <dt className="text-bbh-muted">{t('account.role')}</dt>
+                  <dd className="font-semibold text-bbh-ink">{t(`roles.${user.role}`, user.role)}</dd>
                 </div>
                 {user.specialty ? (
                   <div className="flex items-center justify-between gap-3 py-3">
-                    <dt className="text-bbh-muted">ความเชี่ยวชาญ</dt>
+                    <dt className="text-bbh-muted">{t('account.specialty')}</dt>
                     <dd className="font-semibold text-bbh-ink">{user.specialty}</dd>
                   </div>
                 ) : null}
                 <div className="flex items-center justify-between gap-3 py-3">
-                  <dt className="text-bbh-muted">เข้าใช้งานล่าสุด</dt>
+                  <dt className="text-bbh-muted">{t('account.lastLogin')}</dt>
                   <dd className="font-mono text-sm tabular-nums text-bbh-ink">
                     {formatDateTime(user.last_login_at)}
                   </dd>
@@ -165,7 +152,7 @@ export function Account() {
                 className={`mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-4 py-2.5 text-sm font-semibold text-bbh-muted transition-colors duration-200 hover:border-red-300 hover:text-red-600 ${FOCUS_RING}`}
               >
                 <LogOut size={16} />
-                ออกจากระบบ
+                {t('account.logout')}
               </button>
             </section>
 
@@ -173,11 +160,11 @@ export function Account() {
             <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6" style={{ animationDelay: '140ms' }}>
               <div className="mb-4 flex items-center gap-2">
                 <KeyRound size={18} className="text-bbh-green" />
-                <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">เปลี่ยนรหัสผ่าน</h2>
+                <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('account.changePassword')}</h2>
               </div>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 <label className="block">
-                  <span className="text-sm text-bbh-muted">รหัสผ่านเดิม</span>
+                  <span className="text-sm text-bbh-muted">{t('account.currentPassword')}</span>
                   <input
                     type="password"
                     value={oldPw}
@@ -187,7 +174,7 @@ export function Account() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm text-bbh-muted">รหัสผ่านใหม่ (อย่างน้อย 10 ตัว)</span>
+                  <span className="text-sm text-bbh-muted">{t('account.newPassword')}</span>
                   <input
                     type="password"
                     value={newPw}
@@ -198,7 +185,7 @@ export function Account() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm text-bbh-muted">ยืนยันรหัสผ่านใหม่</span>
+                  <span className="text-sm text-bbh-muted">{t('account.confirmNewPassword')}</span>
                   <input
                     type="password"
                     value={confirmPw}
@@ -221,7 +208,7 @@ export function Account() {
                   className={`flex w-full items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
                 >
                   <ShieldCheck size={16} />
-                  {change.isPending ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่านใหม่'}
+                  {change.isPending ? t('common.saving') : t('account.savePassword')}
                 </button>
               </form>
             </section>
@@ -230,14 +217,14 @@ export function Account() {
             <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6" style={{ animationDelay: '210ms' }}>
               <div className="mb-2 flex items-center gap-2">
                 <Link2 size={18} className="text-bbh-green" />
-                <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">การเชื่อมต่อส่วนตัว</h2>
+                <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('account.personalIntegrations')}</h2>
               </div>
               <p className="mb-4 text-sm leading-relaxed text-bbh-muted">
-                ของส่วนตัวที่ระบบใช้ให้ — NotebookLM สำหรับปุ่ม "ส่งต่อไป NotebookLM" ในหน้ารายงาน และ Google Calendar ID สำหรับให้นัดขึ้นปฏิทินของคุณ (เก็บค่าไว้ก่อน ระบบจะ sync ให้ในขั้นถัดไป)
+                {t('account.integrationsDesc')}
               </p>
               <form onSubmit={handleSaveSettings} className="space-y-3">
                 <label className="block">
-                  <span className="text-sm text-bbh-muted">ลิงก์ NotebookLM ของฉัน</span>
+                  <span className="text-sm text-bbh-muted">{t('account.notebookUrl')}</span>
                   <input
                     type="url"
                     value={notebookUrl}
@@ -247,7 +234,7 @@ export function Account() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm text-bbh-muted">Google Calendar ID ของฉัน</span>
+                  <span className="text-sm text-bbh-muted">{t('account.calendarId')}</span>
                   <input
                     type="text"
                     value={calendarId}
@@ -259,7 +246,7 @@ export function Account() {
                 {settingsQ.data?.service_account_email ? (
                   <div className="rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2.5">
                     <p className="text-xs leading-relaxed text-bbh-muted">
-                      วิธีเชื่อม: เปิด Google Calendar ของคุณ → แชร์ปฏิทิน (สิทธิ์ "แก้ไขกิจกรรม") ให้อีเมลนี้ แล้วใส่อีเมล Google ของคุณเป็น Calendar ID ด้านบน
+                      {t('account.calendarShareHint')}
                     </p>
                     <div className="mt-2 flex items-center gap-2 rounded-md border border-bbh-line bg-white px-2.5 py-1.5">
                       <span className="min-w-0 flex-1 truncate font-mono text-xs text-bbh-ink">{settingsQ.data.service_account_email}</span>
@@ -268,7 +255,7 @@ export function Account() {
                         onClick={() => copyServiceEmail(settingsQ.data!.service_account_email!)}
                         className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors duration-200 ${copiedEmail ? 'bg-bbh-green-soft text-bbh-green-dark' : 'bg-bbh-green text-white hover:bg-bbh-green-dark'} ${FOCUS_RING}`}
                       >
-                        {copiedEmail ? <><Check size={13} /> คัดลอกแล้ว</> : <><Copy size={13} /> คัดลอก</>}
+                        {copiedEmail ? <><Check size={13} /> {t('account.copied')}</> : <><Copy size={13} /> {t('account.copy')}</>}
                       </button>
                     </div>
                   </div>
@@ -278,7 +265,7 @@ export function Account() {
                   disabled={saveSettings.isPending || settingsQ.isLoading}
                   className={`flex w-full items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
                 >
-                  {saveSettings.isPending ? 'กำลังบันทึก...' : 'บันทึก'}
+                  {saveSettings.isPending ? t('common.saving') : t('common.save')}
                 </button>
               </form>
             </section>
@@ -288,17 +275,17 @@ export function Account() {
           <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6" style={{ animationDelay: '210ms' }}>
             <div className="mb-4 flex items-center gap-2">
               <Clock size={18} className="text-bbh-green" />
-              <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">กิจกรรมล่าสุด</h2>
+              <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('account.recentActivity')}</h2>
             </div>
 
             {audit.isLoading ? (
-              <p className="py-8 text-center text-sm text-bbh-muted">กำลังโหลด...</p>
+              <p className="py-8 text-center text-sm text-bbh-muted">{t('common.loading')}</p>
             ) : audit.isError ? (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                โหลดประวัติไม่สำเร็จ
+                {t('account.historyLoadFailed')}
               </p>
             ) : (audit.data?.data.length ?? 0) === 0 ? (
-              <p className="py-8 text-center text-sm text-bbh-muted">ยังไม่มีประวัติ</p>
+              <p className="py-8 text-center text-sm text-bbh-muted">{t('account.noHistory')}</p>
             ) : (
               <ul className="divide-y divide-bbh-line">
                 {audit.data?.data.map((log) => {
@@ -312,7 +299,7 @@ export function Account() {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-bbh-ink">
-                          {EVENT_LABELS[log.event_type] ?? log.event_type}
+                          {t(`account.event.${log.event_type}`, log.event_type)}
                           {log.fail_reason ? ` · ${log.fail_reason}` : ''}
                         </p>
                         <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">

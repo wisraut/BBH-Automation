@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Calendar, Loader2 } from 'lucide-react'
 
 import { Modal } from '../Modal'
@@ -25,6 +26,7 @@ function localIsoNow(): string {
 }
 
 export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuccess }: Props) {
+  const { t } = useTranslation()
   const m = useRescheduleBooking()
   const [whenLocal, setWhenLocal] = useState(localIsoNow())
   const [reason, setReason] = useState('')
@@ -61,11 +63,11 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
   }
 
   return (
-    <Modal open={open} title="เลื่อนนัด" onClose={onClose} size="md">
+    <Modal open={open} title={t('rescheduleModal.title')} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-3">
         {currentDateTimeText ? (
           <div className="rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2 text-xs text-bbh-muted">
-            เวลานัดเดิม: <span className="font-mono text-bbh-ink">{currentDateTimeText}</span>
+            {t('rescheduleModal.currentTime')} <span className="font-mono text-bbh-ink">{currentDateTimeText}</span>
           </div>
         ) : null}
 
@@ -77,16 +79,15 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             className={`mt-0.5 h-4 w-4 shrink-0 accent-bbh-green ${FOCUS_RING}`}
           />
           <span>
-            <span className="font-medium">ยังไม่กำหนดเวลา</span>
+            <span className="font-medium">{t('rescheduleModal.tbdLabel')}</span>
             <span className="mt-0.5 block text-xs leading-relaxed text-bbh-muted">
-              คนไข้ยังไม่ยืนยันเวลาใหม่ — ระบบจะย้ายกลับเป็น &ldquo;รออนุมัติ&rdquo;
-              และล้าง Google Calendar event เดิม รอ CRO อนุมัติเวลาใหม่อีกครั้งเมื่อคนไข้แจ้ง
+              {t('rescheduleModal.tbdHint')}
             </span>
           </span>
         </label>
 
         <label className={`block text-sm font-medium text-bbh-ink transition-opacity ${tbd ? 'opacity-40' : ''}`}>
-          เวลานัดใหม่
+          {t('rescheduleModal.newTime')}
           <input
             type="datetime-local"
             required={!tbd}
@@ -97,25 +98,25 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
           />
         </label>
         <label className="block text-sm font-medium text-bbh-ink">
-          เหตุผล / หมายเหตุ (ไม่บังคับ)
+          {t('rescheduleModal.reasonLabel')}
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             maxLength={255}
-            placeholder="เช่น คนไข้ขอเลื่อน, ตรงกับวันหยุด"
+            placeholder={t('rescheduleModal.reasonPlaceholder')}
             className={`mt-1 ${FIELD_CLASS}`}
           />
         </label>
         {m.error ? (
           <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
-            เลื่อนไม่สำเร็จ — อาจชนนัดอื่นหรือแพทย์ลาในช่วงเวลานี้
+            {t('rescheduleModal.rescheduleFailed')}
           </p>
         ) : null}
         <p className="text-[11px] leading-relaxed text-bbh-muted">
           {tbd
-            ? 'ระบบจะยกเลิก Google Calendar event เดิม ย้าย booking กลับเป็นรออนุมัติ และแจ้งคนไข้ทาง LINE + แจ้งแพทย์ประจำตัวทางอีเมล'
-            : 'ระบบจะยกเลิก Google Calendar event เดิม สร้าง event ใหม่ ส่ง LINE แจ้งคนไข้ และแจ้งแพทย์ประจำตัวทางอีเมล'}
+            ? t('rescheduleModal.effectTbd')
+            : t('rescheduleModal.effectScheduled')}
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <button
@@ -123,7 +124,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             onClick={onClose}
             className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -131,7 +132,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Calendar size={14} />}
-            {tbd ? 'ยืนยันเลื่อน (รอเวลาใหม่)' : 'ยืนยันเลื่อนนัด'}
+            {tbd ? t('rescheduleModal.confirmTbd') : t('rescheduleModal.confirm')}
           </button>
         </div>
       </form>

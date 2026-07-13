@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { dateLocale } from '../../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, Bot, Clock, Loader2, Send, Sparkles, User, UserRoundCog,
 } from 'lucide-react'
@@ -17,48 +19,45 @@ interface Props {
   showHeader?: boolean
 }
 
-const MODES: { key: AiMode; label: string; hint: string }[] = [
-  { key: 'auto', label: 'Auto', hint: 'AI ตอบเอง' },
-  { key: 'copilot', label: 'Copilot', hint: 'AI ร่างให้ CRO ยืนยัน' },
-  { key: 'silent', label: 'Silent', hint: 'CRO ตอบเองทั้งหมด' },
-]
+const MODE_KEYS: AiMode[] = ['auto', 'copilot', 'silent']
 
 function formatTime(iso: string | null): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDay(iso: string | null): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(iso).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function BannerStrip({ banner, pauseUntil }: { banner: Banner; pauseUntil: string | null }) {
+  const { t } = useTranslation()
   const map: Record<Banner, { bg: string; ink: string; icon: React.ReactNode; text: string }> = {
     auto: {
       bg: 'bg-emerald-50 border-emerald-200', ink: 'text-emerald-800',
-      icon: <Bot size={14} />, text: 'AI ทำงาน · ตอบคนไข้อัตโนมัติ',
+      icon: <Bot size={14} />, text: t('chatPane.banner.auto'),
     },
     copilot: {
       bg: 'bg-sky-50 border-sky-200', ink: 'text-sky-800',
-      icon: <Sparkles size={14} />, text: 'Copilot · AI ร่าง รอ CRO ยืนยัน',
+      icon: <Sparkles size={14} />, text: t('chatPane.banner.copilot'),
     },
     silent: {
       bg: 'bg-orange-50 border-orange-200', ink: 'text-orange-800',
-      icon: <UserRoundCog size={14} />, text: 'Silent · CRO ตอบเอง AI ไม่ตอบ',
+      icon: <UserRoundCog size={14} />, text: t('chatPane.banner.silent'),
     },
     paused: {
       bg: 'bg-amber-50 border-amber-200', ink: 'text-amber-800',
       icon: <Clock size={14} />,
-      text: `AI หยุดชั่วคราวจนถึง ${pauseUntil ? formatTime(pauseUntil) : '--:--'} · CRO ดูแล`,
+      text: t('chatPane.banner.paused', { time: pauseUntil ? formatTime(pauseUntil) : '--:--' }),
     },
     after_hours: {
       bg: 'bg-slate-100 border-slate-300', ink: 'text-slate-700',
-      icon: <Clock size={14} />, text: 'นอกเวลาทำการ · AI ตอบทับสวิตช์ทุกโหมด',
+      icon: <Clock size={14} />, text: t('chatPane.banner.afterHours'),
     },
     keyword_handoff: {
       bg: 'bg-rose-50 border-rose-200', ink: 'text-rose-800',
-      icon: <AlertTriangle size={14} />, text: 'ระบบจับคำ "อยากคุยกับคน" · handoff ให้ CRO',
+      icon: <AlertTriangle size={14} />, text: t('chatPane.banner.keywordHandoff'),
     },
   }
   const s = map[banner] ?? map.auto
@@ -76,6 +75,7 @@ function MessageBubble({ direction, text, at, prefix }: {
   at: string | null
   prefix: string | null
 }) {
+  const { t } = useTranslation()
   if (direction === 'system') {
     return (
       <div className="flex justify-center">
@@ -97,12 +97,12 @@ function MessageBubble({ direction, text, at, prefix }: {
         ? 'bg-sky-100 border border-sky-300 text-sky-900'
         : 'bg-bbh-green-soft text-bbh-ink'
   const author = !isOut
-    ? { icon: <User size={12} />, name: 'คนไข้' }
+    ? { icon: <User size={12} />, name: t('chatPane.author.patient') }
     : isCroReply
-      ? { icon: <UserRoundCog size={12} />, name: 'CRO' }
+      ? { icon: <UserRoundCog size={12} />, name: t('roleShort.cro') }
       : isCopilotDraft
-        ? { icon: <Sparkles size={12} />, name: 'AI (ร่าง)' }
-        : { icon: <Bot size={12} />, name: 'AI' }
+        ? { icon: <Sparkles size={12} />, name: t('chatPane.author.aiDraft') }
+        : { icon: <Bot size={12} />, name: t('chatPane.author.ai') }
   return (
     <div className={`flex ${align}`}>
       <div className="flex max-w-[78%] flex-col gap-1">
@@ -123,6 +123,7 @@ function MessageBubble({ direction, text, at, prefix }: {
 }
 
 export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
+  const { t } = useTranslation()
   const toast = useToast()
   const [text, setText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -145,7 +146,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
   if (patientId == null) {
     return (
       <div className="flex h-full items-center justify-center bg-bbh-surface/40 text-sm text-bbh-muted">
-        เลือกคนไข้จากรายการด้านซ้ายเพื่อเริ่มแชท
+        {t('chatPane.selectPatientToChat')}
       </div>
     )
   }
@@ -157,7 +158,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
       { patientId, message: text.trim() },
       {
         onSuccess: () => setText(''),
-        onError: () => toast.show('error', 'ส่งไม่สำเร็จ — คนไข้อาจไม่มี LINE'),
+        onError: () => toast.show('error', t('chatPane.sendFailed')),
       },
     )
   }
@@ -167,8 +168,8 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
     setModeM.mutate(
       { patientId, mode: m },
       {
-        onSuccess: () => toast.show('success', `ตั้ง AI mode = ${m}`),
-        onError: () => toast.show('error', 'เปลี่ยน mode ไม่สำเร็จ'),
+        onSuccess: () => toast.show('success', t('chatPane.modeSet', { mode: m })),
+        onError: () => toast.show('error', t('chatPane.modeChangeFailed')),
       },
     )
   }
@@ -186,7 +187,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
       {showHeader ? (
         <header className="border-b border-bbh-line px-4 py-3">
           <h2 className="truncate font-serif text-lg font-semibold text-bbh-ink">
-            {patientName ?? 'คนไข้'}
+            {patientName ?? t('chatPane.author.patient')}
           </h2>
         </header>
       ) : null}
@@ -196,32 +197,32 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
           <BannerStrip banner={mode.banner} pauseUntil={mode.pause_until} />
           <div className="flex items-center justify-between gap-2">
             <div className="inline-flex overflow-hidden rounded-lg border border-bbh-line bg-bbh-surface p-0.5">
-              {MODES.map((m) => {
-                const active = mode.ai_mode === m.key
+              {MODE_KEYS.map((key) => {
+                const active = mode.ai_mode === key
                 return (
                   <button
-                    key={m.key}
+                    key={key}
                     type="button"
                     disabled={setModeM.isPending}
-                    onClick={() => changeMode(m.key)}
-                    title={m.hint}
+                    onClick={() => changeMode(key)}
+                    title={t(`chatPane.mode.${key}.hint`)}
                     className={`px-3 py-1 text-xs font-semibold transition ${
                       active ? 'bg-white text-bbh-ink shadow-sm' : 'text-bbh-muted hover:text-bbh-ink'
                     }`}
                   >
-                    {m.label}
+                    {t(`chatPane.mode.${key}.label`)}
                   </button>
                 )
               })}
             </div>
             <p className="text-[11px] text-bbh-muted">
-              Effective: <span className="font-semibold">{mode.effective_mode}</span>
+              {t('chatPane.effective')} <span className="font-semibold">{mode.effective_mode}</span>
             </p>
           </div>
         </div>
       ) : mode && !mode.has_line_session ? (
         <div className="border-b border-bbh-line bg-amber-50 p-3 text-xs text-amber-800">
-          คนไข้ยังไม่มี LINE session — เริ่มคุยได้เมื่อคนไข้ทัก LINE โรงพยาบาลก่อน
+          {t('chatPane.noLineSession')}
         </div>
       ) : null}
 
@@ -231,7 +232,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
             <Loader2 className="animate-spin" size={18} />
           </div>
         ) : messages.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-bbh-muted">ยังไม่มีข้อความ</p>
+          <p className="mt-8 text-center text-sm text-bbh-muted">{t('chatPane.noMessages')}</p>
         ) : (
           groupedByDay.map(({ day, items }) => (
             <div key={day} className="space-y-3">
@@ -267,7 +268,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
             }}
             rows={2}
             maxLength={2000}
-            placeholder="พิมพ์ข้อความส่งไปยัง LINE คนไข้... (Shift+Enter ขึ้นบรรทัดใหม่)"
+            placeholder={t('chatPane.inputPlaceholder')}
             className="flex-1 resize-none rounded-xl border border-bbh-line px-3 py-2 text-sm focus:border-bbh-green focus:outline-none"
           />
           <button
@@ -276,11 +277,11 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
             className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-bbh-green px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {sendM.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            ส่ง
+            {t('chatPane.send')}
           </button>
         </div>
         <p className="mt-1 text-[11px] text-bbh-muted">
-          {text.length}/2000 · การส่งจะหยุด AI ตอบอัตโนมัติ 30 นาที
+          {t('chatPane.charCountHint', { count: text.length })}
         </p>
       </form>
     </div>

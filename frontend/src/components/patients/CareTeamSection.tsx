@@ -1,5 +1,6 @@
 // Patient care team — list members, add a doctor with a role, remove, promote.
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Star, UserPlus, X } from 'lucide-react'
 
@@ -17,13 +18,14 @@ import { ApiError } from '../../lib/api'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const ROLE_LABEL: Record<CareTeamRole, string> = {
-  primary: 'เจ้าของไข้',
-  specialist: 'ผู้เชี่ยวชาญ',
-  consultant: 'ที่ปรึกษา',
+const ROLE_LABEL_KEY: Record<CareTeamRole, string> = {
+  primary: 'rolePrimary',
+  specialist: 'roleSpecialist',
+  consultant: 'roleConsultant',
 }
 
 export function CareTeamSection({ patientId }: { patientId: number }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const canManage = ['cro', 'doctor', 'admin'].includes(user?.role ?? '')
   const q = useCareTeam(patientId)
@@ -42,19 +44,19 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
       setDoctorId('')
       setRole('specialist')
     } catch (error) {
-      toast.show('error', error instanceof ApiError ? error.message : 'เพิ่มไม่สำเร็จ')
+      toast.show('error', error instanceof ApiError ? error.message : t('careTeamSection.addFailed'))
     }
   }
 
   return (
     <section>
       <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-        ทีมแพทย์
+        {t('careTeamSection.title')}
       </h2>
 
       {members.length === 0 ? (
         <p className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-sm text-bbh-muted">
-          — ยังไม่มีทีมแพทย์ —
+          {t('careTeamSection.empty')}
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -80,26 +82,26 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
                     }`}
                   >
                     {isPrimary ? <Star size={11} className="fill-current" /> : null}
-                    {ROLE_LABEL[m.role]}
+                    {t(`careTeamSection.${ROLE_LABEL_KEY[m.role]}`)}
                   </span>
                   {canManage && !isPrimary ? (
                     <button
                       type="button"
                       onClick={() => submitAdd('primary', m.doctor_id)}
                       className={`rounded text-xs text-bbh-muted transition-colors duration-200 hover:text-bbh-green-dark ${FOCUS_RING}`}
-                      title="ตั้งเป็นเจ้าของไข้"
+                      title={t('careTeamSection.setPrimary')}
                     >
-                      ตั้งเป็นเจ้าของไข้
+                      {t('careTeamSection.setPrimary')}
                     </button>
                   ) : null}
                   {canManage ? (
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm(`นำ ${m.doctor_name ?? 'แพทย์'} ออกจากทีม?`)) remove.mutate(m.doctor_id)
+                        if (confirm(t('careTeamSection.removeConfirm', { name: m.doctor_name ?? t('careTeamSection.doctorFallback') }))) remove.mutate(m.doctor_id)
                       }}
                       className={`rounded text-bbh-muted transition-colors duration-200 hover:text-red-600 ${FOCUS_RING}`}
-                      title="นำออกจากทีม"
+                      title={t('careTeamSection.removeFromTeam')}
                     >
                       <X size={14} />
                     </button>
@@ -118,7 +120,7 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
             onChange={(e) => setDoctorId(e.target.value === '' ? '' : Number(e.target.value))}
             className="min-w-0 flex-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
           >
-            <option value="">- เลือกแพทย์เพิ่มในทีม -</option>
+            <option value="">{t('careTeamSection.selectDoctor')}</option>
             {(doctorsQ.data?.data ?? [])
               .filter((d) => !members.some((m) => m.doctor_id === d.id))
               .map((d) => (
@@ -132,9 +134,9 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
             onChange={(e) => setRole(e.target.value as CareTeamRole)}
             className="rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
           >
-            <option value="specialist">ผู้เชี่ยวชาญ</option>
-            <option value="consultant">ที่ปรึกษา</option>
-            <option value="primary">เจ้าของไข้</option>
+            <option value="specialist">{t('careTeamSection.roleSpecialist')}</option>
+            <option value="consultant">{t('careTeamSection.roleConsultant')}</option>
+            <option value="primary">{t('careTeamSection.rolePrimary')}</option>
           </select>
           <button
             type="button"
@@ -142,7 +144,7 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
             onClick={() => { if (doctorId !== '') void submitAdd(role, Number(doctorId)) }}
             className={`inline-flex items-center gap-1 rounded-lg bg-bbh-green px-3 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-50 ${FOCUS_RING}`}
           >
-            <UserPlus size={14} /> เพิ่ม
+            <UserPlus size={14} /> {t('common.add')}
           </button>
         </div>
       ) : null}

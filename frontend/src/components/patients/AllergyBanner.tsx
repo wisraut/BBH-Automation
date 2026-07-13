@@ -1,5 +1,6 @@
 // Persistent allergy warning shown wherever medical decisions are made
 // (upload report, analyze, decide triage). Pulls from patient medical bundle.
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ShieldAlert } from 'lucide-react'
 
 import { usePatientMedicalBundle, type AllergyOut } from '../../hooks/usePatientMedicalBundle'
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export function AllergyBanner({ patientId, scanText, compact = false }: Props) {
+  const { t } = useTranslation()
   const q = usePatientMedicalBundle(patientId)
   const allergies = q.data?.allergies ?? []
   if (allergies.length === 0) return null
@@ -59,8 +61,8 @@ export function AllergyBanner({ patientId, scanText, compact = false }: Props) {
         <div className="min-w-0 flex-1">
           <p className={`font-semibold ${compact ? 'text-xs' : 'text-sm'}`}>
             {matches.length > 0
-              ? `แจ้งเตือน: ข้อความนี้กล่าวถึง allergen ที่คนไข้แพ้`
-              : `คนไข้มีประวัติแพ้ ${allergies.length} รายการ`}
+              ? t('allergyBanner.matchWarning')
+              : t('allergyBanner.allergyCount', { count: allergies.length })}
           </p>
           <ul className={`mt-1 flex flex-wrap gap-1 ${compact ? 'text-[10px]' : 'text-xs'}`}>
             {(matches.length > 0 ? matches : allergies).map((a) => (

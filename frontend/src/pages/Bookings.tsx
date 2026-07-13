@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus, Stethoscope, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
@@ -20,43 +21,44 @@ import { ApiError } from '../lib/api'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const TABS: { key: BookingGroup; label: string }[] = [
-  { key: 'active', label: 'กำลังดำเนินการ' },
-  { key: 'history', label: 'ประวัติ' },
+const TABS: { key: BookingGroup; labelKey: string }[] = [
+  { key: 'active', labelKey: 'bookings.tabs.active' },
+  { key: 'history', labelKey: 'bookings.tabs.history' },
 ]
 
 // Status pills scoped to each tab. 'all' means "no status filter — show the
 // whole group" and the backend group param drives the list.
-const FILTERS_BY_TAB: Record<BookingGroup, { key: BookingStatus | 'all'; label: string }[]> = {
+const FILTERS_BY_TAB: Record<BookingGroup, { key: BookingStatus | 'all'; labelKey: string }[]> = {
   active: [
-    { key: 'all', label: 'ทั้งหมด' },
-    { key: 'pending_approval', label: 'รอยืนยัน' },
-    { key: 'approved', label: 'ยืนยันแล้ว' },
+    { key: 'all', labelKey: 'common.all' },
+    { key: 'pending_approval', labelKey: 'bookings.filters.pendingApproval' },
+    { key: 'approved', labelKey: 'bookings.filters.approved' },
   ],
   history: [
-    { key: 'all', label: 'ทั้งหมด' },
-    { key: 'no_show', label: 'No-show' },
-    { key: 'rejected', label: 'ปฏิเสธ' },
-    { key: 'cancelled', label: 'ยกเลิก' },
-    { key: 'expired', label: 'หมดอายุ' },
+    { key: 'all', labelKey: 'common.all' },
+    { key: 'no_show', labelKey: 'bookings.filters.noShow' },
+    { key: 'rejected', labelKey: 'bookings.filters.rejected' },
+    { key: 'cancelled', labelKey: 'bookings.filters.cancelled' },
+    { key: 'expired', labelKey: 'bookings.filters.expired' },
   ],
 }
 
 const PAGE_LIMIT = 20
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const ms = Date.now() - new Date(iso).getTime()
   const sec = Math.floor(ms / 1000)
-  if (sec < 60) return `${sec} วินาทีที่แล้ว`
+  if (sec < 60) return t('bookings.relative.seconds', { count: sec })
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} นาทีที่แล้ว`
+  if (min < 60) return t('bookings.relative.minutes', { count: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} ชั่วโมงที่แล้ว`
+  if (hr < 24) return t('bookings.relative.hours', { count: hr })
   const day = Math.floor(hr / 24)
-  return `${day} วันที่แล้ว`
+  return t('bookings.relative.days', { count: day })
 }
 
 export function Bookings() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<BookingGroup>('active')
   const [filter, setFilter] = useState<BookingStatus | 'all'>('all')
   const [page, setPage] = useState(1)
@@ -104,9 +106,9 @@ export function Bookings() {
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
               CRO Bookings
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">คำขอจองนัด</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('bookings.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              ตรวจสอบ ยืนยัน เลื่อน และจัดการคำขอจองนัดของคนไข้
+              {t('bookings.subtitle')}
             </p>
           </div>
           <button
@@ -114,7 +116,7 @@ export function Bookings() {
             onClick={() => setNewBookingOpen(true)}
             className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
-            <Plus size={16} /> จองใหม่
+            <Plus size={16} /> {t('bookings.newBooking')}
           </button>
         </div>
 
@@ -139,7 +141,7 @@ export function Bookings() {
                     : 'bg-transparent text-bbh-muted hover:text-bbh-green-dark'
                 }`}
               >
-                {item.label}
+                {t(item.labelKey)}
               </button>
             )
           })}
@@ -161,11 +163,11 @@ export function Bookings() {
                     : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
                 }`}
               >
-                {item.label}
+                {t(item.labelKey)}
               </button>
             )
           })}
-          <span className="ml-auto font-mono text-xs tabular-nums text-bbh-muted">{total} รายการ</span>
+          <span className="ml-auto font-mono text-xs tabular-nums text-bbh-muted">{t('bookings.itemCount', { count: total })}</span>
         </div>
 
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
@@ -179,24 +181,24 @@ export function Bookings() {
 
           {list.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-              <p className="font-semibold">โหลดข้อมูลไม่สำเร็จ</p>
+              <p className="font-semibold">{t('common.loadFailed')}</p>
               <p className="mt-1 text-xs">
-                {list.error instanceof ApiError ? list.error.message : 'กรุณาลองใหม่'}
+                {list.error instanceof ApiError ? list.error.message : t('bookings.pleaseRetry')}
               </p>
               <button
                 type="button"
                 onClick={() => void list.refetch()}
                 className={`mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition-colors duration-200 hover:bg-red-100 ${FOCUS_RING}`}
               >
-                ลองใหม่
+                {t('common.retry')}
               </button>
             </div>
           ) : null}
 
           {!list.isLoading && !list.isError && list.data && list.data.data.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-bbh-line bg-white p-12 text-center">
-              <p className="font-serif text-lg text-bbh-ink">ยังไม่มีรายการในฟิลเตอร์นี้</p>
-              <p className="mt-2 text-sm text-bbh-muted">ลองเปลี่ยนฟิลเตอร์ด้านบน</p>
+              <p className="font-serif text-lg text-bbh-ink">{t('bookings.emptyTitle')}</p>
+              <p className="mt-2 text-sm text-bbh-muted">{t('bookings.emptyHint')}</p>
             </div>
           ) : null}
 
@@ -235,7 +237,7 @@ export function Bookings() {
                       <div className="flex shrink-0 flex-col items-end gap-2">
                         <StatusBadge status={row.status} />
                         <span className="font-mono text-[11px] tabular-nums text-bbh-muted">
-                          {formatRelative(row.created_at)}
+                          {formatRelative(row.created_at, t)}
                         </span>
                       </div>
                     </button>
@@ -253,10 +255,10 @@ export function Bookings() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
               >
-                <ChevronLeft size={16} /> ก่อนหน้า
+                <ChevronLeft size={16} /> {t('bookings.previous')}
               </button>
               <span className="font-mono text-sm tabular-nums text-bbh-muted">
-                หน้า {page} / {totalPages}
+                {t('bookings.pageOf', { page, total: totalPages })}
               </span>
               <button
                 type="button"
@@ -264,7 +266,7 @@ export function Bookings() {
                 onClick={() => setPage((p) => p + 1)}
                 className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
               >
-                ถัดไป <ChevronRight size={16} />
+                {t('bookings.next')} <ChevronRight size={16} />
               </button>
             </div>
           ) : null}
@@ -282,23 +284,23 @@ export function Bookings() {
             className={`mb-6 inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
           >
             <ChevronLeft size={16} />
-            กลับไปรายการ
+            {t('bookings.backToList')}
           </button>
         ) : null}
         {!selectedUid ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
             <div className="rounded-xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
-              เลือกรายการเพื่อดูรายละเอียด
+              {t('bookings.selectToView')}
             </div>
           </div>
         ) : detail.isLoading ? (
           <div className="h-32 animate-pulse rounded-xl bg-bbh-surface" />
         ) : detail.isError ? (
-          <p className="text-sm text-red-700">โหลดรายละเอียดไม่สำเร็จ</p>
+          <p className="text-sm text-red-700">{t('bookings.detailLoadFailed')}</p>
         ) : detail.data ? (
           <div className="space-y-5">
             <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">คนไข้</p>
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('bookings.patient')}</p>
               <p className="mt-2 font-serif text-2xl font-semibold text-bbh-ink">
                 {detail.data.patient_name ?? '-'}
               </p>
@@ -311,7 +313,7 @@ export function Bookings() {
 
             <div className="rounded-xl border border-bbh-line bg-white p-4">
               <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                เวลาที่ลูกค้าขอ
+                {t('bookings.requestedTime')}
               </p>
               <p className="mt-1 font-mono text-sm tabular-nums text-bbh-ink">
                 {detail.data.requested_datetime_text ?? '-'}
@@ -320,7 +322,7 @@ export function Bookings() {
 
             <div className="rounded-xl border border-bbh-line bg-white p-4">
               <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                อาการ / รายละเอียด
+                {t('bookings.symptomDetail')}
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
                 {detail.data.symptom ?? '-'}
@@ -334,7 +336,7 @@ export function Bookings() {
                 rel="noreferrer"
                 className={`flex items-center justify-between gap-2 rounded-xl border border-bbh-green/30 bg-bbh-green-soft px-4 py-3 text-sm font-medium text-bbh-green-dark transition-colors duration-200 hover:bg-bbh-green-soft/70 ${FOCUS_RING}`}
               >
-                เปิด Google Calendar event
+                {t('bookings.openCalendarEvent')}
                 <ExternalLink size={15} />
               </a>
             ) : null}
@@ -342,7 +344,7 @@ export function Bookings() {
             {detail.data.notes ? (
               <div className="rounded-xl border border-bbh-line bg-white p-4">
                 <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                  หมายเหตุ
+                  {t('bookings.notes')}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
                   {detail.data.notes}
@@ -357,14 +359,14 @@ export function Bookings() {
                   onClick={() => setApproveOpen(true)}
                   className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
                 >
-                  <Check size={16} /> ยืนยันนัด
+                  <Check size={16} /> {t('bookings.confirmAppointment')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setRejectOpen(true)}
                   className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 ${FOCUS_RING}`}
                 >
-                  <X size={16} /> ปฏิเสธ
+                  <X size={16} /> {t('bookings.reject')}
                 </button>
               </div>
             ) : null}
@@ -380,7 +382,7 @@ export function Bookings() {
                     onClick={() => setRescheduleOpen(true)}
                     className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
                   >
-                    <CalendarIcon size={16} /> เลื่อนนัด
+                    <CalendarIcon size={16} /> {t('bookings.reschedule')}
                   </button>
                 </div>
               </div>
@@ -427,6 +429,7 @@ export function Bookings() {
 // arrived without a doctor. CRO picks a doctor to complete the assignment;
 // email reschedule notifications rely on this being set.
 function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => void }) {
+  const { t } = useTranslation()
   const doctorsQ = useDoctors()
   const assign = useAssignDoctor()
   const toast = useToast()
@@ -434,15 +437,15 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
 
   async function submit() {
     if (doctorId === '') {
-      toast.show('error', 'กรุณาเลือกแพทย์')
+      toast.show('error', t('bookings.selectDoctorRequired'))
       return
     }
     try {
       await assign.mutateAsync({ uid, body: { assigned_doctor_id: Number(doctorId) } })
-      toast.show('success', 'บันทึกแพทย์ประจำตัวสำเร็จ')
+      toast.show('success', t('bookings.assignDoctorSuccess'))
       onDone()
     } catch (error) {
-      const msg = error instanceof ApiError ? error.message : 'บันทึกไม่สำเร็จ'
+      const msg = error instanceof ApiError ? error.message : t('bookings.saveFailed')
       toast.show('error', msg)
     }
   }
@@ -452,9 +455,9 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
       <div className="flex items-start gap-2">
         <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
         <div className="flex-1">
-          <p className="text-sm font-semibold text-amber-900">ยังไม่ได้เลือกแพทย์ประจำตัว</p>
+          <p className="text-sm font-semibold text-amber-900">{t('bookings.noDoctorAssignedTitle')}</p>
           <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
-            การจองนี้ยืนยันผ่าน LINE โดยไม่ได้ระบุแพทย์ กรุณาเลือกแพทย์เพื่อให้ระบบส่งอีเมลแจ้งได้ตอนเลื่อนนัด
+            {t('bookings.noDoctorAssignedHint')}
           </p>
         </div>
       </div>
@@ -464,7 +467,7 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
           onChange={(e) => setDoctorId(e.target.value === '' ? '' : Number(e.target.value))}
           className={`min-w-[180px] flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm transition-colors duration-200 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 ${FOCUS_RING}`}
         >
-          <option value="">— เลือกแพทย์ —</option>
+          <option value="">{t('bookings.selectDoctorPlaceholder')}</option>
           {(doctorsQ.data?.data ?? []).map((d) => (
             <option key={d.id} value={d.id}>
               {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
@@ -478,7 +481,7 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
           className={`inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-amber-700 disabled:opacity-60 ${FOCUS_RING}`}
         >
           {assign.isPending ? <Loader2 size={14} className="animate-spin" /> : <Stethoscope size={14} />}
-          บันทึก
+          {t('common.save')}
         </button>
       </div>
     </div>

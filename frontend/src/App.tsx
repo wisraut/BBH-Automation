@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -57,31 +58,32 @@ function canAccess(path: string, role: Role): boolean {
   return !allow || allow.includes(role)
 }
 
-const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/admin': { title: 'Admin Dashboard', subtitle: 'Action Required และภาพรวมระบบโรงพยาบาล' },
-  '/bookings': {
-    title: 'การจองทั้งหมด',
-    subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
-  },
-  '/calendar': { title: 'ปฏิทิน' },
-  '/schedule': { title: 'สรุปงานแพทย์' },
-  '/doctor-calendar': { title: 'ปฏิทินแพทย์', subtitle: 'นัดหมาย เวลาที่ไม่อยู่ และ availability ของแพทย์' },
-  '/patients': { title: 'คนไข้' },
-  '/reports': { title: 'รายงานแพทย์' },
-  '/ai': { title: 'AI Assistant' },
-  '/users': { title: 'ผู้ใช้ระบบ' },
-  '/system-health': { title: 'สถานะระบบ' },
-  '/alert-rules': { title: 'Alert Rules', subtitle: 'ตั้งกฎเตือนที่ evaluator ใช้สร้าง alert' },
-  '/audit': { title: 'Audit Log', subtitle: 'การเข้าถึงข้อมูลคนไข้ (HIPAA-like)' },
-  '/account': { title: 'บัญชี' },
+// Maps each path to its i18n key base under `pages.*`; hasSubtitle marks the
+// paths that also carry a `.subtitle`. Titles/subtitles are resolved in
+// DashboardLayout via t() so they follow the active language.
+const PAGE_META: Record<string, { key: string; hasSubtitle?: boolean }> = {
+  '/admin': { key: 'admin', hasSubtitle: true },
+  '/bookings': { key: 'bookings', hasSubtitle: true },
+  '/calendar': { key: 'calendar' },
+  '/schedule': { key: 'schedule' },
+  '/doctor-calendar': { key: 'doctorCalendar', hasSubtitle: true },
+  '/patients': { key: 'patients' },
+  '/reports': { key: 'reports' },
+  '/ai': { key: 'ai' },
+  '/users': { key: 'users' },
+  '/system-health': { key: 'systemHealth' },
+  '/alert-rules': { key: 'alertRules', hasSubtitle: true },
+  '/audit': { key: 'audit', hasSubtitle: true },
+  '/account': { key: 'account' },
 }
 
 function NotFound() {
+  const { t } = useTranslation()
   return (
     <main className="grid min-h-screen place-items-center bg-bbh-surface text-bbh-ink">
       <div className="text-center">
         <p className="font-serif text-4xl font-semibold">404</p>
-        <p className="mt-2 text-sm text-bbh-muted">ไม่พบหน้าที่คุณกำลังหา</p>
+        <p className="mt-2 text-sm text-bbh-muted">{t('notFound.message')}</p>
       </div>
     </main>
   )
@@ -89,11 +91,12 @@ function NotFound() {
 
 function LoginPage() {
   const { user, isReady } = useAuth()
+  const { t } = useTranslation()
   const location = useLocation()
   if (!isReady) {
     return (
       <main className="grid min-h-screen place-items-center bg-bbh-surface text-bbh-muted">
-        กำลังโหลด...
+        {t('common.loading')}
       </main>
     )
   }
@@ -135,6 +138,7 @@ function computeViewAs(pathname: string, asParam: string | null, actualRole: Rol
 
 function DashboardLayout() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -144,7 +148,9 @@ function DashboardLayout() {
   }, [location.pathname])
 
   if (!user) return null
-  const meta = PAGE_META[location.pathname] ?? { title: 'BBH Hospital' }
+  const meta = PAGE_META[location.pathname]
+  const title = meta ? t(`pages.${meta.key}.title`) : t('pages.fallbackTitle')
+  const subtitle = meta?.hasSubtitle ? t(`pages.${meta.key}.subtitle`) : undefined
   const viewAs = computeViewAs(location.pathname, searchParams.get('as'), user.role)
   const effectiveRole: Role = viewAs ?? user.role
 
@@ -160,7 +166,7 @@ function DashboardLayout() {
         onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
+        <Topbar title={title} subtitle={subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
         {/* Open, edge-to-edge work surface for every route: pages are full-bleed
             to the sidebar/topbar (which carry their own hairline borders), so no
             page reads as a floating card on a gradient. Each page owns its own

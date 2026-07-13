@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   AlertTriangle,
@@ -25,7 +26,7 @@ import { useResolveAlert } from '../hooks/useResolveAlert'
 
 type RoleWorkspace = {
   label: string
-  description: string
+  descriptionKey: string
   path: string
   icon: LucideIcon
 }
@@ -40,10 +41,10 @@ const FOCUS_RING =
 const HIDDEN_ROLES = new Set<string>(['Go as Nurse', 'Go as Lab'])
 
 const ROLE_WORKSPACES: RoleWorkspace[] = [
-  { label: 'Go as CRO', description: 'ดูงาน booking, calendar และการประสานงานคนไข้', path: '/bookings?as=cro', icon: ClipboardList },
-  { label: 'Go as Doctor', description: 'ดู schedule และรายงานที่เกี่ยวกับแพทย์', path: '/schedule?as=doctor', icon: Stethoscope },
-  { label: 'Go as Nurse', description: 'ดูข้อมูลคนไข้และงานติดตามเชิงปฏิบัติการ', path: '/patients?as=nurse', icon: Users },
-  { label: 'Go as Lab', description: 'ดูพื้นที่รายงานและงานแล็บที่ต้องจัดการ', path: '/reports?as=lab_staff', icon: FileText },
+  { label: 'Go as CRO', descriptionKey: 'adminDashboard.roleWorkspaceCro', path: '/bookings?as=cro', icon: ClipboardList },
+  { label: 'Go as Doctor', descriptionKey: 'adminDashboard.roleWorkspaceDoctor', path: '/schedule?as=doctor', icon: Stethoscope },
+  { label: 'Go as Nurse', descriptionKey: 'adminDashboard.roleWorkspaceNurse', path: '/patients?as=nurse', icon: Users },
+  { label: 'Go as Lab', descriptionKey: 'adminDashboard.roleWorkspaceLab', path: '/reports?as=lab_staff', icon: FileText },
 ].filter((w) => !HIDDEN_ROLES.has(w.label))
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -80,15 +81,17 @@ const SEVERITY_RAIL: Record<AlertOut['severity'], string> = {
   info: 'bg-bbh-muted/50',
 }
 
-function formatRelative(iso: string): string {
+type TFn = (key: string, opts?: Record<string, unknown>) => string
+
+function formatRelative(iso: string, t: TFn): string {
   const then = new Date(iso).getTime()
   const diffMin = Math.round((Date.now() - then) / 60_000)
-  if (diffMin < 1) return 'เมื่อกี้'
-  if (diffMin < 60) return `${diffMin} นาทีก่อน`
+  if (diffMin < 1) return t('adminDashboard.justNow')
+  if (diffMin < 60) return t('adminDashboard.minutesAgo', { count: diffMin })
   const diffHr = Math.round(diffMin / 60)
-  if (diffHr < 24) return `${diffHr} ชม.ที่แล้ว`
+  if (diffHr < 24) return t('adminDashboard.hoursAgo', { count: diffHr })
   const diffDay = Math.round(diffHr / 24)
-  return `${diffDay} วันก่อน`
+  return t('adminDashboard.daysAgo', { count: diffDay })
 }
 
 function MetricCard({ label, value, helper, icon: Icon, tone, onClick, active, live }: {
@@ -152,6 +155,7 @@ function StatusPill({ status }: { status: AlertOut['status'] }) {
 }
 
 export function AdminDashboard() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [severityFilter, setSeverityFilter] = useState<AlertSeverity | null>(null)
   const alertsQ = useAdminAlerts({ limit: 100, severity: severityFilter ?? undefined })
@@ -190,9 +194,9 @@ export function AdminDashboard() {
                 Admin Control Room
               </span>
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">ภาพรวมสำหรับผู้ดูแลระบบ</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('adminDashboard.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              หน้านี้แสดงเรื่องที่ต้องลงมือทำ (Action Required) ความเสี่ยง ระบบ และ compliance ของโรงพยาบาล
+              {t('adminDashboard.subtitle')}
             </p>
           </div>
           <button
@@ -201,7 +205,7 @@ export function AdminDashboard() {
             className={`inline-flex shrink-0 items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
             <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-            รีเฟรช
+            {t('adminDashboard.refresh')}
           </button>
         </div>
 
@@ -211,7 +215,7 @@ export function AdminDashboard() {
           <MetricCard
             label="Critical"
             value={summary?.by_severity?.critical ?? 0}
-            helper={severityFilter === 'critical' ? 'กำลังกรอง — คลิกอีกครั้งเพื่อยกเลิก' : 'ต้องจัดการทันที — คลิกเพื่อกรอง'}
+            helper={severityFilter === 'critical' ? t('adminDashboard.helperFiltering') : t('adminDashboard.helperCritical')}
             icon={AlertTriangle}
             tone="critical"
             onClick={() => toggleSeverity('critical')}
@@ -221,7 +225,7 @@ export function AdminDashboard() {
           <MetricCard
             label="Warning"
             value={summary?.by_severity?.warning ?? 0}
-            helper={severityFilter === 'warning' ? 'กำลังกรอง — คลิกอีกครั้งเพื่อยกเลิก' : 'ติดตามใกล้ชิด — คลิกเพื่อกรอง'}
+            helper={severityFilter === 'warning' ? t('adminDashboard.helperFiltering') : t('adminDashboard.helperWarning')}
             icon={Activity}
             tone="warning"
             onClick={() => toggleSeverity('warning')}
@@ -230,7 +234,7 @@ export function AdminDashboard() {
           <MetricCard
             label="Info"
             value={summary?.by_severity?.info ?? 0}
-            helper={severityFilter === 'info' ? 'กำลังกรอง — คลิกอีกครั้งเพื่อยกเลิก' : 'ทราบไว้เพื่อตัดสินใจ — คลิกเพื่อกรอง'}
+            helper={severityFilter === 'info' ? t('adminDashboard.helperFiltering') : t('adminDashboard.helperInfo')}
             icon={ShieldCheck}
             onClick={() => toggleSeverity('info')}
             active={severityFilter === 'info'}
@@ -238,7 +242,7 @@ export function AdminDashboard() {
           <MetricCard
             label="Roles"
             value="5"
-            helper="admin, doctor, cro, nurse, lab_staff — คลิกเพื่อจัดการ"
+            helper={t('adminDashboard.helperRoles')}
             icon={UserCog}
             onClick={() => navigate('/users')}
           />
@@ -246,8 +250,8 @@ export function AdminDashboard() {
 
         <div className="animate-rise mb-10" style={{ animationDelay: '140ms' }}>
           <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">Role workspaces</h2>
-            <p className="text-xs text-bbh-muted">เข้าใช้งานในมุมของแต่ละ role</p>
+            <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('adminDashboard.roleWorkspaces')}</h2>
+            <p className="text-xs text-bbh-muted">{t('adminDashboard.roleWorkspacesHint')}</p>
           </div>
           <div
             className={`grid gap-4 ${
@@ -272,7 +276,7 @@ export function AdminDashboard() {
                     </div>
                     <div>
                       <p className="text-base font-semibold text-bbh-ink">{item.label}</p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-bbh-muted">{item.description}</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-bbh-muted">{t(item.descriptionKey)}</p>
                     </div>
                   </div>
                 </a>
@@ -283,9 +287,9 @@ export function AdminDashboard() {
 
         <div className="animate-rise" style={{ animationDelay: '210ms' }}>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">Action required</h2>
+            <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('adminDashboard.actionRequired')}</h2>
             <span className="font-mono text-xs tabular-nums text-bbh-muted">
-              {alertsQ.isLoading ? 'กำลังโหลด…' : `${alerts.length} รายการ`}
+              {alertsQ.isLoading ? t('adminDashboard.loadingEllipsis') : t('adminDashboard.itemCount', { count: alerts.length })}
             </span>
           </div>
           {severityFilter ? (
@@ -294,10 +298,10 @@ export function AdminDashboard() {
                 type="button"
                 onClick={() => setSeverityFilter(null)}
                 className={`inline-flex items-center gap-1.5 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-3 py-1 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
-                aria-label={`ยกเลิกตัวกรอง ${severityFilter}`}
-                title="ยกเลิกตัวกรอง"
+                aria-label={t('adminDashboard.clearFilterAria', { severity: severityFilter })}
+                title={t('adminDashboard.clearFilter')}
               >
-                กรอง: {severityFilter}
+                {t('adminDashboard.filterLabel', { severity: severityFilter })}
                 <span aria-hidden className="text-bbh-muted">×</span>
               </button>
             </div>
@@ -305,23 +309,23 @@ export function AdminDashboard() {
 
           {alertsQ.isLoading ? (
             <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-8 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลดรายการ
+              <Loader2 size={16} className="mr-2 animate-spin" /> {t('adminDashboard.loadingList')}
             </div>
           ) : alertsQ.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-              โหลดข้อมูลไม่สำเร็จ — ลองรีเฟรชอีกครั้ง
+              {t('adminDashboard.loadFailedRetry')}
             </div>
           ) : alerts.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-center">
               <CheckCircle2 size={32} className="mb-2 text-bbh-green" />
-              <p className="text-sm font-semibold text-bbh-ink">ไม่มีรายการที่ต้องดำเนินการ</p>
-              <p className="mt-1 text-xs text-bbh-muted">ระบบ healthy — รีเฟรชเพื่อตรวจซ้ำ</p>
+              <p className="text-sm font-semibold text-bbh-ink">{t('adminDashboard.noActionItems')}</p>
+              <p className="mt-1 text-xs text-bbh-muted">{t('adminDashboard.systemHealthyHint')}</p>
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
               <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-bbh-line bg-bbh-surface px-6 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid-cols-[140px_1.3fr_140px_120px]">
                 <span>Area</span>
-                <span>เรื่อง</span>
+                <span>{t('adminDashboard.colTitle')}</span>
                 <span className="hidden lg:block">Last seen</span>
                 <span className="text-right">Status</span>
               </div>
@@ -349,7 +353,7 @@ export function AdminDashboard() {
                           {a.rule_display_name} · <span className="font-mono">{a.subject_type}:{a.subject_id}</span>
                         </p>
                       </div>
-                      <div className="hidden font-mono text-xs tabular-nums text-bbh-muted lg:block">{formatRelative(a.last_seen_at)}</div>
+                      <div className="hidden font-mono text-xs tabular-nums text-bbh-muted lg:block">{formatRelative(a.last_seen_at, t)}</div>
                       <div className="text-right"><StatusPill status={a.status} /></div>
                     </button>
                   )
@@ -366,14 +370,14 @@ export function AdminDashboard() {
             <div className="rounded-xl border border-bbh-green/30 bg-bbh-green-soft p-6 text-center">
               <CheckCircle2 size={28} className="mx-auto mb-2 text-bbh-green" />
               <p className="text-sm font-semibold text-bbh-ink">
-                ไม่มี {severityFilter} alert เปิดอยู่
+                {t('adminDashboard.noOpenAlertsForSeverity', { severity: severityFilter })}
               </p>
-              <p className="mt-1 text-xs text-bbh-muted">ระบบ healthy ในระดับความรุนแรงนี้</p>
+              <p className="mt-1 text-xs text-bbh-muted">{t('adminDashboard.systemHealthyAtSeverity')}</p>
             </div>
           ) : (
             <div className="space-y-6">
               <div className={`rounded-lg border px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] ${SEVERITY_STYLES[severityFilter]}`}>
-                <span className="tabular-nums">{alerts.length}</span> {severityFilter} alert{alerts.length > 1 ? 's' : ''} · เลื่อนดูทุกอัน
+                <span className="tabular-nums">{alerts.length}</span> {severityFilter} alert{alerts.length > 1 ? 's' : ''} · {t('adminDashboard.scrollToSeeAll')}
               </div>
               {alerts.map((a, i) => (
                 <div key={a.alert_id} className={i < alerts.length - 1 ? 'border-b border-bbh-line pb-6' : ''}>
@@ -386,7 +390,7 @@ export function AdminDashboard() {
           <AlertDetail alert={selected} ruleDescription={rulesByKey[selected.rule_key]?.description ?? null} />
         ) : (
           <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-            เลือก alert จากด้านซ้าย หรือกด Critical/Warning/Info เพื่อกรอง
+            {t('adminDashboard.selectAlertHint')}
           </div>
         )}
       </aside>
@@ -394,7 +398,7 @@ export function AdminDashboard() {
       <div className="lg:hidden">
         <Modal
           open={detailOpen && Boolean(selected)}
-          title={selected?.title ?? 'รายละเอียด'}
+          title={selected?.title ?? t('adminDashboard.detail')}
           onClose={() => setDetailOpen(false)}
           size="lg"
         >
@@ -408,6 +412,7 @@ export function AdminDashboard() {
 function AlertDetail({ alert, ruleDescription, compact = false }: {
   alert: AlertOut; ruleDescription: string | null; compact?: boolean
 }) {
+  const { t } = useTranslation()
   const ack = useAcknowledgeAlert()
   const resolve = useResolveAlert()
 
@@ -464,11 +469,11 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-bbh-line bg-white p-6">
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">First seen</p>
-          <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatRelative(alert.first_seen_at)}</p>
+          <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatRelative(alert.first_seen_at, t)}</p>
         </div>
         <div className="rounded-xl border border-bbh-line bg-white p-6">
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Last seen</p>
-          <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatRelative(alert.last_seen_at)}</p>
+          <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatRelative(alert.last_seen_at, t)}</p>
         </div>
       </div>
 
@@ -478,7 +483,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
           <textarea
             value={ackNote}
             onChange={(e) => setAckNote(e.target.value)}
-            placeholder="หมายเหตุ (ไม่บังคับ)"
+            placeholder={t('adminDashboard.notePlaceholder')}
             rows={2}
             className={`mt-2 ${fieldClass}`}
           />
@@ -491,10 +496,10 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
                 max={720}
                 value={snoozeHours}
                 onChange={(e) => setSnoozeHours(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="ชม."
+                placeholder={t('adminDashboard.hoursShort')}
                 className="w-20 rounded border border-bbh-line px-2 py-1 font-mono tabular-nums transition-colors duration-200 focus:border-bbh-green focus:outline-none"
               />
-              ชม. (ไม่บังคับ)
+              {t('adminDashboard.hoursOptional')}
             </label>
           </div>
           <button
@@ -523,15 +528,15 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
             onChange={(e) => setResolveReason(e.target.value)}
             className={`mt-2 ${fieldClass}`}
           >
-            <option value="manual_close">ปิด — แก้ไขเสร็จแล้ว</option>
-            <option value="false_positive">ปิด — เป็น false positive</option>
-            <option value="duplicate">ปิด — ซ้ำกับรายการอื่น</option>
-            <option value="wont_fix">ปิด — won&apos;t fix</option>
+            <option value="manual_close">{t('adminDashboard.resolveManualClose')}</option>
+            <option value="false_positive">{t('adminDashboard.resolveFalsePositive')}</option>
+            <option value="duplicate">{t('adminDashboard.resolveDuplicate')}</option>
+            <option value="wont_fix">{t('adminDashboard.resolveWontFix')}</option>
           </select>
           <textarea
             value={resolveNote}
             onChange={(e) => setResolveNote(e.target.value)}
-            placeholder="หมายเหตุ (ไม่บังคับ)"
+            placeholder={t('adminDashboard.notePlaceholder')}
             rows={2}
             className={`mt-2 ${fieldClass}`}
           />
@@ -550,7 +555,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
         </div>
       ) : (
         <div className="rounded-xl border border-bbh-green/30 bg-bbh-green-soft p-6 text-sm text-bbh-green-dark">
-          ปิดแล้วเมื่อ {alert.resolved_at ? formatRelative(alert.resolved_at) : '—'} ({alert.resolved_reason ?? 'unknown'})
+          {t('adminDashboard.resolvedAt', { when: alert.resolved_at ? formatRelative(alert.resolved_at, t) : '—', reason: alert.resolved_reason ?? 'unknown' })}
         </div>
       )}
     </div>

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, CalendarDays, CalendarOff, CheckCircle2, ChevronLeft, ChevronRight, Clock, Stethoscope, Video, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -23,36 +25,29 @@ import type { components } from '../lib/api-types'
 type BookingItem = components['schemas']['BookingListItem']
 type BookingStatus = BookingItem['status']
 
-const THAI_MONTHS = [
-  'มกราคม',
-  'กุมภาพันธ์',
-  'มีนาคม',
-  'เมษายน',
-  'พฤษภาคม',
-  'มิถุนายน',
-  'กรกฎาคม',
-  'สิงหาคม',
-  'กันยายน',
-  'ตุลาคม',
-  'พฤศจิกายน',
-  'ธันวาคม',
-]
-const WEEKDAY_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-const THAI_WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+// Weekday short labels (Sunday-first) in the active locale. 2024-12-01 is a
+// Sunday, so formatting that reference week yields localized weekday names.
+function weekdayShortLabels(): string[] {
+  return Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 11, 1 + i).toLocaleDateString(dateLocale(), { weekday: 'short' }),
+  )
+}
 
+// label is an i18next key resolved with t() at render time (module scope has no hook).
 const STATUS_FILTER_ITEMS: { key: BookingStatus | 'all'; label: string }[] = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'approved', label: 'ยืนยัน' },
-  { key: 'pending_approval', label: 'รอ' },
-  { key: 'cancelled', label: 'ยกเลิก' },
-  { key: 'rejected', label: 'ปฏิเสธ' },
+  { key: 'all', label: 'common.all' },
+  { key: 'approved', label: 'calendar.filterApproved' },
+  { key: 'pending_approval', label: 'calendar.filterPending' },
+  { key: 'cancelled', label: 'calendar.filterCancelled' },
+  { key: 'rejected', label: 'calendar.filterRejected' },
 ]
 
+// values are i18next keys resolved with t() at render time.
 const APPT_TYPE_LABELS: Record<string, string> = {
-  new: 'ใหม่',
-  followup: 'ติดตาม',
-  procedure: 'หัตถการ',
-  consult: 'ปรึกษา',
+  new: 'calendar.apptTypeNew',
+  followup: 'calendar.apptTypeFollowup',
+  procedure: 'calendar.apptTypeProcedure',
+  consult: 'calendar.apptTypeConsult',
 }
 
 function toDateKey(year: number, month: number, day: number): string {
@@ -66,17 +61,18 @@ function daysInMonthFor(year: number, month: number): number {
 // CRO-editable online-meeting link on an approved booking. Saving writes it to
 // the Google Calendar event (backend PATCH); the doctor schedule reads it back.
 function VideoLinkEditor({ uid, current }: { uid: string; current: string | null }) {
+  const { t } = useTranslation()
   const [value, setValue] = useState(current ?? '')
   const setLink = useSetVideoLink()
   const changed = value.trim() !== (current ?? '')
   return (
     <div className="mt-3 border-t border-sky-100 pt-3">
-      <label className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">ลิงก์ประชุมออนไลน์</label>
+      <label className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('calendar.onlineMeetingLink')}</label>
       <div className="mt-1.5 flex gap-1.5">
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="วางลิงก์ Meet / Zoom / ..."
+          placeholder={t('calendar.pasteMeetingLinkPlaceholder')}
           className={`min-w-0 flex-1 rounded-lg border border-bbh-line bg-white px-2 py-1.5 text-xs text-bbh-ink focus:border-bbh-green focus:outline-none ${FOCUS_RING}`}
         />
         <button
@@ -85,10 +81,10 @@ function VideoLinkEditor({ uid, current }: { uid: string; current: string | null
           onClick={() => setLink.mutate({ uid, videoLink: value.trim() || null })}
           className={`shrink-0 rounded-lg bg-bbh-green px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-50 ${FOCUS_RING}`}
         >
-          บันทึก
+          {t('common.save')}
         </button>
       </div>
-      {setLink.isError ? <p className="mt-1 text-[11px] text-red-600">บันทึกไม่สำเร็จ — ลิงก์ต้องขึ้นต้น http:// หรือ https://</p> : null}
+      {setLink.isError ? <p className="mt-1 text-[11px] text-red-600">{t('calendar.videoLinkSaveFailed')}</p> : null}
     </div>
   )
 }
@@ -121,11 +117,11 @@ function eventDateKey(event: CalendarEvent): string | null {
   return toDateKey(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-function eventTimeLabel(event: CalendarEvent): string {
-  if (event.all_day) return 'ทั้งวัน'
+function eventTimeLabel(event: CalendarEvent, t: (key: string) => string): string {
+  if (event.all_day) return t('calendar.allDay')
   const date = new Date(event.start)
   if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 function blockOverlapsDay(block: ScheduleBlock, dateKey: string): boolean {
@@ -136,15 +132,15 @@ function blockOverlapsDay(block: ScheduleBlock, dateKey: string): boolean {
   return start <= dayEnd && end >= dayStart
 }
 
-function blockTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    vacation: 'ลา',
-    off_hours: 'ไม่อยู่',
-    conference: 'ประชุม',
-    sick: 'ป่วย',
-    other: 'ไม่ว่าง',
+function blockTypeLabel(type: string, t: (key: string) => string): string {
+  const keys: Record<string, string> = {
+    vacation: 'calendar.blockTypeVacation',
+    off_hours: 'calendar.blockTypeOffHours',
+    conference: 'calendar.blockTypeConference',
+    sick: 'calendar.blockTypeSick',
+    other: 'calendar.blockTypeOther',
   }
-  return labels[type] ?? type
+  return keys[type] ? t(keys[type]) : type
 }
 
 function formatBlockRange(block: ScheduleBlock): string {
@@ -152,10 +148,10 @@ function formatBlockRange(block: ScheduleBlock): string {
   const end = new Date(block.end_at)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-'
   const sameDay = start.toDateString() === end.toDateString()
-  const startDate = start.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-  const endDate = end.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-  const startTime = start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-  const endTime = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  const startDate = start.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })
+  const endDate = end.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })
+  const startTime = start.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
+  const endTime = end.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
   return sameDay ? `${startDate} ${startTime}-${endTime}` : `${startDate} ${startTime} - ${endDate} ${endTime}`
 }
 
@@ -180,8 +176,12 @@ function parseBbhCalendarEvent(event: CalendarEvent) {
 
 function formatThaiDate(dateKey: string): string {
   const [y, m, d] = dateKey.split('-').map(Number)
-  const weekday = new Date(y, m - 1, d).getDay()
-  return `วัน${THAI_WEEKDAYS[weekday]}ที่ ${d} ${THAI_MONTHS[m - 1]} ${y}`
+  return new Date(y, m - 1, d).toLocaleDateString(dateLocale(), {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
 // Shared focus treatment so every interactive element gets a visible,
@@ -220,6 +220,7 @@ function mapByDate<T>(items: T[], getDate: (item: T) => string | null): Record<s
 }
 
 export function Calendar() {
+  const { t } = useTranslation()
   const cancelBooking = useCancelBooking()
   const toast = useToast()
   const qc = useQueryClient()
@@ -392,13 +393,13 @@ export function Calendar() {
   }
 
   async function handleCancelBooking(uid: string, patientName?: string | null) {
-    const ok = window.confirm(`ยืนยันยกเลิกนัดของ ${patientName || 'คนไข้'} ใช่ไหม?`)
+    const ok = window.confirm(t('calendar.confirmCancelAppointment', { name: patientName || t('calendar.patientFallback') }))
     if (!ok) return
     try {
       await cancelBooking.mutateAsync({ uid, reason: 'Cancelled by CRO from calendar' })
-      toast.show('success', 'ยกเลิกนัดเรียบร้อยแล้ว')
+      toast.show('success', t('calendar.cancelSuccess'))
     } catch {
-      toast.show('error', 'ยกเลิกนัดไม่สำเร็จ')
+      toast.show('error', t('calendar.cancelFailed'))
     }
   }
 
@@ -415,11 +416,11 @@ export function Calendar() {
         {/* Month-summary strip — instrument metric cluster (hairline gap-px) so the
             page opens with a confident readout of the month's load, not empty space */}
         <div className="animate-rise mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-5" style={{ animationDelay: '40ms' }}>
-          <SummaryCell label="นัดเดือนนี้" value={monthSummary.total} icon={CalendarDays} tone="ink" />
-          <SummaryCell label="ยืนยันแล้ว" value={monthSummary.approved} icon={CheckCircle2} tone="green" />
-          <SummaryCell label="รอยืนยัน" value={monthSummary.pending} icon={Clock} tone="amber" />
-          <SummaryCell label="ในปฏิทิน" value={monthSummary.google} icon={CalendarClock} tone="sky" />
-          <SummaryCell label="แพทย์ไม่อยู่" value={monthSummary.unavailable} icon={CalendarOff} tone="amber" />
+          <SummaryCell label={t('calendar.summaryTotal')} value={monthSummary.total} icon={CalendarDays} tone="ink" />
+          <SummaryCell label={t('calendar.summaryApproved')} value={monthSummary.approved} icon={CheckCircle2} tone="green" />
+          <SummaryCell label={t('calendar.summaryPending')} value={monthSummary.pending} icon={Clock} tone="amber" />
+          <SummaryCell label={t('calendar.summaryInCalendar')} value={monthSummary.google} icon={CalendarClock} tone="sky" />
+          <SummaryCell label={t('calendar.summaryDoctorOff')} value={monthSummary.unavailable} icon={CalendarOff} tone="amber" />
         </div>
 
         {/* Month navigation — kept right above the grid so changing month
@@ -429,18 +430,19 @@ export function Calendar() {
             type="button"
             onClick={prevMonth}
             className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-            aria-label="เดือนก่อนหน้า"
+            aria-label={t('calendar.prevMonth')}
           >
             <ChevronLeft size={18} />
           </button>
           <h1 className="min-w-[180px] flex-1 text-center font-serif text-2xl font-semibold text-bbh-ink sm:flex-none md:text-3xl">
-            {THAI_MONTHS[month]} <span className="font-mono tabular-nums">{year}</span>
+            {new Date(year, month, 1).toLocaleDateString(dateLocale(), { month: 'long' })}{' '}
+            <span className="font-mono tabular-nums">{year}</span>
           </h1>
           <button
             type="button"
             onClick={nextMonth}
             className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-            aria-label="เดือนถัดไป"
+            aria-label={t('calendar.nextMonth')}
           >
             <ChevronRight size={18} />
           </button>
@@ -449,7 +451,7 @@ export function Calendar() {
             onClick={goToday}
             className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
-            วันนี้
+            {t('common.today')}
           </button>
           <label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink">
             <Stethoscope size={15} className="text-bbh-muted" />
@@ -457,16 +459,16 @@ export function Calendar() {
               value={selectedDoctorId}
               onChange={(event) => setSelectedDoctorId(event.target.value === '' ? '' : Number(event.target.value))}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              aria-label="เลือกปฏิทินของแพทย์"
+              aria-label={t('calendar.selectDoctorCalendar')}
             >
-              <option value="">แพทย์ทุกคน (ภาพรวม)</option>
+              <option value="">{t('calendar.allDoctorsOverview')}</option>
               {(doctorsQ.data?.data ?? []).map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>{doctor.display_name}</option>
               ))}
             </select>
           </label>
           <span className="ml-0 w-full font-mono text-xs tabular-nums text-bbh-muted sm:ml-auto sm:w-auto">
-            {isLoading ? <span className="animate-pulse">กำลังโหลด…</span> : null}
+            {isLoading ? <span className="animate-pulse">{t('common.loading')}</span> : null}
           </span>
         </div>
 
@@ -474,7 +476,7 @@ export function Calendar() {
           <div className="min-w-[640px] md:min-w-0">
             {/* Weekday rail — instrument column labels */}
             <div className="mb-2 grid grid-cols-7 gap-px">
-              {WEEKDAY_SHORT.map((d) => (
+              {weekdayShortLabels().map((d) => (
                 <div key={d} className="py-2 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">
                   {d}
                 </div>
@@ -515,12 +517,12 @@ export function Calendar() {
                       {day}
                     </span>
                     <div className="mt-auto flex w-full flex-col gap-0.5">
-                      {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> ยืนยัน</span>}
-                      {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> รอ</span>}
-                      {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{rescheduledCnt}</span> เลื่อนนัด</span>}
-                      {blockCnt > 0 && <span className="truncate rounded bg-zinc-200 px-1 text-[10px] font-medium leading-tight text-zinc-700"><span className="font-mono tabular-nums">{blockCnt}</span> หมอไม่อยู่</span>}
-                      {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500"><span className="font-mono tabular-nums">{cancelledCnt}</span> ยกเลิก</span>}
-                      {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700"><span className="font-mono tabular-nums">{googleItems.length}</span> นัด</span>}
+                      {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> {t('calendar.badgeApproved')}</span>}
+                      {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> {t('calendar.badgePending')}</span>}
+                      {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{rescheduledCnt}</span> {t('calendar.badgeRescheduled')}</span>}
+                      {blockCnt > 0 && <span className="truncate rounded bg-zinc-200 px-1 text-[10px] font-medium leading-tight text-zinc-700"><span className="font-mono tabular-nums">{blockCnt}</span> {t('calendar.badgeDoctorOff')}</span>}
+                      {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500"><span className="font-mono tabular-nums">{cancelledCnt}</span> {t('common.cancel')}</span>}
+                      {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700"><span className="font-mono tabular-nums">{googleItems.length}</span> {t('calendar.badgeAppointment')}</span>}
                     </div>
                   </button>
                 )
@@ -530,20 +532,20 @@ export function Calendar() {
         </div>
 
         <div className="animate-rise mt-6 flex flex-wrap items-center gap-4 text-xs text-bbh-muted" style={{ animationDelay: '140ms' }}>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />ยืนยันแล้ว</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />รอยืนยัน</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-slate-300 bg-slate-200" />เลื่อนนัด (รอเวลาใหม่)</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-zinc-300 bg-zinc-200" />แพทย์ไม่อยู่</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-gray-200 bg-gray-100" />ยกเลิก / ปฏิเสธ</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-sky-200 bg-sky-50" />นัดในปฏิทิน</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-[3px] rounded-full bg-bbh-green" />วันนี้</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />{t('calendar.summaryApproved')}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />{t('calendar.summaryPending')}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-slate-300 bg-slate-200" />{t('calendar.legendRescheduled')}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-zinc-300 bg-zinc-200" />{t('calendar.legendDoctorOff')}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-gray-200 bg-gray-100" />{t('calendar.legendCancelledRejected')}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-sky-200 bg-sky-50" />{t('calendar.legendInCalendar')}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-[3px] rounded-full bg-bbh-green" />{t('common.today')}</span>
         </div>
       </section>
 
       {selectedDate ? (
         <button
           type="button"
-          aria-label="ปิดรายละเอียดนัดหมาย"
+          aria-label={t('calendar.closeAppointmentDetails')}
           onClick={() => setSelectedDate(null)}
           className="fixed inset-0 z-30 bg-bbh-ink/35 backdrop-blur-[2px] lg:hidden"
         />
@@ -555,7 +557,7 @@ export function Calendar() {
             type="button"
             onClick={() => setSelectedDate(null)}
             className={`grid h-9 w-9 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-            aria-label="ปิดรายละเอียดนัดหมาย"
+            aria-label={t('calendar.closeAppointmentDetails')}
           >
             <X size={18} />
           </button>
@@ -563,25 +565,25 @@ export function Calendar() {
         {!selectedDate ? (
           <div className="flex h-full items-center justify-center text-center text-sm text-bbh-muted">
             <div className="rounded-xl border border-dashed border-bbh-line bg-bbh-surface px-8 py-10">
-              เลือกวันเพื่อดูนัดหมาย
+              {t('calendar.selectDayPrompt')}
             </div>
           </div>
         ) : (
           <>
             <div className="mb-6">
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">นัดหมาย</p>
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('calendar.appointmentsLabel')}</p>
               <p className="mt-2 font-serif text-xl font-semibold text-bbh-ink">
                 {formatThaiDate(selectedDate)}
               </p>
               <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">
-                {rawSelected.length + selectedGoogle.length === 0 ? 'ไม่มีนัดหมาย' : `${rawSelected.length + selectedGoogle.length} นัดหมาย`}
+                {rawSelected.length + selectedGoogle.length === 0 ? t('calendar.noAppointments') : t('calendar.appointmentCount', { count: rawSelected.length + selectedGoogle.length })}
               </p>
               {selectedDoctorId !== '' ? (
                 <p className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${openHoursForSelected.length > 0 ? 'bg-bbh-green-soft text-bbh-green-dark' : 'bg-bbh-surface text-bbh-muted'}`}>
                   <Clock size={12} />
                   {openHoursForSelected.length > 0
-                    ? `เปิดรับนัด ${openHoursForSelected.map((r) => `${r.start_time}–${r.end_time}`).join(', ')}`
-                    : 'วันนี้แพทย์ไม่เปิดรับนัด'}
+                    ? t('calendar.openForBooking', { hours: openHoursForSelected.map((r) => `${r.start_time}–${r.end_time}`).join(', ') })
+                    : t('calendar.doctorNotOpenToday')}
                 </p>
               ) : null}
             </div>
@@ -604,7 +606,7 @@ export function Calendar() {
                           : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
                       }`}
                     >
-                      {label} {count > 0 && <span className="ml-0.5 font-mono tabular-nums opacity-70">({count})</span>}
+                      {t(label)} {count > 0 && <span className="ml-0.5 font-mono tabular-nums opacity-70">({count})</span>}
                     </button>
                   )
                 })}
@@ -617,7 +619,7 @@ export function Calendar() {
               </div>
             ) : filteredSelected.length === 0 && selectedGoogle.length === 0 && tbdBookings.length === 0 && selectedBlocks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-bbh-line bg-white p-10 text-center">
-                <p className="text-sm text-bbh-muted">ยังไม่มีนัดหมายในวันนี้</p>
+                <p className="text-sm text-bbh-muted">{t('calendar.noAppointmentsToday')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -625,13 +627,13 @@ export function Calendar() {
                   <div key={`block-${block.id}`} className="rounded-xl border border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-700">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-bbh-ink">{block.doctor_name ?? `แพทย์ #${block.doctor_id}`}</p>
+                        <p className="font-semibold text-bbh-ink">{block.doctor_name ?? t('calendar.doctorNumber', { id: block.doctor_id })}</p>
                         <p className="mt-1 font-mono text-xs tabular-nums text-zinc-600">{formatBlockRange(block)}</p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-700">{blockTypeLabel(block.block_type)}</span>
+                      <span className="shrink-0 rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-700">{blockTypeLabel(block.block_type, t)}</span>
                     </div>
                     {block.reason ? <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{block.reason}</p> : null}
-                    <p className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">แพทย์ระบุว่า: <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type)}</span></p>
+                    <p className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">{t('calendar.doctorStatedLabel')} <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type, t)}</span></p>
                   </div>
                 ))}
                 {tbdBookings.map((b) => (
@@ -641,11 +643,11 @@ export function Calendar() {
                         <p className="truncate text-sm font-semibold text-bbh-ink">{b.patient_name ?? '-'}</p>
                         <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">{b.phone ?? '-'}</p>
                       </div>
-                      <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">เลื่อนนัด · รอเวลาใหม่</span>
+                      <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">{t('calendar.rescheduleAwaitingTime')}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-600">คนไข้ยังไม่ยืนยันเวลา</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ?? b.appointment_type}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-600">{t('calendar.patientNotConfirmedTime')}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ? t(APPT_TYPE_LABELS[b.appointment_type]) : b.appointment_type}</span>
                       <SourceBadge source={b.booking_source} />
                     </div>
                     {b.symptom && <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>}
@@ -655,7 +657,7 @@ export function Calendar() {
                         onClick={() => setApproveTargetUid(b.request_uid)}
                         className={`w-full rounded-lg bg-bbh-green px-3 py-2 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
                       >
-                        กำหนดวัน-เวลาใหม่
+                        {t('calendar.setNewDateTime')}
                       </button>
                     </div>
                   </div>
@@ -674,8 +676,8 @@ export function Calendar() {
                         <StatusBadge status={b.status} />
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                        {time && <span className="font-mono font-semibold tabular-nums text-bbh-ink">{time} น.</span>}
-                        <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ?? b.appointment_type}</span>
+                        {time && <span className="font-mono font-semibold tabular-nums text-bbh-ink">{t('calendar.timeSuffix', { time })}</span>}
+                        <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ? t(APPT_TYPE_LABELS[b.appointment_type]) : b.appointment_type}</span>
                         <SourceBadge source={b.booking_source} />
                       </div>
                       {b.symptom && <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{b.symptom}</p>}
@@ -686,7 +688,7 @@ export function Calendar() {
                             onClick={() => setRescheduleTarget({ uid: b.request_uid, currentText: b.requested_datetime_text })}
                             className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-xs font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
                           >
-                            เลื่อนนัด
+                            {t('calendar.reschedule')}
                           </button>
                           <button
                             type="button"
@@ -694,7 +696,7 @@ export function Calendar() {
                             onClick={() => void handleCancelBooking(b.request_uid, b.patient_name)}
                             className={`rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
                           >
-                            ยกเลิกนัด
+                            {t('calendar.cancelAppointment')}
                           </button>
                         </div>
                       ) : null}
@@ -712,14 +714,14 @@ export function Calendar() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-bbh-ink">{info.patientName}</p>
-                          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-sky-700">{eventTimeLabel(event)} น.</p>
+                          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-sky-700">{t('calendar.timeSuffix', { time: eventTimeLabel(event, t) })}</p>
                         </div>
-                        <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">ปฏิทิน</span>
+                        <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">{t('calendar.calendarBadge')}</span>
                       </div>
                       <div className="mt-3 space-y-1.5 text-xs text-bbh-muted">
-                        {info.phone ? <p><span className="font-semibold text-bbh-ink">เบอร์:</span> <span className="font-mono tabular-nums">{info.phone}</span></p> : null}
-                        {info.symptom ? <p><span className="font-semibold text-bbh-ink">อาการ:</span> {info.symptom}</p> : null}
-                        {info.requestUid ? <p className="truncate font-mono text-[11px] text-bbh-muted/80">รหัสคำขอ: {info.requestUid}</p> : null}
+                        {info.phone ? <p><span className="font-semibold text-bbh-ink">{t('calendar.phoneLabel')}</span> <span className="font-mono tabular-nums">{info.phone}</span></p> : null}
+                        {info.symptom ? <p><span className="font-semibold text-bbh-ink">{t('calendar.symptomLabel')}</span> {info.symptom}</p> : null}
+                        {info.requestUid ? <p className="truncate font-mono text-[11px] text-bbh-muted/80">{t('calendar.requestIdLabel', { uid: info.requestUid })}</p> : null}
                       </div>
                       {event.video_link ? (
                         <a
@@ -728,7 +730,7 @@ export function Calendar() {
                           rel="noreferrer"
                           className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-bbh-green px-3 py-2 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
                         >
-                          <Video size={13} /> เข้าร่วมออนไลน์
+                          <Video size={13} /> {t('calendar.joinOnline')}
                         </a>
                       ) : null}
                       {info.requestUid ? <VideoLinkEditor uid={info.requestUid} current={event.video_link} /> : null}
@@ -739,7 +741,7 @@ export function Calendar() {
                           rel="noreferrer"
                           className={`rounded-lg border border-sky-200 bg-white px-3 py-2 text-center text-xs font-semibold text-sky-700 transition-colors duration-200 hover:bg-sky-50 ${FOCUS_RING}`}
                         >
-                          เปิดปฏิทิน
+                          {t('calendar.openCalendar')}
                         </a>
                         {info.requestUid ? (
                           <button
@@ -748,7 +750,7 @@ export function Calendar() {
                             onClick={() => void handleCancelBooking(info.requestUid!, info.patientName)}
                             className={`rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
                           >
-                            ยกเลิกนัด
+                            {t('calendar.cancelAppointment')}
                           </button>
                         ) : null}
                       </div>
@@ -770,7 +772,7 @@ export function Calendar() {
           void qc.invalidateQueries({ queryKey: ['bookings-all'] })
           void qc.invalidateQueries({ queryKey: ['calendar-events'] })
           void qc.invalidateQueries({ queryKey: ['rescheduled-marks'] })
-          toast.show('success', 'เลื่อนนัดสำเร็จ')
+          toast.show('success', t('calendar.rescheduleSuccess'))
         }}
       />
 

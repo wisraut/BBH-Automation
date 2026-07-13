@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { dateLocale } from '../../i18n/datetime'
 import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Modal } from '../Modal'
 import { useToast } from '../../hooks/useToast'
@@ -40,22 +42,22 @@ function nextDateKey(dateKey: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-function blockTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    vacation: 'ลา',
-    off_hours: 'ไม่อยู่',
-    conference: 'ประชุม',
-    sick: 'ป่วย',
-    other: 'ไม่ว่าง',
+function blockTypeLabel(type: string, t: (key: string) => string): string {
+  const keys: Record<string, string> = {
+    vacation: 'approveModal.blockType.vacation',
+    off_hours: 'approveModal.blockType.offHours',
+    conference: 'approveModal.blockType.conference',
+    sick: 'approveModal.blockType.sick',
+    other: 'approveModal.blockType.other',
   }
-  return labels[type] ?? type
+  return keys[type] ? t(keys[type]) : type
 }
 
 function formatBlockRange(block: ScheduleBlock): string {
   const start = new Date(block.start_at)
   const end = new Date(block.end_at)
-  const startTime = start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-  const endTime = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  const startTime = start.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
+  const endTime = end.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
   return `${startTime}-${endTime}`
 }
 
@@ -70,6 +72,7 @@ function overlapsBlock(block: ScheduleBlock, startAt: string, duration: number):
 }
 
 export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctorId }: ApproveModalProps) {
+  const { t } = useTranslation()
   const [startAt, setStartAt] = useState(defaultStart())
   const [duration, setDuration] = useState(60)
   const [doctorId, setDoctorId] = useState<number | ''>('')
@@ -105,15 +108,15 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
     event.preventDefault()
     if (!booking) return
     if (doctorId === '') {
-      toast.show('error', 'กรุณาเลือกแพทย์ประจำตัวคนไข้')
+      toast.show('error', t('approveModal.selectPatientDoctorRequired'))
       return
     }
     if (blockConflict) {
-      toast.show('error', 'แพทย์ไม่ว่างในช่วงเวลานี้')
+      toast.show('error', t('approveModal.doctorUnavailableSlot'))
       return
     }
     if (patientUnresolved) {
-      toast.show('error', 'กรุณายืนยันตัวตนคนไข้ (เลือกคนเดิม หรือเป็นคนไข้ใหม่)')
+      toast.show('error', t('approveModal.confirmPatientIdentityRequired'))
       return
     }
     try {
@@ -129,32 +132,32 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
           create_new_patient: patientChoice === 'new',
         },
       })
-      toast.show('success', `ยืนยันนัด ${booking.patient_name ?? ''} สำเร็จ`)
+      toast.show('success', t('approveModal.approveSuccess', { name: booking.patient_name ?? '' }))
       onApproved()
       onClose()
     } catch (error) {
-      const msg = error instanceof ApiError ? error.message : 'ยืนยันไม่สำเร็จ'
+      const msg = error instanceof ApiError ? error.message : t('approveModal.approveFailed')
       toast.show('error', msg)
     }
   }
 
   return (
-    <Modal open={open} title="ยืนยันการจอง" onClose={onClose}>
+    <Modal open={open} title={t('approveModal.title')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">คนไข้</p>
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('approveModal.patient')}</p>
           <p className="mt-1 text-base font-semibold text-bbh-ink">
             {booking?.patient_name ?? '-'}
           </p>
           {booking?.requested_datetime_text ? (
             <p className="text-xs text-bbh-muted">
-              ลูกค้าขอ: <span className="font-mono tabular-nums">{booking.requested_datetime_text}</span>
+              {t('approveModal.requestedByCustomer')} <span className="font-mono tabular-nums">{booking.requested_datetime_text}</span>
             </p>
           ) : null}
         </div>
 
         <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">วัน-เวลานัด</span>
+          <span className="text-sm font-medium text-bbh-ink">{t('approveModal.appointmentDateTime')}</span>
           <input
             type="datetime-local"
             value={startAt}
@@ -165,7 +168,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">ระยะเวลา (นาที)</span>
+          <span className="text-sm font-medium text-bbh-ink">{t('approveModal.durationMinutes')}</span>
           <input
             type="number"
             min={15}
@@ -179,14 +182,14 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">แพทย์ประจำตัวคนไข้</span>
+          <span className="text-sm font-medium text-bbh-ink">{t('approveModal.patientDoctor')}</span>
           <select
             value={doctorId}
             onChange={(event) => setDoctorId(event.target.value === '' ? '' : Number(event.target.value))}
             className={`mt-1.5 ${FIELD_CLASS}`}
             required
           >
-            <option value="">- เลือกแพทย์ -</option>
+            <option value="">{t('approveModal.selectDoctorPlaceholder')}</option>
             {(doctorsQ.data?.data ?? []).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
@@ -194,15 +197,15 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
             ))}
           </select>
           <span className="mt-1 block text-xs leading-relaxed text-bbh-muted">
-            ระบบจะส่งอีเมลแจ้งแพทย์เมื่อมีการเลื่อนนัดในภายหลัง
+            {t('approveModal.doctorEmailNote')}
           </span>
         </label>
 
         {hasCandidates ? (
           <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
-            <p className="text-sm font-semibold text-amber-900">เบอร์นี้ตรงกับคนไข้เดิม — ยืนยันตัวตน</p>
+            <p className="text-sm font-semibold text-amber-900">{t('approveModal.matchExistingPatientTitle')}</p>
             <p className="mt-0.5 text-xs text-amber-800">
-              เลือกว่าเป็นคนเดียวกัน หรือเป็นคนไข้ใหม่ เพื่อกันเปิดเวชระเบียนผิดคน
+              {t('approveModal.matchExistingPatientHint')}
             </p>
             <div className="mt-2 space-y-1">
               {candidates.map((c) => (
@@ -219,11 +222,11 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
                   />
                   <span className="text-sm leading-snug">
                     <span className="font-medium text-bbh-ink">{c.display_name}</span>
-                    {c.hn ? <span className="font-mono text-xs text-bbh-muted"> · HN {c.hn}</span> : null}
+                    {c.hn ? <span className="font-mono text-xs text-bbh-muted"> · {t('approveModal.hn', { hn: c.hn })}</span> : null}
                     {c.phone ? <span className="text-xs text-bbh-muted"> · {c.phone}</span> : null}
                     {c.latest_visit_at ? (
                       <span className="block text-[11px] text-bbh-muted">
-                        มาล่าสุด {new Date(c.latest_visit_at).toLocaleDateString('th-TH')}
+                        {t('approveModal.lastVisit', { date: new Date(c.latest_visit_at).toLocaleDateString(dateLocale()) })}
                       </span>
                     ) : null}
                   </span>
@@ -237,7 +240,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
                   checked={patientChoice === 'new'}
                   onChange={() => setPatientChoice('new')}
                 />
-                <span className="text-sm font-medium text-bbh-ink">เป็นคนไข้ใหม่ (สร้างเวชระเบียนใหม่)</span>
+                <span className="text-sm font-medium text-bbh-ink">{t('approveModal.newPatientOption')}</span>
               </label>
             </div>
           </div>
@@ -245,8 +248,8 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
 
         {blockConflict ? (
           <div className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
-            <p className="font-semibold text-bbh-ink">แพทย์ไม่ว่างช่วงเวลานี้</p>
-            <p className="mt-1 font-mono tabular-nums">{formatBlockRange(blockConflict)} · {blockTypeLabel(blockConflict.block_type)}</p>
+            <p className="font-semibold text-bbh-ink">{t('approveModal.doctorUnavailableSlotTitle')}</p>
+            <p className="mt-1 font-mono tabular-nums">{formatBlockRange(blockConflict)} · {blockTypeLabel(blockConflict.block_type, t)}</p>
             {blockConflict.reason ? <p className="mt-1 text-bbh-muted">{blockConflict.reason}</p> : null}
           </div>
         ) : null}
@@ -258,7 +261,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
             disabled={approve.isPending}
             className={`inline-flex items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -266,12 +269,12 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
             className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             {blockConflict
-              ? 'แพทย์ไม่ว่าง'
+              ? t('approveModal.doctorUnavailable')
               : patientUnresolved
-                ? 'ยืนยันตัวตนคนไข้ก่อน'
+                ? t('approveModal.confirmPatientFirst')
                 : approve.isPending
-                  ? 'กำลังยืนยัน...'
-                  : 'ยืนยันนัด'}
+                  ? t('approveModal.confirming')
+                  : t('approveModal.confirmAppointment')}
           </button>
         </div>
       </form>

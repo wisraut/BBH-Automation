@@ -64,6 +64,9 @@ function loadSessions(): AiSession[] {
     const parsed = JSON.parse(raw) as RawSession[]
     return parsed.map((s) => ({
       ...s,
+      // Sessions saved before the empty-string sentinel carried the Thai
+      // literal 'สนทนาใหม่'; normalize so the UI renders the localized label.
+      title: s.title === 'สนทนาใหม่' ? NEW_SESSION_TITLE : s.title,
       pinnedPatient: s.pinnedPatient ?? null,
       messages: s.messages.map((m) => ({ ...m, ts: new Date(m.ts) })),
     }))
@@ -101,11 +104,16 @@ function persistCurrent(id: string | null) {
   }
 }
 
+// Language-neutral sentinel for an untitled session. Stored as data (never a
+// localized string) so it survives language switches; the UI renders a
+// translated "new chat" label whenever a session's title is still this value.
+export const NEW_SESSION_TITLE = ''
+
 function newSession(): AiSession {
   const now = Date.now()
   return {
     id: crypto.randomUUID(),
-    title: 'สนทนาใหม่',
+    title: NEW_SESSION_TITLE,
     convId: '',
     messages: [],
     pinnedPatient: null,

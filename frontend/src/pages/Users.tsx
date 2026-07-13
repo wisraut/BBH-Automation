@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Ban,
   CheckCircle2,
@@ -24,15 +25,9 @@ const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
 const ROLES = ['admin', 'doctor', 'cro', 'nurse', 'lab_staff'] as const
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'ผู้ดูแล',
-  doctor: 'แพทย์',
-  cro: 'CRO',
-  nurse: 'พยาบาล',
-  lab_staff: 'เจ้าหน้าที่แล็บ',
-}
 
 function RoleBadge({ role }: { role: string }) {
+  const { t } = useTranslation()
   const tone: Record<string, string> = {
     admin: 'border-red-200 bg-red-50 text-red-700',
     doctor: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
@@ -42,12 +37,13 @@ function RoleBadge({ role }: { role: string }) {
   }
   return (
     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${tone[role] ?? 'border-bbh-line bg-bbh-surface text-bbh-muted'}`}>
-      {ROLE_LABELS[role] ?? role}
+      {t(`roleShort.${role}`, role)}
     </span>
   )
 }
 
 export function Users() {
+  const { t } = useTranslation()
   const { user: me } = useAuth()
   const [roleFilter, setRoleFilter] = useState<string>('')
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -78,9 +74,9 @@ export function Users() {
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
               User Management
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">ผู้ใช้ระบบ</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('users.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              จัดการ admin / doctor / nurse / cro / lab_staff — เพิ่ม / แก้ไข / disable / reset password
+              {t('users.subtitle')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -90,14 +86,14 @@ export function Users() {
               className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-              รีเฟรช
+              {t('users.refresh')}
             </button>
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
               className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
             >
-              <UserPlus size={15} /> เพิ่ม user
+              <UserPlus size={15} /> {t('users.addUser')}
             </button>
           </div>
         </div>
@@ -109,17 +105,17 @@ export function Users() {
             onChange={(e) => { setRoleFilter(e.target.value); setPage(1) }}
             className={fieldClass}
           >
-            <option value="">ทุก role</option>
-            {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            <option value="">{t('users.allRoles')}</option>
+            {ROLES.map((r) => <option key={r} value={r}>{t(`roleShort.${r}`, r)}</option>)}
           </select>
           <select
             value={activeFilter}
             onChange={(e) => { setActiveFilter(e.target.value as typeof activeFilter); setPage(1) }}
             className={fieldClass}
           >
-            <option value="all">Active + Disabled</option>
-            <option value="active">Active เท่านั้น</option>
-            <option value="inactive">Disabled เท่านั้น</option>
+            <option value="all">{t('users.filterAll')}</option>
+            <option value="active">{t('users.filterActiveOnly')}</option>
+            <option value="inactive">{t('users.filterDisabledOnly')}</option>
           </select>
           <form
             onSubmit={(e) => { e.preventDefault(); setSearch(searchInput.trim()); setPage(1) }}
@@ -130,11 +126,11 @@ export function Users() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="ค้น email / display name"
+              placeholder={t('users.searchPlaceholder')}
               className="min-w-0 flex-1 bg-transparent text-sm text-bbh-ink focus:outline-none"
             />
             {search ? (
-              <button type="button" onClick={() => { setSearch(''); setSearchInput('') }} className={`rounded text-xs text-bbh-muted transition-colors hover:text-bbh-ink ${FOCUS_RING}`}>ล้าง</button>
+              <button type="button" onClick={() => { setSearch(''); setSearchInput('') }} className={`rounded text-xs text-bbh-muted transition-colors hover:text-bbh-ink ${FOCUS_RING}`}>{t('users.clear')}</button>
             ) : null}
           </form>
         </div>
@@ -143,22 +139,22 @@ export function Users() {
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {q.isLoading ? (
             <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด
+              <Loader2 size={16} className="mr-2 animate-spin" /> {t('common.loading')}
             </div>
           ) : q.isError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">โหลดข้อมูลไม่สำเร็จ</div>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{t('common.loadFailed')}</div>
           ) : !q.data || q.data.data.length === 0 ? (
-            <div className="rounded-xl border border-bbh-line bg-white p-10 text-center text-sm text-bbh-muted">ไม่พบผู้ใช้</div>
+            <div className="rounded-xl border border-bbh-line bg-white p-10 text-center text-sm text-bbh-muted">{t('users.notFound')}</div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
               <div className="hidden grid-cols-[60px_1fr_2fr_120px_160px_120px_140px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
-                <span>ID</span>
-                <span>ชื่อ</span>
-                <span>Email</span>
-                <span>Role</span>
-                <span>Specialty</span>
-                <span>สถานะ</span>
-                <span className="text-right">Actions</span>
+                <span>{t('users.colId')}</span>
+                <span>{t('users.colName')}</span>
+                <span>{t('users.colEmail')}</span>
+                <span>{t('users.colRole')}</span>
+                <span>{t('users.colSpecialty')}</span>
+                <span>{t('users.colStatus')}</span>
+                <span className="text-right">{t('users.colActions')}</span>
               </div>
               <div className="divide-y divide-bbh-line">
                 {q.data.data.map((u, i) => {
@@ -173,7 +169,7 @@ export function Users() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-bbh-ink">
                           {u.display_name}
-                          {isMe ? <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark">คุณ</span> : null}
+                          {isMe ? <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark">{t('users.you')}</span> : null}
                         </p>
                         <p className="truncate font-mono text-xs text-bbh-muted lg:hidden">{u.email}</p>
                       </div>
@@ -183,11 +179,11 @@ export function Users() {
                       <span className="hidden lg:flex">
                         {u.is_active ? (
                           <span className="inline-flex items-center gap-1 rounded-full border border-bbh-green/30 bg-bbh-green-soft px-2 py-0.5 text-xs font-semibold text-bbh-green-dark">
-                            <CheckCircle2 size={11} /> Active
+                            <CheckCircle2 size={11} /> {t('users.statusActive')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-                            <Ban size={11} /> Disabled
+                            <Ban size={11} /> {t('users.statusDisabled')}
                           </span>
                         )}
                       </span>
@@ -196,7 +192,7 @@ export function Users() {
                           type="button"
                           onClick={() => setEditTarget(u)}
                           className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-                          title="แก้ไข"
+                          title={t('common.edit')}
                         >
                           <Pencil size={12} />
                         </button>
@@ -204,7 +200,7 @@ export function Users() {
                           type="button"
                           onClick={() => setPwTarget(u)}
                           className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
-                          title="reset password"
+                          title={t('users.resetPassword')}
                         >
                           <KeyRound size={12} />
                         </button>
@@ -219,10 +215,10 @@ export function Users() {
           {/* Pagination */}
           {q.data && q.data.pagination.total_pages > 1 ? (
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-              <span className="font-mono text-sm tabular-nums text-bbh-muted">หน้า {q.data.pagination.page} / {q.data.pagination.total_pages} · {q.data.pagination.total} users</span>
+              <span className="font-mono text-sm tabular-nums text-bbh-muted">{t('users.pageInfo', { page: q.data.pagination.page, totalPages: q.data.pagination.total_pages, total: q.data.pagination.total })}</span>
               <div className="flex items-center gap-2">
-                <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>ก่อน</button>
-                <button type="button" disabled={page >= q.data.pagination.total_pages} onClick={() => setPage(p => p + 1)} className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>ถัดไป</button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>{t('users.prev')}</button>
+                <button type="button" disabled={page >= q.data.pagination.total_pages} onClick={() => setPage(p => p + 1)} className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>{t('users.next')}</button>
               </div>
             </div>
           ) : null}
@@ -246,6 +242,7 @@ const MODAL_SUBMIT =
   'inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
 function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useCreateUser()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -264,38 +261,38 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
   }
 
   return (
-    <Modal open={open} title="เพิ่ม user ใหม่" onClose={() => { reset(); onClose() }} size="md">
+    <Modal open={open} title={t('users.createTitle')} onClose={() => { reset(); onClose() }} size="md">
       <form onSubmit={submit} className="space-y-3">
         <div>
-          <label className="text-xs font-semibold text-bbh-muted">Email *</label>
+          <label className="text-xs font-semibold text-bbh-muted">{t('users.emailRequired')}</label>
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={MODAL_FIELD} />
         </div>
         <div>
-          <label className="text-xs font-semibold text-bbh-muted">ชื่อ-นามสกุล *</label>
+          <label className="text-xs font-semibold text-bbh-muted">{t('users.fullNameRequired')}</label>
           <input type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={MODAL_FIELD} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-bbh-muted">Role *</label>
+            <label className="text-xs font-semibold text-bbh-muted">{t('users.roleRequired')}</label>
             <select value={role} onChange={(e) => setRole(e.target.value as typeof ROLES[number])} className={MODAL_FIELD}>
-              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              {ROLES.map((r) => <option key={r} value={r}>{t(`roleShort.${r}`, r)}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold text-bbh-muted">Specialty</label>
-            <input type="text" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="ถ้าเป็นแพทย์" className={MODAL_FIELD} />
+            <label className="text-xs font-semibold text-bbh-muted">{t('users.specialty')}</label>
+            <input type="text" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder={t('users.specialtyPlaceholder')} className={MODAL_FIELD} />
           </div>
         </div>
         <div>
-          <label className="text-xs font-semibold text-bbh-muted">Password *</label>
+          <label className="text-xs font-semibold text-bbh-muted">{t('users.passwordRequired')}</label>
           <input type="password" required minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} className={MODAL_FIELD} />
-          <p className="mt-1 text-[11px] text-bbh-muted">อย่างน้อย 10 ตัว + มี 3 ประเภทขึ้นไป (a-z, A-Z, 0-9, !@#) — บอก user ให้เปลี่ยนเองหลัง login</p>
+          <p className="mt-1 text-[11px] text-bbh-muted">{t('users.passwordHint')}</p>
         </div>
-        {m.error ? <p className="text-xs text-red-600">สร้างไม่สำเร็จ — อาจเป็น email ซ้ำ</p> : null}
+        {m.error ? <p className="text-xs text-red-600">{t('users.createFailed')}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={() => { reset(); onClose() }} className={MODAL_CANCEL}>ยกเลิก</button>
+          <button type="button" onClick={() => { reset(); onClose() }} className={MODAL_CANCEL}>{t('common.cancel')}</button>
           <button type="submit" disabled={m.isPending} className={MODAL_SUBMIT}>
-            {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} สร้าง
+            {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {t('users.create')}
           </button>
         </div>
       </form>
@@ -304,6 +301,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
 }
 
 function EditUserModal({ target, onClose, isSelf }: { target: UserOut | null; onClose: () => void; isSelf: boolean }) {
+  const { t } = useTranslation()
   const m = useUpdateUser()
   const [displayName, setDisplayName] = useState('')
   const [role, setRole] = useState<typeof ROLES[number]>('doctor')
@@ -330,38 +328,38 @@ function EditUserModal({ target, onClose, isSelf }: { target: UserOut | null; on
   }
 
   return (
-    <Modal open={Boolean(target)} title={`แก้ไข: ${target.display_name}`} onClose={onClose} size="md">
+    <Modal open={Boolean(target)} title={t('users.editTitle', { name: target.display_name })} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-3">
         <div className="rounded-lg bg-bbh-surface px-3 py-2 text-xs text-bbh-muted">
           <span className="font-mono">{target.email}</span>
         </div>
         <div>
-          <label className="text-xs font-semibold text-bbh-muted">ชื่อ-นามสกุล</label>
+          <label className="text-xs font-semibold text-bbh-muted">{t('users.fullName')}</label>
           <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={MODAL_FIELD} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-bbh-muted">Role</label>
+            <label className="text-xs font-semibold text-bbh-muted">{t('users.role')}</label>
             <select value={role} onChange={(e) => setRole(e.target.value as typeof ROLES[number])} disabled={isSelf} className={`${MODAL_FIELD} disabled:bg-bbh-surface`}>
-              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              {ROLES.map((r) => <option key={r} value={r}>{t(`roleShort.${r}`, r)}</option>)}
             </select>
-            {isSelf ? <p className="mt-1 text-[10px] text-bbh-muted">ห้ามเปลี่ยน role ตัวเอง</p> : null}
+            {isSelf ? <p className="mt-1 text-[10px] text-bbh-muted">{t('users.cannotChangeOwnRole')}</p> : null}
           </div>
           <div>
-            <label className="text-xs font-semibold text-bbh-muted">Specialty</label>
+            <label className="text-xs font-semibold text-bbh-muted">{t('users.specialty')}</label>
             <input type="text" value={specialty} onChange={(e) => setSpecialty(e.target.value)} className={MODAL_FIELD} />
           </div>
         </div>
         <label className="flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} disabled={isSelf} className="h-4 w-4 accent-bbh-green" />
-          Active (ยังเข้าระบบได้)
-          {isSelf ? <span className="ml-auto text-[10px] text-bbh-muted">ห้าม disable ตัวเอง</span> : null}
+          {t('users.activeCanLogin')}
+          {isSelf ? <span className="ml-auto text-[10px] text-bbh-muted">{t('users.cannotDisableSelf')}</span> : null}
         </label>
-        {m.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        {m.error ? <p className="text-xs text-red-600">{t('users.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className={MODAL_CANCEL}>ยกเลิก</button>
+          <button type="button" onClick={onClose} className={MODAL_CANCEL}>{t('common.cancel')}</button>
           <button type="submit" disabled={m.isPending} className={MODAL_SUBMIT}>
-            {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />} บันทึก
+            {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />} {t('common.save')}
           </button>
         </div>
       </form>
@@ -370,6 +368,7 @@ function EditUserModal({ target, onClose, isSelf }: { target: UserOut | null; on
 }
 
 function ResetPasswordModal({ target, onClose }: { target: UserOut | null; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useResetUserPassword()
   const [pw, setPw] = useState('')
   const [done, setDone] = useState(false)
@@ -384,14 +383,14 @@ function ResetPasswordModal({ target, onClose }: { target: UserOut | null; onClo
   const close = () => { setPw(''); setDone(false); m.reset(); onClose() }
 
   return (
-    <Modal open={Boolean(target)} title={`Reset password: ${target.display_name}`} onClose={close} size="md">
+    <Modal open={Boolean(target)} title={t('users.resetTitle', { name: target.display_name })} onClose={close} size="md">
       {done ? (
         <div className="space-y-3">
           <div className="rounded-lg border border-bbh-green/30 bg-bbh-green-soft p-3 text-sm text-bbh-green-dark">
-            <CheckCircle2 size={16} className="mr-1 inline" /> เปลี่ยน password เรียบร้อย — แจ้ง user ให้ใช้ password ใหม่
+            <CheckCircle2 size={16} className="mr-1 inline" /> {t('users.resetDone')}
           </div>
           <div className="flex justify-end">
-            <button type="button" onClick={close} className={MODAL_CANCEL}>ปิด</button>
+            <button type="button" onClick={close} className={MODAL_CANCEL}>{t('common.close')}</button>
           </div>
         </div>
       ) : (
@@ -400,15 +399,15 @@ function ResetPasswordModal({ target, onClose }: { target: UserOut | null; onClo
             <span className="font-mono">{target.email}</span>
           </div>
           <div>
-            <label className="text-xs font-semibold text-bbh-muted">Password ใหม่ *</label>
-            <input type="text" required minLength={10} value={pw} onChange={(e) => setPw(e.target.value)} className={`${MODAL_FIELD} font-mono`} placeholder="≥ 10 ตัว, 3 ประเภท" />
-            <p className="mt-1 text-[11px] text-bbh-muted">แสดงเป็น plain เพื่อให้ admin copy ส่งให้ user — บอก user เปลี่ยนเองหลัง login</p>
+            <label className="text-xs font-semibold text-bbh-muted">{t('users.newPasswordRequired')}</label>
+            <input type="text" required minLength={10} value={pw} onChange={(e) => setPw(e.target.value)} className={`${MODAL_FIELD} font-mono`} placeholder={t('users.newPasswordPlaceholder')} />
+            <p className="mt-1 text-[11px] text-bbh-muted">{t('users.resetHint')}</p>
           </div>
-          {m.error ? <p className="text-xs text-red-600">เปลี่ยนไม่สำเร็จ</p> : null}
+          {m.error ? <p className="text-xs text-red-600">{t('users.resetFailed')}</p> : null}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={close} className={MODAL_CANCEL}>ยกเลิก</button>
+            <button type="button" onClick={close} className={MODAL_CANCEL}>{t('common.cancel')}</button>
             <button type="submit" disabled={m.isPending} className={MODAL_SUBMIT}>
-              {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />} ตั้งค่า
+              {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />} {t('users.setPassword')}
             </button>
           </div>
         </form>

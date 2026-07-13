@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,12 +19,12 @@ import { ReportDetailDrawer } from '../components/reports/ReportDetailDrawer'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const DECISION_LABELS: Record<string, string> = {
-  no_analysis: 'ยังไม่วิเคราะห์',
-  pending: 'รอตัดสิน',
-  review: 'รอ review',
-  accept: 'รับ',
-  reject: 'ปฏิเสธ',
+const DECISION_KEYS: Record<string, string> = {
+  no_analysis: 'decision.noAnalysis',
+  pending: 'decision.pending',
+  review: 'decision.review',
+  accept: 'decision.accept',
+  reject: 'decision.reject',
 }
 const DECISION_STYLES: Record<string, string> = {
   no_analysis: 'border-bbh-line bg-bbh-surface text-bbh-muted',
@@ -32,19 +34,20 @@ const DECISION_STYLES: Record<string, string> = {
   reject: 'border-red-200 bg-red-50 text-red-700',
 }
 
-const DECISION_FILTERS: Array<{ key: ReportDecision | 'all'; label: string }> = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'no_analysis', label: 'ยังไม่วิเคราะห์' },
-  { key: 'pending', label: 'รอตัดสิน' },
-  { key: 'review', label: 'รอ review' },
-  { key: 'accept', label: 'รับ' },
-  { key: 'reject', label: 'ปฏิเสธ' },
+const DECISION_FILTERS: Array<{ key: ReportDecision | 'all'; labelKey: string }> = [
+  { key: 'all', labelKey: 'common.all' },
+  { key: 'no_analysis', labelKey: 'reports.decision.noAnalysis' },
+  { key: 'pending', labelKey: 'reports.decision.pending' },
+  { key: 'review', labelKey: 'reports.decision.review' },
+  { key: 'accept', labelKey: 'reports.decision.accept' },
+  { key: 'reject', labelKey: 'reports.decision.reject' },
 ]
 
 const REPORT_TYPES = ['lab', 'imaging', 'history', 'prescription', 'referral', 'other']
 const SOURCES = ['web', 'line', 'email', 'whatsapp', 'walkin']
 
 function ReportRow({ r, index, onOpen }: { r: WorkspaceReport; index: number; onOpen: (r: WorkspaceReport) => void }) {
+  const { t } = useTranslation()
   const decision = r.latest_decision ?? 'no_analysis'
   return (
     <button
@@ -66,18 +69,18 @@ function ReportRow({ r, index, onOpen }: { r: WorkspaceReport; index: number; on
         <p className="mt-0.5 truncate text-sm font-semibold text-bbh-ink">{r.title}</p>
         <p className="mt-0.5 truncate text-xs text-bbh-muted">
           {r.report_type} · {r.source}
-          {r.assigned_doctor_name ? ` · มอบ ${r.assigned_doctor_name}` : ''}
+          {r.assigned_doctor_name ? ` · ${t('reports.assignedTo', { name: r.assigned_doctor_name })}` : ''}
         </p>
       </div>
       <div className="hidden text-xs text-bbh-muted lg:block">
         {r.report_type}
       </div>
       <div className="hidden text-right font-mono text-xs tabular-nums text-bbh-muted lg:block">
-        {new Date(r.uploaded_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+        {new Date(r.uploaded_at).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: '2-digit' })}
       </div>
       <div className="text-right">
         <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${DECISION_STYLES[decision]}`}>
-          {DECISION_LABELS[decision] ?? decision}
+          {DECISION_KEYS[decision] ? t(`reports.${DECISION_KEYS[decision]}`) : decision}
         </span>
       </div>
     </button>
@@ -85,6 +88,7 @@ function ReportRow({ r, index, onOpen }: { r: WorkspaceReport; index: number; on
 }
 
 export function Reports() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isDoctorOrNurse = user?.role === 'doctor' || user?.role === 'nurse'
 
@@ -125,9 +129,9 @@ export function Reports() {
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
               Patient Reports
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">รายงาน</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('reports.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              ค้นหา filter และเปิดอ่าน report — คลิกที่รายการเพื่อดูรายงานในหน้านี้
+              {t('reports.subtitle')}
             </p>
           </div>
           <button
@@ -136,7 +140,7 @@ export function Reports() {
             className={`inline-flex shrink-0 items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
             <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-            รีเฟรช
+            {t('reports.refresh')}
           </button>
         </div>
 
@@ -158,7 +162,7 @@ export function Reports() {
                       : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'
                   }`}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                 </button>
               )
             })}
@@ -170,15 +174,15 @@ export function Reports() {
               onChange={(e) => { setReportType(e.target.value); setPage(1) }}
               className={fieldClass}
             >
-              <option value="">ประเภททั้งหมด</option>
-              {REPORT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value="">{t('reports.allTypes')}</option>
+              {REPORT_TYPES.map((rt) => <option key={rt} value={rt}>{rt}</option>)}
             </select>
             <select
               value={source}
               onChange={(e) => { setSource(e.target.value); setPage(1) }}
               className={fieldClass}
             >
-              <option value="">ที่มาทั้งหมด</option>
+              <option value="">{t('reports.allSources')}</option>
               {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             <label className="inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink">
@@ -188,7 +192,7 @@ export function Reports() {
                 onChange={(e) => { setMineOnly(e.target.checked); setPage(1) }}
                 className={`h-4 w-4 accent-bbh-green ${FOCUS_RING}`}
               />
-              ของฉัน
+              {t('reports.mineOnly')}
             </label>
             <form
               onSubmit={submitSearch}
@@ -199,7 +203,7 @@ export function Reports() {
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="ค้นหาชื่อคนไข้ / HN / หัวข้อ"
+                placeholder={t('reports.searchPlaceholder')}
                 className="min-w-0 flex-1 bg-transparent text-sm text-bbh-ink placeholder:text-bbh-muted focus:outline-none"
               />
               {search ? (
@@ -208,7 +212,7 @@ export function Reports() {
                   onClick={() => { setSearch(''); setSearchInput('') }}
                   className={`rounded text-xs text-bbh-muted transition-colors duration-200 hover:text-bbh-ink ${FOCUS_RING}`}
                 >
-                  ล้าง
+                  {t('reports.clear')}
                 </button>
               ) : null}
             </form>
@@ -219,27 +223,27 @@ export function Reports() {
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {q.isLoading ? (
             <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด
+              <Loader2 size={16} className="mr-2 animate-spin" /> {t('common.loading')}
             </div>
           ) : q.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-              โหลดข้อมูลไม่สำเร็จ
+              {t('common.loadFailed')}
             </div>
           ) : !data || data.data.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-center">
               <FileText size={28} className="mb-2 text-bbh-muted" />
-              <p className="text-sm font-semibold text-bbh-ink">ไม่พบรายงาน</p>
-              <p className="mt-1 text-xs text-bbh-muted">ลองปรับ filter หรือล้างคำค้น</p>
+              <p className="text-sm font-semibold text-bbh-ink">{t('reports.empty')}</p>
+              <p className="mt-1 text-xs text-bbh-muted">{t('reports.emptyHint')}</p>
             </div>
           ) : (
             <>
               <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
                 <div className="hidden grid-cols-[180px_1fr_110px_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
-                  <span>คนไข้ / HN</span>
-                  <span>เรื่อง</span>
-                  <span>ประเภท</span>
-                  <span className="text-right">วันที่อัพโหลด</span>
-                  <span className="text-right">สถานะ</span>
+                  <span>{t('reports.colPatient')}</span>
+                  <span>{t('reports.colTitle')}</span>
+                  <span>{t('reports.colType')}</span>
+                  <span className="text-right">{t('reports.colUploaded')}</span>
+                  <span className="text-right">{t('reports.colStatus')}</span>
                 </div>
                 <div className="divide-y divide-bbh-line">
                   {data.data.map((r, i) => <ReportRow key={r.report_id} r={r} index={i} onOpen={setSelected} />)}
@@ -250,7 +254,7 @@ export function Reports() {
               <div className="mt-6 flex items-center justify-between gap-3">
                 <span className="font-mono text-xs tabular-nums text-bbh-muted">
                   {(data.pagination.page - 1) * data.pagination.limit + 1}
-                  –{Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} จาก {data.pagination.total}
+                  –{Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} {t('reports.paginationOf', { total: data.pagination.total })}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -259,7 +263,7 @@ export function Reports() {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
                   >
-                    <ChevronLeft size={16} /> ก่อน
+                    <ChevronLeft size={16} /> {t('reports.prev')}
                   </button>
                   <span className="font-mono text-sm tabular-nums text-bbh-muted">
                     {data.pagination.page} / {data.pagination.total_pages}
@@ -270,7 +274,7 @@ export function Reports() {
                     onClick={() => setPage((p) => p + 1)}
                     className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
                   >
-                    ถัดไป <ChevronRight size={16} />
+                    {t('reports.next')} <ChevronRight size={16} />
                   </button>
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 
 import { Modal } from '../Modal'
@@ -19,12 +20,13 @@ interface PatientPickerModalProps {
 }
 
 export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModalProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const { data, isLoading } = usePatients({ search, page: 1, limit: 20 })
   const rows = data?.data ?? []
 
   return (
-    <Modal open={open} title="เลือกคนไข้ที่จะถาม AI" onClose={onClose}>
+    <Modal open={open} title={t('patientPickerModal.title')} onClose={onClose}>
       <div className="space-y-3">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-bbh-muted" />
@@ -32,7 +34,7 @@ export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModal
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาด้วยชื่อ / HN / เบอร์"
+            placeholder={t('patientPickerModal.searchPlaceholder')}
             className="h-11 w-full rounded-lg border border-bbh-line bg-white pl-9 pr-3 text-sm text-bbh-ink transition-colors duration-200 placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
             autoFocus
           />
@@ -40,9 +42,9 @@ export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModal
 
         <div className="max-h-80 overflow-y-auto rounded-lg border border-bbh-line bg-white">
           {isLoading ? (
-            <p className="p-6 text-center text-sm text-bbh-muted">กำลังโหลด...</p>
+            <p className="p-6 text-center text-sm text-bbh-muted">{t('common.loading')}</p>
           ) : rows.length === 0 ? (
-            <p className="p-6 text-center text-sm text-bbh-muted">ไม่พบคนไข้</p>
+            <p className="p-6 text-center text-sm text-bbh-muted">{t('patientPickerModal.notFound')}</p>
           ) : (
             <ul className="divide-y divide-bbh-line">
               {rows.map((p) => (
@@ -61,8 +63,8 @@ export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModal
                       </p>
                     </div>
                     <div className="text-right text-xs text-bbh-muted">
-                      <p>นัด: <span className="font-mono tabular-nums">{p.total_bookings}</span></p>
-                      <p>Report: <span className="font-mono tabular-nums">{p.total_reports}</span></p>
+                      <p>{t('patientPickerModal.bookingsLabel')} <span className="font-mono tabular-nums">{p.total_bookings}</span></p>
+                      <p>{t('patientPickerModal.reportsLabel')} <span className="font-mono tabular-nums">{p.total_reports}</span></p>
                     </div>
                   </button>
                 </li>

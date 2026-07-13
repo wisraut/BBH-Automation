@@ -4,6 +4,7 @@
 // rather than being silently shown as normal. Draft (unconfirmed) values are
 // excluded by default and, when shown, are clearly labelled รอยืนยัน.
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FlaskConical, ArrowUp, ArrowDown } from 'lucide-react'
 
 import {
@@ -15,15 +16,15 @@ import {
   type MeasurementFlag,
 } from '../../hooks/useMeasurements'
 
-// Panel order + Thai labels mirror backend services/measurement_catalog.PANELS.
-const PANEL_ORDER: Array<[string, string]> = [
-  ['metabolic', 'เมตาบอลิก / น้ำตาล'],
-  ['lipid', 'ไขมัน'],
-  ['inflammation', 'การอักเสบ'],
-  ['vitamins', 'วิตามิน / แร่ธาตุ'],
-  ['liver', 'ตับ'],
-  ['kidney', 'ไต'],
-  ['cbc', 'ความสมบูรณ์เม็ดเลือด'],
+// Panel order mirrors backend services/measurement_catalog.PANELS; labels via t().
+const PANEL_ORDER: string[] = [
+  'metabolic',
+  'lipid',
+  'inflammation',
+  'vitamins',
+  'liver',
+  'kidney',
+  'cbc',
 ]
 
 function fmt(value: number): string {
@@ -47,11 +48,12 @@ const FLAG_STYLE: Record<MeasurementFlag, string> = {
   normal: 'bg-bbh-green-soft text-bbh-green-dark border-transparent',
   unknown: 'bg-slate-100 text-slate-500 border-transparent',
 }
-const FLAG_LABEL: Record<MeasurementFlag, string> = {
-  high: 'สูง', low: 'ต่ำ', normal: 'ปกติ', unknown: 'ไม่มีเกณฑ์',
+const FLAG_LABEL_KEY: Record<MeasurementFlag, string> = {
+  high: 'flagHigh', low: 'flagLow', normal: 'flagNormal', unknown: 'flagNoRef',
 }
 
 function Row({ m, cat }: { m: Measurement; cat: MeasurementCatalogItem | undefined }) {
+  const { t } = useTranslation()
   const flag = flagFor(m.value, cat)
   const draft = m.status === 'draft'
   const valueColor = flag === 'high' ? 'text-red-700' : flag === 'low' ? 'text-amber-700' : 'text-bbh-ink'
@@ -60,10 +62,10 @@ function Row({ m, cat }: { m: Measurement; cat: MeasurementCatalogItem | undefin
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-bbh-ink">{cat?.label_th ?? m.raw_label ?? m.code}</p>
         <p className="font-mono text-[11px] text-bbh-muted">
-          {cat ? `เกณฑ์ ${fmt(cat.ref_low)}–${fmt(cat.ref_high)} ${cat.unit}` : 'ไม่มีเกณฑ์อ้างอิง'}
+          {cat ? t('labResultsSection.refRange', { low: fmt(cat.ref_low), high: fmt(cat.ref_high), unit: cat.unit }) : t('labResultsSection.noRefRange')}
           <span className="mx-1.5 text-bbh-line">·</span>
           {m.measured_at}
-          {draft ? <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-700">รอยืนยัน</span> : null}
+          {draft ? <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-700">{t('labResultsSection.pendingConfirm')}</span> : null}
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -72,7 +74,7 @@ function Row({ m, cat }: { m: Measurement; cat: MeasurementCatalogItem | undefin
         </span>
         <span className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${FLAG_STYLE[flag]}`}>
           {flag === 'high' ? <ArrowUp size={11} /> : flag === 'low' ? <ArrowDown size={11} /> : null}
-          {FLAG_LABEL[flag]}
+          {t(`labResultsSection.${FLAG_LABEL_KEY[flag]}`)}
         </span>
       </div>
     </div>
@@ -80,6 +82,7 @@ function Row({ m, cat }: { m: Measurement; cat: MeasurementCatalogItem | undefin
 }
 
 export function LabResultsSection({ patientId }: { patientId: number }) {
+  const { t } = useTranslation()
   const [includeDrafts, setIncludeDrafts] = useState(false)
   const catalogQ = useMeasurementCatalog()
   const confirmedQ = usePatientMeasurements(patientId, 'confirmed')
@@ -122,35 +125,35 @@ export function LabResultsSection({ patientId }: { patientId: number }) {
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-          <FlaskConical size={13} /> ผลแล็บ (ค่าที่ยืนยันแล้ว)
+          <FlaskConical size={13} /> {t('labResultsSection.title')}
         </h2>
         <div className="flex items-center gap-3">
           {rows.length > 0 ? (
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${abnormal > 0 ? 'bg-red-50 text-red-700' : 'bg-bbh-green-soft text-bbh-green-dark'}`}>
-              {abnormal > 0 ? `${abnormal} ค่าผิดปกติ` : 'ทุกค่าปกติ'}
+              {abnormal > 0 ? t('labResultsSection.abnormalCount', { count: abnormal }) : t('labResultsSection.allNormal')}
             </span>
           ) : null}
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-bbh-muted">
             <input type="checkbox" checked={includeDrafts} onChange={(e) => setIncludeDrafts(e.target.checked)} className="accent-bbh-green" />
-            รวมค่าที่รอยืนยัน
+            {t('labResultsSection.includeDrafts')}
           </label>
         </div>
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">กำลังโหลดผลแล็บ</div>
+        <div className="rounded-xl border border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">{t('labResultsSection.loading')}</div>
       ) : rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">
-          ยังไม่มีค่าแล็บที่ยืนยัน — เลือก report แล้วกด "สกัดค่าแล็บ" เพื่อดึงค่าจากผลตรวจ
+          {t('labResultsSection.empty')}
         </div>
       ) : (
         <div className="space-y-4">
-          {PANEL_ORDER.map(([key, label]) => {
+          {PANEL_ORDER.map((key) => {
             const items = byPanel.get(key)
             if (!items || items.length === 0) return null
             return (
               <div key={key}>
-                <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{label}</p>
+                <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t(`labResultsSection.panel.${key}`)}</p>
                 <div className="space-y-1.5">
                   {items.map((m) => <Row key={m.id} m={m} cat={catByCode.get(m.code)} />)}
                 </div>
@@ -159,7 +162,7 @@ export function LabResultsSection({ patientId }: { patientId: number }) {
           })}
           {byPanel.get('other')?.length ? (
             <div>
-              <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">อื่น ๆ</p>
+              <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('labResultsSection.panel.other')}</p>
               <div className="space-y-1.5">
                 {byPanel.get('other')!.map((m) => <Row key={m.id} m={m} cat={catByCode.get(m.code)} />)}
               </div>

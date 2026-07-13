@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   AlertTriangle,
@@ -49,6 +50,7 @@ function SectionCard({
   children: React.ReactNode
   onAdd?: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -63,7 +65,7 @@ function SectionCard({
             onClick={onAdd}
             className="inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-2 py-1 text-xs font-medium text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
           >
-            <Plus size={12} /> เพิ่ม
+            <Plus size={12} /> {t('common.add')}
           </button>
         ) : null}
       </div>
@@ -73,6 +75,7 @@ function SectionCard({
 }
 
 export function PatientMedicalRecords({ patientId }: { patientId: number }) {
+  const { t } = useTranslation()
   const q = usePatientMedicalBundle(patientId)
   const [openForm, setOpenForm] = useState<'cond' | 'allergy' | 'med' | 'treat' | null>(null)
 
@@ -82,8 +85,8 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
   const delTreat = useDeleteTreatment(patientId)
   const toggleMed = useToggleMedication(patientId)
 
-  if (q.isLoading) return <p className="text-sm text-bbh-muted">กำลังโหลดประวัติการแพทย์...</p>
-  if (q.isError || !q.data) return <p className="text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ</p>
+  if (q.isLoading) return <p className="text-sm text-bbh-muted">{t('patientMedicalRecords.loading')}</p>
+  if (q.isError || !q.data) return <p className="text-sm text-red-600">{t('common.loadFailed')}</p>
 
   const { conditions, allergies, medications, treatments } = q.data
 
@@ -91,14 +94,14 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
     <div className="space-y-4">
       {/* Allergies first — most safety-critical */}
       <SectionCard
-        title="แพ้ยา / สารก่อภูมิแพ้"
+        title={t('patientMedicalRecords.allergies.title')}
         icon={AlertTriangle}
         accent="text-red-500"
         count={allergies.length}
         onAdd={() => setOpenForm('allergy')}
       >
         {allergies.length === 0 ? (
-          <p className="text-xs text-bbh-muted">— ไม่พบประวัติแพ้ —</p>
+          <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.allergies.empty')}</p>
         ) : (
           <ul className="space-y-2">
             {allergies.map((a) => (
@@ -117,9 +120,9 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { if (confirm(`ลบ "${a.allergen}"?`)) delAllergy.mutate(a.id) }}
+                  onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: a.allergen }))) delAllergy.mutate(a.id) }}
                   className="text-bbh-muted hover:text-red-600"
-                  title="ลบ"
+                  title={t('common.delete')}
                 ><Trash2 size={13} /></button>
               </li>
             ))}
@@ -128,14 +131,14 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
       </SectionCard>
 
       <SectionCard
-        title="โรคประจำตัว"
+        title={t('patientMedicalRecords.conditions.title')}
         icon={Heart}
         accent="text-pink-500"
         count={conditions.length}
         onAdd={() => setOpenForm('cond')}
       >
         {conditions.length === 0 ? (
-          <p className="text-xs text-bbh-muted">— ไม่พบโรคประจำตัว —</p>
+          <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.conditions.empty')}</p>
         ) : (
           <ul className="space-y-2">
             {conditions.map((c) => (
@@ -146,10 +149,10 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                     {c.icd10 ? <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[10px] font-mono text-bbh-muted">{c.icd10}</span> : null}
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[c.status]}`}>{c.status}</span>
                   </div>
-                  {c.diagnosed_year ? <p className="text-xs text-bbh-muted">วินิจฉัยปี {c.diagnosed_year}</p> : null}
+                  {c.diagnosed_year ? <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.conditions.diagnosedYear', { year: c.diagnosed_year })}</p> : null}
                   {c.notes ? <p className="mt-1 text-xs text-bbh-muted">{c.notes}</p> : null}
                 </div>
-                <button type="button" onClick={() => { if (confirm(`ลบ "${c.condition_name}"?`)) delCond.mutate(c.id) }} className="text-bbh-muted hover:text-red-600" title="ลบ"><Trash2 size={13} /></button>
+                <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: c.condition_name }))) delCond.mutate(c.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
               </li>
             ))}
           </ul>
@@ -157,14 +160,14 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
       </SectionCard>
 
       <SectionCard
-        title="ยาที่ใช้อยู่"
+        title={t('patientMedicalRecords.medications.title')}
         icon={Pill}
         accent="text-bbh-green"
         count={medications.filter((m) => m.is_active).length}
         onAdd={() => setOpenForm('med')}
       >
         {medications.length === 0 ? (
-          <p className="text-xs text-bbh-muted">— ไม่มีรายการยา —</p>
+          <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.medications.empty')}</p>
         ) : (
           <ul className="space-y-2">
             {medications.map((m) => (
@@ -177,7 +180,7 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                   <p className="text-xs text-bbh-muted">
                     {m.frequency ?? '-'}
                     {m.indication ? ` · ${m.indication}` : ''}
-                    {m.started_year ? ` · ตั้งแต่ ${m.started_year}` : ''}
+                    {m.started_year ? ` · ${t('patientMedicalRecords.medications.since', { year: m.started_year })}` : ''}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -186,9 +189,9 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                     onClick={() => toggleMed.mutate({ id: m.id, isActive: !m.is_active })}
                     className="rounded border border-bbh-line bg-white px-2 py-0.5 text-[10px] font-semibold text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
                   >
-                    {m.is_active ? 'หยุดใช้' : 'ใช้อีก'}
+                    {m.is_active ? t('patientMedicalRecords.medications.stop') : t('patientMedicalRecords.medications.resume')}
                   </button>
-                  <button type="button" onClick={() => { if (confirm(`ลบ "${m.drug_name}"?`)) delMed.mutate(m.id) }} className="text-bbh-muted hover:text-red-600" title="ลบ"><Trash2 size={13} /></button>
+                  <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: m.drug_name }))) delMed.mutate(m.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
                 </div>
               </li>
             ))}
@@ -197,28 +200,28 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
       </SectionCard>
 
       <SectionCard
-        title="ประวัติการรักษา"
+        title={t('patientMedicalRecords.treatments.title')}
         icon={Scissors}
         accent="text-blue-500"
         count={treatments.length}
         onAdd={() => setOpenForm('treat')}
       >
         {treatments.length === 0 ? (
-          <p className="text-xs text-bbh-muted">— ไม่พบประวัติการรักษา —</p>
+          <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.treatments.empty')}</p>
         ) : (
           <ul className="space-y-2">
-            {treatments.map((t) => (
-              <li key={t.id} className="flex items-start justify-between gap-3 rounded-lg border border-bbh-line bg-bbh-surface/40 px-3 py-2">
+            {treatments.map((tr) => (
+              <li key={tr.id} className="flex items-start justify-between gap-3 rounded-lg border border-bbh-line bg-bbh-surface/40 px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[10px] font-mono text-bbh-muted">{t.treatment_type}</span>
-                    {t.treated_date ? <span className="text-[10px] text-bbh-muted">{t.treated_date}</span> : null}
+                    <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[10px] font-mono text-bbh-muted">{tr.treatment_type}</span>
+                    {tr.treated_date ? <span className="text-[10px] text-bbh-muted">{tr.treated_date}</span> : null}
                   </div>
-                  <p className="mt-1 text-sm text-bbh-ink">{t.description}</p>
-                  {t.hospital ? <p className="text-xs text-bbh-muted">@ {t.hospital}</p> : null}
-                  {t.outcome ? <p className="text-xs text-bbh-muted">ผล: {t.outcome}</p> : null}
+                  <p className="mt-1 text-sm text-bbh-ink">{tr.description}</p>
+                  {tr.hospital ? <p className="text-xs text-bbh-muted">@ {tr.hospital}</p> : null}
+                  {tr.outcome ? <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.treatments.outcomeLabel', { outcome: tr.outcome })}</p> : null}
                 </div>
-                <button type="button" onClick={() => { if (confirm('ลบรายการนี้?')) delTreat.mutate(t.id) }} className="text-bbh-muted hover:text-red-600" title="ลบ"><Trash2 size={13} /></button>
+                <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteItem'))) delTreat.mutate(tr.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
               </li>
             ))}
           </ul>
@@ -236,12 +239,13 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
 // --- Inline forms (small modals) -----------------------------------------
 
 function FormShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bbh-ink/30 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border border-bbh-line bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{title}</h2>
-          <button type="button" onClick={onClose} className="text-bbh-muted hover:text-bbh-ink"><X size={18} /></button>
+          <button type="button" onClick={onClose} className="text-bbh-muted hover:text-bbh-ink" title={t('common.close')}><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -250,26 +254,27 @@ function FormShell({ title, onClose, children }: { title: string; onClose: () =>
 }
 
 function ConditionForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useAddCondition()
   const [b, setB] = useState<ConditionCreate>({ condition_name: '', status: 'active', icd10: null, diagnosed_year: null, notes: null })
   return (
-    <FormShell title="เพิ่มโรคประจำตัว" onClose={onClose}>
+    <FormShell title={t('patientMedicalRecords.conditions.addTitle')} onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); m.mutate({ patientId, body: b }, { onSuccess: onClose }) }} className="space-y-3">
-        <input required type="text" placeholder="ชื่อโรค *" value={b.condition_name} onChange={(e) => setB({ ...b, condition_name: e.target.value })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input required type="text" placeholder={t('patientMedicalRecords.conditions.namePlaceholder')} value={b.condition_name} onChange={(e) => setB({ ...b, condition_name: e.target.value })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
         <div className="grid grid-cols-2 gap-2">
           <input type="text" placeholder="ICD-10" value={b.icd10 ?? ''} onChange={(e) => setB({ ...b, icd10: e.target.value || null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-          <input type="number" placeholder="ปีที่วินิจฉัย" value={b.diagnosed_year ?? ''} onChange={(e) => setB({ ...b, diagnosed_year: e.target.value ? Number(e.target.value) : null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+          <input type="number" placeholder={t('patientMedicalRecords.conditions.diagnosedYearPlaceholder')} value={b.diagnosed_year ?? ''} onChange={(e) => setB({ ...b, diagnosed_year: e.target.value ? Number(e.target.value) : null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
         </div>
         <select value={b.status} onChange={(e) => setB({ ...b, status: e.target.value as ConditionCreate['status'] })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm">
           <option value="active">active</option>
           <option value="controlled">controlled</option>
           <option value="resolved">resolved</option>
         </select>
-        <textarea placeholder="หมายเหตุ" value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        {m.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        <textarea placeholder={t('patientMedicalRecords.notesPlaceholder')} value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        {m.error ? <p className="text-xs text-red-600">{t('patientMedicalRecords.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
-          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">บันทึก</button>
+          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">{t('common.cancel')}</button>
+          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">{t('common.save')}</button>
         </div>
       </form>
     </FormShell>
@@ -277,25 +282,26 @@ function ConditionForm({ patientId, onClose }: { patientId: number; onClose: () 
 }
 
 function AllergyForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useAddAllergy()
   const [b, setB] = useState<AllergyCreate>({ allergen: '', reaction: null, severity: null, notes: null })
   return (
-    <FormShell title="เพิ่มประวัติแพ้" onClose={onClose}>
+    <FormShell title={t('patientMedicalRecords.allergies.addTitle')} onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); m.mutate({ patientId, body: b }, { onSuccess: onClose }) }} className="space-y-3">
-        <input required type="text" placeholder="ยา/สารก่อภูมิแพ้ *" value={b.allergen} onChange={(e) => setB({ ...b, allergen: e.target.value })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        <input type="text" placeholder="ปฏิกิริยา (เช่น ผื่น คลื่นไส้)" value={b.reaction ?? ''} onChange={(e) => setB({ ...b, reaction: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input required type="text" placeholder={t('patientMedicalRecords.allergies.allergenPlaceholder')} value={b.allergen} onChange={(e) => setB({ ...b, allergen: e.target.value })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input type="text" placeholder={t('patientMedicalRecords.allergies.reactionPlaceholder')} value={b.reaction ?? ''} onChange={(e) => setB({ ...b, reaction: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
         <select value={b.severity ?? ''} onChange={(e) => setB({ ...b, severity: (e.target.value || null) as AllergyCreate['severity'] })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm">
-          <option value="">— ความรุนแรง —</option>
+          <option value="">{t('patientMedicalRecords.allergies.severityPlaceholder')}</option>
           <option value="mild">mild</option>
           <option value="moderate">moderate</option>
           <option value="severe">severe</option>
           <option value="life_threatening">life threatening</option>
         </select>
-        <textarea placeholder="หมายเหตุ" value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        {m.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        <textarea placeholder={t('patientMedicalRecords.notesPlaceholder')} value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        {m.error ? <p className="text-xs text-red-600">{t('patientMedicalRecords.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
-          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">บันทึก</button>
+          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">{t('common.cancel')}</button>
+          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">{t('common.save')}</button>
         </div>
       </form>
     </FormShell>
@@ -303,23 +309,24 @@ function AllergyForm({ patientId, onClose }: { patientId: number; onClose: () =>
 }
 
 function MedicationForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useAddMedication()
   const [b, setB] = useState<MedicationCreate>({ drug_name: '', dose: null, frequency: null, indication: null, started_year: null, is_active: true, notes: null })
   return (
-    <FormShell title="เพิ่มยาที่ใช้" onClose={onClose}>
+    <FormShell title={t('patientMedicalRecords.medications.addTitle')} onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); m.mutate({ patientId, body: b }, { onSuccess: onClose }) }} className="space-y-3">
-        <input required type="text" placeholder="ชื่อยา *" value={b.drug_name} onChange={(e) => setB({ ...b, drug_name: e.target.value })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input required type="text" placeholder={t('patientMedicalRecords.medications.drugNamePlaceholder')} value={b.drug_name} onChange={(e) => setB({ ...b, drug_name: e.target.value })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
         <div className="grid grid-cols-2 gap-2">
-          <input type="text" placeholder="ขนาด (5mg)" value={b.dose ?? ''} onChange={(e) => setB({ ...b, dose: e.target.value || null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-          <input type="text" placeholder="ความถี่ (วันละ 1)" value={b.frequency ?? ''} onChange={(e) => setB({ ...b, frequency: e.target.value || null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+          <input type="text" placeholder={t('patientMedicalRecords.medications.dosePlaceholder')} value={b.dose ?? ''} onChange={(e) => setB({ ...b, dose: e.target.value || null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+          <input type="text" placeholder={t('patientMedicalRecords.medications.frequencyPlaceholder')} value={b.frequency ?? ''} onChange={(e) => setB({ ...b, frequency: e.target.value || null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
         </div>
-        <input type="text" placeholder="ข้อบ่งใช้ (เช่น HT)" value={b.indication ?? ''} onChange={(e) => setB({ ...b, indication: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        <input type="number" placeholder="ปีที่เริ่มใช้" value={b.started_year ?? ''} onChange={(e) => setB({ ...b, started_year: e.target.value ? Number(e.target.value) : null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        <textarea placeholder="หมายเหตุ" value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        {m.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        <input type="text" placeholder={t('patientMedicalRecords.medications.indicationPlaceholder')} value={b.indication ?? ''} onChange={(e) => setB({ ...b, indication: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input type="number" placeholder={t('patientMedicalRecords.medications.startedYearPlaceholder')} value={b.started_year ?? ''} onChange={(e) => setB({ ...b, started_year: e.target.value ? Number(e.target.value) : null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <textarea placeholder={t('patientMedicalRecords.notesPlaceholder')} value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        {m.error ? <p className="text-xs text-red-600">{t('patientMedicalRecords.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
-          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">บันทึก</button>
+          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">{t('common.cancel')}</button>
+          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">{t('common.save')}</button>
         </div>
       </form>
     </FormShell>
@@ -327,10 +334,11 @@ function MedicationForm({ patientId, onClose }: { patientId: number; onClose: ()
 }
 
 function TreatmentForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useAddTreatment()
   const [b, setB] = useState<TreatmentCreate>({ treatment_type: 'procedure', description: '', hospital: null, treated_date: null, outcome: null, notes: null })
   return (
-    <FormShell title="เพิ่มประวัติการรักษา" onClose={onClose}>
+    <FormShell title={t('patientMedicalRecords.treatments.addTitle')} onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); m.mutate({ patientId, body: b }, { onSuccess: onClose }) }} className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <select value={b.treatment_type} onChange={(e) => setB({ ...b, treatment_type: e.target.value })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm">
@@ -341,14 +349,14 @@ function TreatmentForm({ patientId, onClose }: { patientId: number; onClose: () 
           </select>
           <input type="date" value={b.treated_date ?? ''} onChange={(e) => setB({ ...b, treated_date: e.target.value || null })} className="rounded-lg border border-bbh-line px-3 py-2 text-sm" />
         </div>
-        <textarea required placeholder="รายละเอียด *" value={b.description} onChange={(e) => setB({ ...b, description: e.target.value })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        <input type="text" placeholder="โรงพยาบาล" value={b.hospital ?? ''} onChange={(e) => setB({ ...b, hospital: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        <input type="text" placeholder="ผลการรักษา" value={b.outcome ?? ''} onChange={(e) => setB({ ...b, outcome: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        <textarea placeholder="หมายเหตุ" value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
-        {m.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        <textarea required placeholder={t('patientMedicalRecords.treatments.descriptionPlaceholder')} value={b.description} onChange={(e) => setB({ ...b, description: e.target.value })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input type="text" placeholder={t('patientMedicalRecords.treatments.hospitalPlaceholder')} value={b.hospital ?? ''} onChange={(e) => setB({ ...b, hospital: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <input type="text" placeholder={t('patientMedicalRecords.treatments.outcomePlaceholder')} value={b.outcome ?? ''} onChange={(e) => setB({ ...b, outcome: e.target.value || null })} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        <textarea placeholder={t('patientMedicalRecords.notesPlaceholder')} value={b.notes ?? ''} onChange={(e) => setB({ ...b, notes: e.target.value || null })} rows={2} className="w-full rounded-lg border border-bbh-line px-3 py-2 text-sm" />
+        {m.error ? <p className="text-xs text-red-600">{t('patientMedicalRecords.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">ยกเลิก</button>
-          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">บันทึก</button>
+          <button type="button" onClick={onClose} className="rounded-xl border border-bbh-line bg-white px-4 py-2 text-sm">{t('common.cancel')}</button>
+          <button type="submit" disabled={m.isPending} className="rounded-xl bg-bbh-green px-4 py-2 text-sm font-semibold text-white hover:bg-bbh-green-dark disabled:opacity-60">{t('common.save')}</button>
         </div>
       </form>
     </FormShell>

@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   AlertTriangle,
@@ -57,16 +59,16 @@ const STATUS_STYLES: Record<ServiceStatus, { dot: string; rail: string; badge: s
   },
 }
 
-const DB_STAT_LABELS: Record<string, string> = {
-  patients: 'คนไข้ทั้งหมด',
-  active_users: 'User ที่ active',
-  active_doctors: 'แพทย์ active',
-  pending_bookings: 'จองรอ approve',
-  today_bookings: 'จองวันนี้',
-  today_reports: 'รายงานวันนี้',
-  open_alerts: 'Alert ค้าง',
-  webhook_pending: 'Webhook คิวค้าง',
-  webhook_failed_24h: 'Webhook fail 24h',
+const DB_STAT_LABEL_KEYS: Record<string, string> = {
+  patients: 'systemHealth.dbStatPatients',
+  active_users: 'systemHealth.dbStatActiveUsers',
+  active_doctors: 'systemHealth.dbStatActiveDoctors',
+  pending_bookings: 'systemHealth.dbStatPendingBookings',
+  today_bookings: 'systemHealth.dbStatTodayBookings',
+  today_reports: 'systemHealth.dbStatTodayReports',
+  open_alerts: 'systemHealth.dbStatOpenAlerts',
+  webhook_pending: 'systemHealth.dbStatWebhookPending',
+  webhook_failed_24h: 'systemHealth.dbStatWebhookFailed24h',
 }
 
 const ACTIVITY_KIND_LABEL: Record<string, string> = {
@@ -75,15 +77,17 @@ const ACTIVITY_KIND_LABEL: Record<string, string> = {
   alert: 'ALRT',
 }
 
-function formatRelative(iso: string): string {
+type TFn = (key: string, opts?: Record<string, unknown>) => string
+
+function formatRelative(iso: string, t: TFn): string {
   const then = new Date(iso).getTime()
   const diffSec = Math.round((Date.now() - then) / 1000)
-  if (diffSec < 5) return 'เมื่อกี้'
-  if (diffSec < 60) return `${diffSec} วิ`
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)} นาที`
+  if (diffSec < 5) return t('systemHealth.justNow')
+  if (diffSec < 60) return t('systemHealth.secondsAgo', { count: diffSec })
+  if (diffSec < 3600) return t('systemHealth.minutesAgo', { count: Math.round(diffSec / 60) })
   const diffHr = Math.round(diffSec / 3600)
-  if (diffHr < 24) return `${diffHr} ชม.`
-  return `${Math.round(diffHr / 24)} วัน`
+  if (diffHr < 24) return t('systemHealth.hoursAgo', { count: diffHr })
+  return t('systemHealth.daysAgo', { count: Math.round(diffHr / 24) })
 }
 
 function ServiceCard({ check }: { check: ServiceCheck }) {
@@ -125,6 +129,7 @@ function ServiceCard({ check }: { check: ServiceCheck }) {
 }
 
 export function SystemHealth() {
+  const { t } = useTranslation()
   const q = useSystemHealth()
   const data = q.data
 
@@ -149,16 +154,16 @@ export function SystemHealth() {
                 System Monitor
               </span>
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">สถานะระบบโรงพยาบาล</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('systemHealth.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              ตรวจสถานะของ Bridge, n8n, MySQL, LINE webhooks และข้อมูลล่าสุดในระบบ — รีเฟรชอัตโนมัติทุก 5 วินาที
+              {t('systemHealth.subtitle')}
             </p>
           </div>
           <div className="flex items-center gap-3">
             {data ? (
               <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${overallStyle.badge}`}>
                 <span className={`h-2 w-2 rounded-full ${overallStyle.dot}`} />
-                ภาพรวม: {overallStyle.label}
+                {t('systemHealth.overallLabel', { status: overallStyle.label })}
               </span>
             ) : null}
             <button
@@ -167,20 +172,20 @@ export function SystemHealth() {
               className={`inline-flex shrink-0 items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-              รีเฟรช
+              {t('systemHealth.refresh')}
             </button>
           </div>
         </div>
 
         {q.isLoading ? (
           <div className="animate-rise flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-            <Loader2 size={16} className="mr-2 animate-spin" /> กำลังตรวจสถานะ
+            <Loader2 size={16} className="mr-2 animate-spin" /> {t('systemHealth.checkingStatus')}
           </div>
         ) : q.isError ? (
           <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
             <div className="flex items-center gap-2">
               <AlertTriangle size={16} />
-              โหลดข้อมูลไม่ได้ — backend อาจ down
+              {t('systemHealth.loadFailedBackendDown')}
             </div>
           </div>
         ) : data ? (
@@ -200,12 +205,12 @@ export function SystemHealth() {
 
             {/* DB stats — metric cluster, all figures mono tabular-nums */}
             <section className="animate-rise" style={{ animationDelay: '140ms' }}>
-              <h2 className="mb-4 font-serif text-xl font-semibold text-bbh-ink md:text-2xl">ข้อมูลในระบบ</h2>
+              <h2 className="mb-4 font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('systemHealth.dbStatsHeading')}</h2>
               <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-3 xl:grid-cols-7">
                 {dbStatsEntries.map(([key, value]) => (
                   <div key={key} className="flex flex-col gap-3 bg-white p-6">
                     <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                      {DB_STAT_LABELS[key] ?? key}
+                      {DB_STAT_LABEL_KEYS[key] ? t(DB_STAT_LABEL_KEYS[key]) : key}
                     </p>
                     <p className="font-mono text-3xl font-semibold leading-none tabular-nums text-bbh-ink">
                       {String(value)}
@@ -220,11 +225,11 @@ export function SystemHealth() {
 
             {/* Recent activity — hairline list */}
             <section className="animate-rise" style={{ animationDelay: '210ms' }}>
-              <h2 className="mb-4 font-serif text-xl font-semibold text-bbh-ink md:text-2xl">Activity ล่าสุด</h2>
+              <h2 className="mb-4 font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('systemHealth.recentActivity')}</h2>
               {data.recent_activity.length === 0 ? (
                 <div className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white p-6 text-sm text-bbh-muted">
                   <CheckCircle2 size={16} className="text-bbh-green" />
-                  ยังไม่มี activity
+                  {t('systemHealth.noActivity')}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
@@ -238,7 +243,7 @@ export function SystemHealth() {
                           {ACTIVITY_KIND_LABEL[a.kind] ?? a.kind}
                         </span>
                         <span className="truncate text-bbh-ink">{a.summary}</span>
-                        <span className="text-right font-mono text-xs tabular-nums text-bbh-muted">{formatRelative(a.ts)}</span>
+                        <span className="text-right font-mono text-xs tabular-nums text-bbh-muted">{formatRelative(a.ts, t)}</span>
                       </div>
                     ))}
                   </div>
@@ -247,7 +252,7 @@ export function SystemHealth() {
             </section>
 
             <p className="text-right font-mono text-[11px] tabular-nums text-bbh-muted">
-              ตรวจล่าสุด: {new Date(data.checked_at).toLocaleTimeString('th-TH')}
+              {t('systemHealth.lastChecked', { time: new Date(data.checked_at).toLocaleTimeString(dateLocale()) })}
             </p>
           </div>
         ) : null}

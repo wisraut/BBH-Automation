@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,15 +17,15 @@ import { useUsers } from '../hooks/useUsers'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const ACTIONS: Array<{ key: string; label: string }> = [
-  { key: '', label: 'ทุก action' },
-  { key: 'view_patient', label: 'ดูคนไข้' },
-  { key: 'list_patients', label: 'list คนไข้' },
-  { key: 'view_report', label: 'ดู report' },
-  { key: 'download_report', label: 'download report' },
-  { key: 'list_reports', label: 'list reports' },
-  { key: 'analyze_report', label: 'AI analyze' },
-  { key: 'decide_triage', label: 'ตัดสิน triage' },
+const ACTIONS: Array<{ key: string; labelKey: string }> = [
+  { key: '', labelKey: 'auditLog.actionAll' },
+  { key: 'view_patient', labelKey: 'auditLog.actionViewPatient' },
+  { key: 'list_patients', labelKey: 'auditLog.actionListPatients' },
+  { key: 'view_report', labelKey: 'auditLog.actionViewReport' },
+  { key: 'download_report', labelKey: 'auditLog.actionDownloadReport' },
+  { key: 'list_reports', labelKey: 'auditLog.actionListReports' },
+  { key: 'analyze_report', labelKey: 'auditLog.actionAnalyzeReport' },
+  { key: 'decide_triage', labelKey: 'auditLog.actionDecideTriage' },
 ]
 
 const ACTION_STYLES: Record<string, string> = {
@@ -47,10 +49,11 @@ function nowIso(): string {
 
 function fmtDateTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleString('th-TH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return d.toLocaleString(dateLocale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 export function AuditLog() {
+  const { t } = useTranslation()
   const usersQ = useUsers({ limit: 100 })
   const userOptions = useMemo(() => usersQ.data?.data ?? [], [usersQ.data])
 
@@ -94,9 +97,9 @@ export function AuditLog() {
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
               Audit Trail
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">บันทึกการเข้าถึงข้อมูลคนไข้</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('auditLog.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              ใครเข้าดู / download / ตัดสิน record ของคนไข้ — สำหรับ compliance audit
+              {t('auditLog.subtitle')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -105,7 +108,7 @@ export function AuditLog() {
               onClick={() => { setDateFrom(todayIso()); setDateTo(nowIso()); setPage(1) }}
               className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
-              วันนี้
+              {t('common.today')}
             </button>
             <button
               type="button"
@@ -113,7 +116,7 @@ export function AuditLog() {
               className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-              รีเฟรช
+              {t('auditLog.refresh')}
             </button>
           </div>
         </div>
@@ -125,7 +128,7 @@ export function AuditLog() {
             onChange={(e) => { setActorId(e.target.value ? Number(e.target.value) : undefined); setPage(1) }}
             className={fieldClass}
           >
-            <option value="">ทุก user</option>
+            <option value="">{t('auditLog.allUsers')}</option>
             {userOptions.map((u) => (
               <option key={u.id} value={u.id}>{u.display_name} ({u.role})</option>
             ))}
@@ -135,7 +138,7 @@ export function AuditLog() {
             onChange={(e) => { setAction(e.target.value); setPage(1) }}
             className={fieldClass}
           >
-            {ACTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+            {ACTIONS.map((a) => <option key={a.key} value={a.key}>{t(a.labelKey)}</option>)}
           </select>
           <input
             type="text"
@@ -163,7 +166,7 @@ export function AuditLog() {
 
         {(actorId || action || patientId || dateFrom || dateTo) ? (
           <div className="animate-rise mb-4 flex items-center gap-2" style={{ animationDelay: '100ms' }}>
-            <button type="button" onClick={clearFilters} className={`rounded text-xs text-bbh-muted underline transition-colors hover:text-bbh-ink ${FOCUS_RING}`}>ล้าง filter ทั้งหมด</button>
+            <button type="button" onClick={clearFilters} className={`rounded text-xs text-bbh-muted underline transition-colors hover:text-bbh-ink ${FOCUS_RING}`}>{t('auditLog.clearAllFilters')}</button>
           </div>
         ) : null}
 
@@ -171,19 +174,19 @@ export function AuditLog() {
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {q.isLoading ? (
             <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด audit log
+              <Loader2 size={16} className="mr-2 animate-spin" /> {t('auditLog.loadingLog')}
             </div>
           ) : q.isError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">โหลดข้อมูลไม่สำเร็จ</div>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{t('common.loadFailed')}</div>
           ) : !q.data || q.data.data.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-center">
               <ShieldCheck size={28} className="mb-2 text-bbh-green" />
-              <p className="text-sm font-semibold text-bbh-ink">ไม่พบ event ใน filter นี้</p>
+              <p className="text-sm font-semibold text-bbh-ink">{t('auditLog.noEvents')}</p>
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
               <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
-                <span>เวลา</span>
+                <span>{t('auditLog.colTime')}</span>
                 <span>Actor</span>
                 <span>Action</span>
                 <span>Patient</span>
@@ -198,10 +201,10 @@ export function AuditLog() {
 
           {q.data && q.data.pagination.total_pages > 1 ? (
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-              <span className="font-mono text-sm tabular-nums text-bbh-muted">หน้า {q.data.pagination.page} / {q.data.pagination.total_pages} · {q.data.pagination.total} events</span>
+              <span className="font-mono text-sm tabular-nums text-bbh-muted">{t('auditLog.pageInfo', { page: q.data.pagination.page, totalPages: q.data.pagination.total_pages, total: q.data.pagination.total })}</span>
               <div className="flex items-center gap-2">
-                <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}><ChevronLeft size={16}/> ก่อน</button>
-                <button type="button" disabled={page >= q.data.pagination.total_pages} onClick={() => setPage(p => p + 1)} className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>ถัดไป <ChevronRight size={16}/></button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}><ChevronLeft size={16}/> {t('auditLog.prev')}</button>
+                <button type="button" disabled={page >= q.data.pagination.total_pages} onClick={() => setPage(p => p + 1)} className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}>{t('auditLog.next')} <ChevronRight size={16}/></button>
               </div>
             </div>
           ) : null}

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare, Send, User, X } from 'lucide-react'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
@@ -11,19 +13,12 @@ import { useAuth } from '../lib/auth'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const ROLE_CONTEXT: Record<string, { label: string; hint: string }> = {
-  doctor: {
-    label: 'โหมดแพทย์',
-    hint: 'AI วิเคราะห์ผลแล็บและข้อมูลคนไข้จาก Knowledge Base ทางการแพทย์',
-  },
-  cro: {
-    label: 'โหมด CRO',
-    hint: 'AI ตอบคำถามเกี่ยวกับโรงพยาบาล บริการ และข้อมูลทั่วไปของ BBH',
-  },
-  admin: {
-    label: 'โหมดผู้ดูแล',
-    hint: 'AI ตอบคำถามเกี่ยวกับโรงพยาบาล บริการ และข้อมูลทั่วไปของ BBH',
-  },
+// Role keys map to i18n entries under `aiAssistant.roleContext.*`
+// (resolved via t() inside the component so labels/hints localize).
+const ROLE_CONTEXT_KEYS: Record<string, string> = {
+  doctor: 'doctor',
+  cro: 'cro',
+  admin: 'admin',
 }
 
 function TypingDots() {
@@ -71,7 +66,7 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
           ))}
         </div>
         <p className="px-1 font-mono text-[11px] tabular-nums text-bbh-muted">
-          {ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+          {ts.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
     </div>
@@ -79,6 +74,7 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
 }
 
 export function AiAssistant() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const {
     messages, isLoading, error, send,
@@ -91,7 +87,11 @@ export function AiAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const role = user?.role ?? 'cro'
-  const ctx = ROLE_CONTEXT[role] ?? ROLE_CONTEXT.cro
+  const ctxKey = ROLE_CONTEXT_KEYS[role] ?? ROLE_CONTEXT_KEYS.cro
+  const ctx = {
+    label: t(`aiAssistant.roleContext.${ctxKey}.label`),
+    hint: t(`aiAssistant.roleContext.${ctxKey}.hint`),
+  }
   const pinned = current?.pinnedPatient ?? null
 
   useEffect(() => {
@@ -138,7 +138,7 @@ export function AiAssistant() {
 
       <button
         type="button"
-        aria-label="ปิดประวัติสนทนา"
+        aria-label={t('aiAssistant.closeHistory')}
         onClick={() => setSessionsOpen(false)}
         className={`fixed inset-0 z-30 bg-bbh-ink/40 backdrop-blur-[2px] transition-opacity lg:hidden ${sessionsOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       />
@@ -163,7 +163,7 @@ export function AiAssistant() {
             className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
           >
             <MessageSquare size={15} />
-            ประวัติสนทนา
+            {t('aiAssistant.history')}
           </button>
           <div className="hidden h-9 w-9 place-items-center rounded-lg bg-bbh-green-soft sm:grid">
             <span className="font-serif text-base font-semibold text-bbh-green-dark">AI</span>
@@ -187,7 +187,7 @@ export function AiAssistant() {
               type="button"
               onClick={() => currentId && patchById(currentId, () => ({ pinnedPatient: null }))}
               className={`ml-1 rounded-full p-0.5 transition hover:bg-white/60 ${FOCUS_RING}`}
-              aria-label="ยกเลิก">
+              aria-label={t('common.cancel')}>
               <X size={12} />
             </button>
           </div>
@@ -198,7 +198,7 @@ export function AiAssistant() {
             className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
             <User size={14} />
-            เลือกคนไข้
+            {t('aiAssistant.selectPatient')}
           </button>
         )}
       </div>
@@ -217,7 +217,7 @@ export function AiAssistant() {
               </p>
               <p className="mt-1 text-sm leading-relaxed text-bbh-muted">{ctx.hint}</p>
               <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">
-                พิมพ์คำถามด้านล่างเพื่อเริ่มสนทนา
+                {t('aiAssistant.startHint')}
               </p>
             </div>
           </div>
@@ -257,7 +257,7 @@ export function AiAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="พิมพ์คำถาม... (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)"
+            placeholder={t('aiAssistant.inputPlaceholder')}
             rows={1}
             disabled={isLoading}
             className="flex-1 resize-none rounded-lg border border-bbh-line bg-white px-4 py-3 text-sm text-bbh-ink transition-colors duration-200 placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30 disabled:opacity-50"
@@ -273,7 +273,7 @@ export function AiAssistant() {
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-bbh-green text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
-            aria-label="ส่งข้อความ"
+            aria-label={t('aiAssistant.sendMessage')}
           >
             <Send size={18} />
           </button>

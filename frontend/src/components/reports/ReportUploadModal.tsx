@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 
 import { Modal } from '../Modal'
@@ -28,6 +29,7 @@ interface ReportUploadModalProps {
 }
 
 export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }: ReportUploadModalProps) {
+  const { t } = useTranslation()
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [reportType, setReportType] = useState<ReportType>('lab')
@@ -62,13 +64,13 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
   }
 
   return (
-    <Modal open={open} title="Upload report" onClose={onClose} size="md">
+    <Modal open={open} title={t('reportUploadModal.title')} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-4">
         {patientId !== undefined ? (
           <AllergyBanner patientId={patientId} scanText={`${title}\n${notes}`} compact />
         ) : null}
         <label className="block text-sm font-medium text-bbh-ink">
-          ไฟล์ report
+          {t('reportUploadModal.fileLabel')}
           <input
             type="file"
             accept="application/pdf,image/png,image/jpeg,text/plain"
@@ -77,7 +79,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
           />
         </label>
         <label className="block text-sm font-medium text-bbh-ink">
-          ชื่อ report
+          {t('reportUploadModal.nameLabel')}
           <input
             required
             value={title}
@@ -87,7 +89,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
         </label>
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block text-sm font-medium text-bbh-ink">
-            ประเภท
+            {t('reportUploadModal.typeLabel')}
             <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={FIELD}>
               <option value="lab">Lab</option>
               <option value="imaging">Imaging</option>
@@ -98,7 +100,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
             </select>
           </label>
           <label className="block text-sm font-medium text-bbh-ink">
-            แหล่งที่มา
+            {t('reportUploadModal.sourceLabel')}
             <select value={source} onChange={(e) => setSource(e.target.value as ReportSource)} className={FIELD}>
               <option value="web">Web</option>
               <option value="line">LINE</option>
@@ -109,9 +111,9 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
           </label>
         </div>
         <label className="block text-sm font-medium text-bbh-ink">
-          หมอที่รับผิดชอบ
+          {t('reportUploadModal.assignedDoctor')}
           <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={FIELD}>
-            <option value="">— ไม่ระบุ —</option>
+            <option value="">{t('reportUploadModal.unassigned')}</option>
             {doctors.map((doctor) => (
               <option key={doctor.id} value={doctor.id}>
                 {doctor.display_name}
@@ -121,16 +123,16 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
           </select>
         </label>
         <label className="block text-sm font-medium text-bbh-ink">
-          Notes
+          {t('reportUploadModal.notes')}
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className={TEXTAREA} />
         </label>
         <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} className={`inline-flex h-11 items-center justify-center rounded-lg border border-bbh-line bg-white px-4 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:h-auto sm:py-2 ${FOCUS_RING}`}>
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button type="submit" disabled={saving || !file || !title.trim()} className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:py-2 ${FOCUS_RING}`}>
             <Upload size={16} />
-            Upload
+            {t('reportUploadModal.submit')}
           </button>
         </div>
       </form>

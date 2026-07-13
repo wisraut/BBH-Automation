@@ -1,15 +1,16 @@
 // Client-side filter bar over a patient's already-loaded report list: type tabs
 // (only for types present), a "not yet analysed" toggle, and a text search.
 // Purely presentational — the parent owns the filter state and applies it.
+import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 
-const TYPE_LABELS: Record<string, string> = {
-  lab: 'แล็บ',
-  imaging: 'ภาพถ่ายรังสี',
-  history: 'ประวัติ',
-  prescription: 'ใบยา',
-  referral: 'ส่งต่อ',
-  other: 'อื่นๆ',
+const TYPE_KEYS: Record<string, string> = {
+  lab: 'type.lab',
+  imaging: 'type.imaging',
+  history: 'type.history',
+  prescription: 'type.prescription',
+  referral: 'type.referral',
+  other: 'type.other',
 }
 
 type ReportLike = { report_type: string; latest_analysis_at?: string | null }
@@ -33,6 +34,7 @@ export function ReportFilterBar({
   onSearch: (value: string) => void
   onReset: () => void
 }) {
+  const { t } = useTranslation()
   const anyActive = activeType !== 'all' || unreadOnly || search.trim() !== ''
   const counts = new Map<string, number>()
   let unread = 0
@@ -54,17 +56,17 @@ export function ReportFilterBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="ค้นหาเอกสาร (ชื่อ / ประเภท)"
+          placeholder={t('reportFilterBar.searchPlaceholder')}
           className="h-9 w-full rounded-lg border border-bbh-line bg-white pl-8 pr-3 text-sm text-bbh-ink transition-colors focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
         />
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <button type="button" onClick={() => onType('all')} className={chip(activeType === 'all')}>
-          ทั้งหมด ({reports.length})
+          {t('common.all')} ({reports.length})
         </button>
-        {presentTypes.map((t) => (
-          <button key={t} type="button" onClick={() => onType(t)} className={chip(activeType === t)}>
-            {TYPE_LABELS[t] ?? t} ({counts.get(t)})
+        {presentTypes.map((type) => (
+          <button key={type} type="button" onClick={() => onType(type)} className={chip(activeType === type)}>
+            {TYPE_KEYS[type] ? t(`reportFilterBar.${TYPE_KEYS[type]}`) : type} ({counts.get(type)})
           </button>
         ))}
         {unread > 0 ? (
@@ -77,13 +79,13 @@ export function ReportFilterBar({
                 unreadOnly ? 'bg-amber-500 text-white' : 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
               }`}
             >
-              ยังไม่วิเคราะห์ ({unread})
+              {t('reportFilterBar.notAnalyzed')} ({unread})
             </button>
           </>
         ) : null}
         {anyActive ? (
           <button type="button" onClick={onReset} className="ml-auto text-xs text-bbh-muted underline transition-colors hover:text-bbh-ink">
-            ล้างตัวกรอง
+            {t('reportFilterBar.clearFilters')}
           </button>
         ) : null}
       </div>

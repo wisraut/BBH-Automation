@@ -1,14 +1,6 @@
-import type { BookingStatus } from '../hooks/useBookings'
+import { useTranslation } from 'react-i18next'
 
-const LABELS: Record<BookingStatus, string> = {
-  draft: 'ร่าง',
-  pending_approval: 'รอยืนยัน',
-  approved: 'ยืนยันแล้ว',
-  rejected: 'ปฏิเสธ',
-  cancelled: 'ยกเลิก',
-  expired: 'หมดอายุ',
-  no_show: 'No-show',
-}
+import type { BookingStatus } from '../hooks/useBookings'
 
 const STYLES: Record<BookingStatus, string> = {
   draft: 'border border-bbh-line bg-bbh-surface text-bbh-muted',
@@ -21,9 +13,10 @@ const STYLES: Record<BookingStatus, string> = {
 }
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
+  const { t } = useTranslation()
   return (
     <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STYLES[status]}`}>
-      {LABELS[status]}
+      {t(`statusBadge.${status}`)}
     </span>
   )
 }

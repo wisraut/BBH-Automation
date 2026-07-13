@@ -1,4 +1,5 @@
 ﻿import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AuthNotice } from './AuthNotice'
 
 type LoginFormProps = {
@@ -26,29 +27,30 @@ export function LoginForm({
   onSubmit,
   onForgotPassword,
 }: LoginFormProps) {
+  const { t } = useTranslation()
   return (
     <section>
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-bbh-green">
-        Secure access
+        {t('loginForm.eyebrow')}
       </p>
       <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">
-        ยินดีต้อนรับกลับ
+        {t('loginForm.heading')}
       </h2>
       <p className="mt-3 text-sm leading-6 text-bbh-muted">
-        เข้าสู่ระบบด้วยบัญชีเจ้าหน้าที่ ระบบจะใช้ role จาก user record ในฐานข้อมูล
+        {t('loginForm.subtitle')}
       </p>
 
       <AuthNotice message={notice} className="mt-5" />
 
       <form className="mt-7 space-y-5" onSubmit={onSubmit}>
         <label className="block">
-          <span className="text-sm font-semibold text-bbh-ink">อีเมล</span>
+          <span className="text-sm font-semibold text-bbh-ink">{t('loginForm.emailLabel')}</span>
           <input
             type="email"
             value={email}
             onChange={(event) => onEmailChange(event.target.value)}
             className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none transition placeholder:text-bbh-muted/60 focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10 disabled:cursor-not-allowed disabled:opacity-70"
-            placeholder="กรอกอีเมล"
+            placeholder={t('loginForm.emailPlaceholder')}
             autoComplete="email"
             disabled={isSubmitting}
             required
@@ -56,13 +58,13 @@ export function LoginForm({
         </label>
 
         <label className="block">
-          <span className="text-sm font-semibold text-bbh-ink">รหัสผ่าน</span>
+          <span className="text-sm font-semibold text-bbh-ink">{t('loginForm.passwordLabel')}</span>
           <input
             type="password"
             value={password}
             onChange={(event) => onPasswordChange(event.target.value)}
             className="mt-2 h-12 w-full rounded-2xl border border-bbh-line bg-white px-4 text-base outline-none transition placeholder:text-bbh-muted/60 focus:border-bbh-green focus:ring-4 focus:ring-bbh-green/10 disabled:cursor-not-allowed disabled:opacity-70"
-            placeholder="กรอกรหัสผ่าน"
+            placeholder={t('loginForm.passwordPlaceholder')}
             autoComplete="current-password"
             disabled={isSubmitting}
             required
@@ -89,14 +91,14 @@ export function LoginForm({
                   : undefined
               }
             />
-            จดจำอุปกรณ์นี้
+            {t('loginForm.rememberDevice')}
           </label>
           <button
             type="button"
             onClick={onForgotPassword}
             className="text-sm font-semibold text-bbh-green transition hover:text-bbh-green-dark"
           >
-            ลืมรหัสผ่าน?
+            {t('loginForm.forgotPassword')}
           </button>
         </div>
 
@@ -105,12 +107,12 @@ export function LoginForm({
           disabled={isSubmitting}
           className="h-12 w-full rounded-2xl bg-bbh-green px-5 text-base font-semibold text-white shadow-lg shadow-bbh-green/20 transition hover:bg-bbh-green-dark focus:outline-none focus:ring-4 focus:ring-bbh-green/20 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+          {isSubmitting ? t('loginForm.submitting') : t('loginForm.submit')}
         </button>
       </form>
 
       <p className="mt-6 text-center text-xs leading-5 text-bbh-muted">
-        สำหรับเจ้าหน้าที่ BBH เท่านั้น
+        {t('loginForm.staffOnly')}
       </p>
     </section>
   )

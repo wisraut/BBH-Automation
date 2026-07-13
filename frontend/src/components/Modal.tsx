@@ -1,5 +1,6 @@
 ﻿import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 
 interface ModalProps {
@@ -11,6 +12,7 @@ interface ModalProps {
 }
 
 export function Modal({ open, title, onClose, children, size = 'md' }: ModalProps) {
+  const { t } = useTranslation()
   useEffect(() => {
     if (!open) return
     function onKey(event: KeyboardEvent) {
@@ -26,7 +28,7 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
     <div className="fixed inset-0 z-40 flex items-end justify-center p-0 md:items-center md:p-4 lg:p-6">
       <button
         type="button"
-        aria-label="ปิด"
+        aria-label={t('common.close')}
         onClick={onClose}
         className="absolute inset-0 bg-bbh-ink/45 backdrop-blur-[2px]"
       />
@@ -42,7 +44,7 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
             type="button"
             onClick={onClose}
             className="rounded-full border border-transparent p-2 text-bbh-muted transition hover:border-bbh-line hover:bg-white hover:text-bbh-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-            aria-label="ปิด"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>

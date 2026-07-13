@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   Check,
@@ -55,10 +56,10 @@ const SEVERITY_RAIL: Record<string, string> = {
   info: 'bg-bbh-muted/50',
 }
 
-const ACK_LABELS: Record<string, string> = {
-  auto_close: 'ปิดเอง',
-  manual: 'ต้องกด ack',
-  sticky: 'snooze ได้',
+const ACK_LABEL_KEYS: Record<string, string> = {
+  auto_close: 'alertRules.ackAutoClose',
+  manual: 'alertRules.ackManual',
+  sticky: 'alertRules.ackSticky',
 }
 
 function formatThreshold(t: Record<string, unknown>): string {
@@ -76,6 +77,7 @@ function MetaChip({ children }: { children: React.ReactNode }) {
 }
 
 export function AlertRules() {
+  const { t } = useTranslation()
   const q = useAdminAlertRules()
   const toggle = useToggleAlertRule()
   const [editTarget, setEditTarget] = useState<RuleOut | null>(null)
@@ -92,9 +94,9 @@ export function AlertRules() {
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
               Alert Rules
             </p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">กฎเตือน (Admin)</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('alertRules.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              จัดการ rules ที่ evaluator ใช้สร้าง alert — เปิด/ปิดการทำงาน และปรับ threshold ตามนโยบายโรงพยาบาล
+              {t('alertRules.subtitle')}
             </p>
           </div>
           <button
@@ -103,7 +105,7 @@ export function AlertRules() {
             className={`inline-flex shrink-0 items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
             <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-            รีเฟรช
+            {t('alertRules.refresh')}
           </button>
         </div>
 
@@ -111,21 +113,21 @@ export function AlertRules() {
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">Rule definitions</h2>
             <span className="font-mono text-xs tabular-nums text-bbh-muted">
-              {q.isLoading ? 'กำลังโหลด…' : `${enabledCount}/${rules.length} เปิดใช้งาน`}
+              {q.isLoading ? t('alertRules.loadingEllipsis') : t('alertRules.enabledCount', { enabled: enabledCount, total: rules.length })}
             </span>
           </div>
 
           {q.isLoading ? (
             <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลด rules
+              <Loader2 size={16} className="mr-2 animate-spin" /> {t('alertRules.loadingRules')}
             </div>
           ) : q.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-              โหลดข้อมูลไม่สำเร็จ — ลองรีเฟรชอีกครั้ง
+              {t('alertRules.loadFailedRetry')}
             </div>
           ) : rules.length === 0 ? (
             <div className="rounded-xl border border-dashed border-bbh-line bg-white p-10 text-center text-sm text-bbh-muted">
-              ไม่มี rule ในระบบ
+              {t('alertRules.noRules')}
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
@@ -159,7 +161,7 @@ export function AlertRules() {
                             {r.severity}
                           </span>
                           <MetaChip>{CATEGORY_LABELS[r.category] ?? r.category}</MetaChip>
-                          <MetaChip>ack: {ACK_LABELS[r.ack_policy] ?? r.ack_policy}</MetaChip>
+                          <MetaChip>{t('alertRules.ackChip', { policy: ACK_LABEL_KEYS[r.ack_policy] ? t(ACK_LABEL_KEYS[r.ack_policy]) : r.ack_policy })}</MetaChip>
                           <MetaChip>
                             recheck: <span className="font-mono tabular-nums">{r.recheck_seconds}s</span>
                           </MetaChip>
@@ -207,6 +209,7 @@ export function AlertRules() {
 }
 
 function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClose: () => void }) {
+  const { t } = useTranslation()
   const m = useUpdateAlertRuleThreshold()
   const [jsonText, setJsonText] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
@@ -226,13 +229,13 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
     try {
       const parsed = JSON.parse(jsonText)
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        setParseError('threshold ต้องเป็น JSON object เช่น {"minutes": 5}')
+        setParseError(t('alertRules.errThresholdObject'))
         return
       }
       setParseError(null)
       m.mutate({ ruleKey: target.rule_key, threshold: parsed }, { onSuccess: onClose })
     } catch {
-      setParseError('JSON ไม่ถูกต้อง')
+      setParseError(t('alertRules.errInvalidJson'))
     }
   }
 
@@ -240,7 +243,7 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
     <Modal open={Boolean(target)} title={`Threshold: ${target.display_name}`} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-4">
         <p className="text-xs leading-relaxed text-bbh-muted">
-          แก้ JSON ตรงๆ — รูปแบบขึ้นกับ evaluator <span className="font-mono">{target.evaluator}</span>
+          {t('alertRules.editJsonHintPrefix')} <span className="font-mono">{target.evaluator}</span>
         </p>
         <textarea
           value={jsonText}
@@ -250,10 +253,10 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
           spellCheck={false}
         />
         {parseError ? <p className="text-xs text-red-600">{parseError}</p> : null}
-        {m.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        {m.error ? <p className="text-xs text-red-600">{t('alertRules.saveFailed')}</p> : null}
 
         <div className="rounded-lg border border-bbh-line bg-bbh-surface p-4">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ตัวอย่าง threshold ตาม evaluator</p>
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('alertRules.thresholdExamples')}</p>
           <ul className="mt-2 space-y-1 font-mono text-[11px] text-bbh-muted">
             <li>eval_stuck_reports: <span className="text-bbh-ink">{'{"minutes": 5}'}</span></li>
             <li>eval_stale_cro_approvals: <span className="text-bbh-ink">{'{"hours": 24}'}</span></li>
@@ -267,14 +270,14 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
             onClick={onClose}
             className={`rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={m.isPending}
             className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
-            {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} บันทึก
+            {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t('common.save')}
           </button>
         </div>
       </form>

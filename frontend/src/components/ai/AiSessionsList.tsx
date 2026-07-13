@@ -1,4 +1,6 @@
 import { MessageSquare, Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import type { AiSession } from '../../hooks/useAiSessions'
 
@@ -15,15 +17,15 @@ interface AiSessionsListProps {
   onDelete: (id: string) => void
 }
 
-function formatRelative(ms: number): string {
+function formatRelative(ms: number, t: TFunction): string {
   const diff = Date.now() - ms
   const min = Math.floor(diff / 60000)
-  if (min < 1) return 'เมื่อกี้'
-  if (min < 60) return `${min} นาที`
+  if (min < 1) return t('aiSessionsList.justNow')
+  if (min < 60) return t('aiSessionsList.minutesAgo', { count: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} ชม.`
+  if (hr < 24) return t('aiSessionsList.hoursAgo', { count: hr })
   const day = Math.floor(hr / 24)
-  return `${day} วัน`
+  return t('aiSessionsList.daysAgo', { count: day })
 }
 
 export function AiSessionsList({
@@ -33,11 +35,12 @@ export function AiSessionsList({
   onNew,
   onDelete,
 }: AiSessionsListProps) {
+  const { t } = useTranslation()
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-bbh-line bg-white">
       <div className="shrink-0 border-b border-bbh-line px-4 py-4">
         <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-          ประวัติสนทนา
+          {t('aiSessionsList.history')}
         </p>
         <button
           type="button"
@@ -45,14 +48,14 @@ export function AiSessionsList({
           className={`flex w-full items-center justify-center gap-2 rounded-lg bg-bbh-green px-3 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
         >
           <Plus size={16} />
-          สนทนาใหม่
+          {t('aiSessionsList.newChat')}
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-bbh-muted">
-            ยังไม่มีประวัติสนทนา
+            {t('aiSessionsList.empty')}
           </p>
         ) : (
           <ul className="divide-y divide-bbh-line">
@@ -80,20 +83,20 @@ export function AiSessionsList({
                       />
                       <div className="min-w-0 flex-1">
                         <p className={`truncate font-medium ${active ? 'text-bbh-green-dark' : 'text-bbh-ink'}`}>
-                          {s.title}
+                          {s.title || t('aiSessionsList.newChat')}
                         </p>
                         <p className="mt-0.5 font-mono text-[11px] tabular-nums text-bbh-muted">
-                          {formatRelative(s.updatedAt)} · {s.messages.length} ข้อความ
+                          {formatRelative(s.updatedAt, t)} · {t('aiSessionsList.messageCount', { count: s.messages.length })}
                         </p>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm(`ลบสนทนา "${s.title}"?`)) onDelete(s.id)
+                        if (window.confirm(t('aiSessionsList.deleteConfirm', { title: s.title || t('aiSessionsList.newChat') }))) onDelete(s.id)
                       }}
                       className={`mr-2 my-2 shrink-0 rounded-md p-1.5 text-bbh-muted opacity-0 transition-colors duration-200 hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 group-hover:opacity-100 ${FOCUS_RING}`}
-                      aria-label="ลบสนทนา"
+                      aria-label={t('aiSessionsList.deleteChat')}
                     >
                       <Trash2 size={14} />
                     </button>

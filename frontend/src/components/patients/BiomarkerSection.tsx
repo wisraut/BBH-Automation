@@ -4,6 +4,7 @@
 // delta, and an in/below/above-optimal status. Physicians read trends from a
 // graph faster than from a table, so this complements LabResults.
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Activity, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
 import { Sparkline } from './Sparkline'
@@ -31,13 +32,14 @@ const STATUS_STYLE: Record<OptStatus, string> = {
   below: 'bg-amber-50 text-amber-700',
   above: 'bg-red-50 text-red-700',
 }
-const STATUS_LABEL: Record<OptStatus, string> = {
-  optimal: 'อยู่ในโซน optimal',
-  below: 'ต่ำกว่า optimal',
-  above: 'สูงกว่า optimal',
+const STATUS_LABEL_KEY: Record<OptStatus, string> = {
+  optimal: 'statusOptimal',
+  below: 'statusBelow',
+  above: 'statusAbove',
 }
 
 function MarkerCard({ cat, series }: { cat: MeasurementCatalogItem; series: Measurement[] }) {
+  const { t } = useTranslation()
   const values = series.map((m) => m.value)
   const latest = values[values.length - 1]
   const prev = values.length > 1 ? values[values.length - 2] : null
@@ -50,10 +52,10 @@ function MarkerCard({ cat, series }: { cat: MeasurementCatalogItem; series: Meas
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-bbh-ink">{cat.label_th}</p>
-          <p className="font-mono text-[10px] text-bbh-muted">optimal {fmt(cat.optimal_low)}–{fmt(cat.optimal_high)} {cat.unit}</p>
+          <p className="font-mono text-[10px] text-bbh-muted">{t('biomarkerSection.optimalRange', { low: fmt(cat.optimal_low), high: fmt(cat.optimal_high), unit: cat.unit })}</p>
         </div>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[status]}`}>
-          {STATUS_LABEL[status]}
+          {t(`biomarkerSection.${STATUS_LABEL_KEY[status]}`)}
         </span>
       </div>
       <div className="mt-2 flex items-end justify-between gap-2">
@@ -63,11 +65,11 @@ function MarkerCard({ cat, series }: { cat: MeasurementCatalogItem; series: Meas
           </p>
           <p className="flex items-center gap-1 font-mono text-[11px] text-bbh-muted">
             {delta == null ? (
-              'ค่าเดียว'
+              t('biomarkerSection.singleValue')
             ) : (
               <>
                 {delta > 0 ? <ArrowUp size={11} /> : delta < 0 ? <ArrowDown size={11} /> : <Minus size={11} />}
-                {delta > 0 ? '+' : ''}{fmt(delta)} จากครั้งก่อน
+                {t('biomarkerSection.fromPrevious', { delta: `${delta > 0 ? '+' : ''}${fmt(delta)}` })}
               </>
             )}
           </p>
@@ -79,6 +81,7 @@ function MarkerCard({ cat, series }: { cat: MeasurementCatalogItem; series: Meas
 }
 
 export function BiomarkerSection({ patientId }: { patientId: number }) {
+  const { t } = useTranslation()
   const catalogQ = useMeasurementCatalog()
   const confirmedQ = usePatientMeasurements(patientId, 'confirmed')
 
@@ -106,13 +109,13 @@ export function BiomarkerSection({ patientId }: { patientId: number }) {
   return (
     <section>
       <h2 className="mb-3 flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-        <Activity size={13} /> Biomarker (เทียบโซน optimal)
+        <Activity size={13} /> {t('biomarkerSection.title')}
       </h2>
       {loading ? (
-        <div className="rounded-xl border border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">กำลังโหลด biomarker</div>
+        <div className="rounded-xl border border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">{t('biomarkerSection.loading')}</div>
       ) : cards.length === 0 ? (
         <div className="rounded-xl border border-dashed border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">
-          ยังไม่มีค่าที่ยืนยันสำหรับดูแนวโน้ม — ยืนยันค่าแล็บก่อน แล้วแนวโน้มจะขึ้นที่นี่
+          {t('biomarkerSection.empty')}
         </div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">

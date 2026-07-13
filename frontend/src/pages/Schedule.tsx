@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -46,7 +49,7 @@ function addDaysIso(iso: string, days: number): string {
 }
 function formatThaiDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
+  return d.toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'short' })
 }
 function formatTime(t: string | null): string {
   if (!t) return '-'
@@ -55,15 +58,15 @@ function formatTime(t: string | null): string {
 function appointmentSortValue(apt: ScheduleAppointment): string {
   return `${apt.requested_date}T${apt.requested_time ?? '99:99'}`
 }
-function describeTimeToAppointment(apt: ScheduleAppointment): string {
+function describeTimeToAppointment(apt: ScheduleAppointment, t: TFunction): string {
   if (apt.requested_date !== todayIso() || !apt.requested_time) return formatThaiDate(apt.requested_date)
   const target = new Date(`${apt.requested_date}T${apt.requested_time}`)
   const diffMin = Math.round((target.getTime() - Date.now()) / 60000)
-  if (Number.isNaN(diffMin)) return 'วันนี้'
-  if (diffMin < -45) return 'ผ่านมาแล้ว'
-  if (diffMin < 0) return 'กำลังถึงเวลา'
-  if (diffMin < 60) return `อีก ${diffMin} นาที`
-  return `อีก ${Math.floor(diffMin / 60)} ชม. ${diffMin % 60} นาที`
+  if (Number.isNaN(diffMin)) return t('common.today')
+  if (diffMin < -45) return t('schedule.timeAgo.past')
+  if (diffMin < 0) return t('schedule.timeAgo.arriving')
+  if (diffMin < 60) return t('schedule.timeAgo.inMinutes', { count: diffMin })
+  return t('schedule.timeAgo.inHoursMinutes', { hours: Math.floor(diffMin / 60), minutes: diffMin % 60 })
 }
 
 function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
@@ -86,6 +89,7 @@ function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
 }
 
 function AiBriefPanel({ patientId }: { patientId: number }) {
+  const { t } = useTranslation()
   const briefM = usePatientAiSummary()
   const [open, setOpen] = useState(false)
 
@@ -105,22 +109,22 @@ function AiBriefPanel({ patientId }: { patientId: number }) {
           onClick={loadBrief}
           className={`inline-flex items-center gap-2 rounded-lg border border-bbh-green/30 bg-white px-3 py-1.5 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
         >
-          <Brain size={13} /> สรุปเคส
+          <Brain size={13} /> {t('schedule.summarizeCase')}
         </button>
       </div>
       {open ? (
         <div className="mt-3">
           {briefM.isPending ? (
-            <p className="inline-flex items-center gap-2 text-sm text-bbh-muted"><Loader2 size={14} className="animate-spin" /> กำลังสรุป...</p>
+            <p className="inline-flex items-center gap-2 text-sm text-bbh-muted"><Loader2 size={14} className="animate-spin" /> {t('schedule.summarizing')}</p>
           ) : briefM.error ? (
-            <p className="text-sm text-red-700">โหลด AI brief ไม่สำเร็จ</p>
+            <p className="text-sm text-red-700">{t('schedule.briefLoadFailed')}</p>
           ) : briefM.data ? (
             <pre className="max-h-[280px] overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-bbh-ink">{briefM.data.summary}</pre>
           ) : null}
         </div>
       ) : (
         <p className="mt-3 text-sm leading-relaxed text-bbh-muted">
-          สรุปก่อนพบแพทย์ควรช่วยให้เห็นเหตุผลที่มา ประวัติสำคัญ ผลตรวจที่ต้องดู และคำถามที่ควรถามต่อ
+          {t('schedule.briefHint')}
         </p>
       )}
     </div>
@@ -128,13 +132,14 @@ function AiBriefPanel({ patientId }: { patientId: number }) {
 }
 
 function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | null; pendingReports: ScheduleReport[] }) {
+  const { t } = useTranslation()
   if (!apt) {
     return (
       <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6 md:p-8">
         <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Next patient</p>
         <div className="mt-8 flex items-center gap-3 text-bbh-muted">
           <CheckCircle2 size={18} className="text-bbh-green" />
-          <p className="text-sm">วันนี้ยังไม่มีนัดที่ต้องเตรียมก่อนตรวจ</p>
+          <p className="text-sm">{t('schedule.noNextPatient')}</p>
         </div>
       </section>
     )
@@ -150,11 +155,11 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
         <div>
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Next patient</p>
           <h2 className="mt-3 font-serif text-3xl font-semibold leading-tight text-bbh-ink">
-            {apt.patient_name || '(ไม่ระบุชื่อ)'}
+            {apt.patient_name || t('schedule.unnamedPatient')}
           </h2>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-bbh-muted">
             <span className="inline-flex items-center gap-1.5"><Clock size={14} /> <span className="font-mono tabular-nums text-bbh-ink">{formatTime(apt.requested_time)}</span></span>
-            <span className="font-mono tabular-nums">{describeTimeToAppointment(apt)}</span>
+            <span className="font-mono tabular-nums">{describeTimeToAppointment(apt, t)}</span>
             {apt.phone ? (
               <a href={`tel:${apt.phone}`} className={`inline-flex items-center gap-1.5 rounded transition-colors duration-200 hover:text-bbh-green-dark ${FOCUS_RING}`}>
                 <Phone size={14} /> <span className="font-mono tabular-nums">{apt.phone}</span>
@@ -170,7 +175,7 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
               rel="noreferrer"
               className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
             >
-              <Video size={15} /> เข้าร่วมออนไลน์
+              <Video size={15} /> {t('schedule.joinOnline')}
             </a>
           ) : null}
           {apt.patient_id ? (
@@ -178,7 +183,7 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
               to={`/patients?patient=${apt.patient_id}`}
               className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
-              เปิดเคส <ArrowRight size={15} />
+              {t('schedule.openCase')} <ArrowRight size={15} />
             </Link>
           ) : null}
           {apt.calendar_event_url ? (
@@ -218,25 +223,26 @@ function SignalRail({ todayAppointments, pendingReports }: {
   todayAppointments: ScheduleAppointment[]
   pendingReports: ScheduleReport[]
 }) {
+  const { t } = useTranslation()
   const overdueReports = pendingReports.filter((report) => report.latest_decision === null || report.latest_decision === 'review')
   const noPhone = todayAppointments.filter((apt) => !apt.phone)
   const signals = [
     {
       icon: ShieldAlert,
       label: 'Safety watch',
-      value: overdueReports.length > 0 ? `${overdueReports.length} report ต้อง review` : 'ไม่มีสัญญาณเร่งด่วน',
+      value: overdueReports.length > 0 ? t('schedule.signals.reportsToReview', { count: overdueReports.length }) : t('schedule.signals.noUrgent'),
       tone: overdueReports.length > 0 ? 'amber' : 'green',
     },
     {
       icon: MessageSquareText,
       label: 'Team notes',
-      value: noPhone.length > 0 ? `${noPhone.length} นัดไม่มีเบอร์โทร` : 'ไม่มี note ค้าง',
+      value: noPhone.length > 0 ? t('schedule.signals.appointmentsNoPhone', { count: noPhone.length }) : t('schedule.signals.noPendingNotes'),
       tone: noPhone.length > 0 ? 'amber' : 'green',
     },
     {
       icon: UserRound,
       label: 'Patient prep',
-      value: todayAppointments.length > 0 ? `${todayAppointments.length} เคสวันนี้` : 'ไม่มีเคสวันนี้',
+      value: todayAppointments.length > 0 ? t('schedule.signals.casesToday', { count: todayAppointments.length }) : t('schedule.signals.noCasesToday'),
       tone: 'green',
     },
   ] as const
@@ -268,6 +274,7 @@ function SignalRail({ todayAppointments, pendingReports }: {
 }
 
 function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
+  const { t } = useTranslation()
   const isToday = apt.requested_date === todayIso()
   return (
     <div className={`rounded-xl border bg-white p-5 ${isToday ? 'border-bbh-green/40 ring-1 ring-bbh-green/20' : 'border-bbh-line'}`}>
@@ -280,11 +287,11 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
             <span className="font-mono tabular-nums">{formatThaiDate(apt.requested_date)}</span>
             {isToday ? (
               <span className="rounded-full border border-bbh-green/30 bg-bbh-green-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-bbh-green-dark">
-                วันนี้
+                {t('common.today')}
               </span>
             ) : null}
           </div>
-          <p className="mt-2 truncate text-base font-semibold text-bbh-ink">{apt.patient_name || '(ไม่ระบุชื่อ)'}</p>
+          <p className="mt-2 truncate text-base font-semibold text-bbh-ink">{apt.patient_name || t('schedule.unnamedPatient')}</p>
           {apt.symptom ? <p className="mt-1 line-clamp-2 text-sm text-bbh-muted">{apt.symptom}</p> : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -295,7 +302,7 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
               rel="noreferrer"
               className={`inline-flex items-center gap-1 rounded-lg bg-bbh-green px-2 py-1 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
             >
-              <Video size={11} /> ออนไลน์
+              <Video size={11} /> {t('schedule.online')}
             </a>
           ) : null}
           {apt.patient_id ? (
@@ -303,7 +310,7 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
               to={`/patients?patient=${apt.patient_id}`}
               className={`inline-flex items-center gap-1 rounded-lg border border-bbh-green/30 bg-bbh-green-soft px-2 py-1 text-xs font-semibold text-bbh-green-dark transition-colors duration-200 hover:border-bbh-green ${FOCUS_RING}`}
             >
-              เคส <ExternalLink size={11} />
+              {t('schedule.case')} <ExternalLink size={11} />
             </Link>
           ) : null}
         </div>
@@ -313,13 +320,14 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
 }
 
 function ReportRow({ r }: { r: ScheduleReport }) {
+  const { t } = useTranslation()
   const decision = r.latest_decision ?? 'no_analysis'
   const decisionLabel: Record<string, string> = {
-    no_analysis: 'ยังไม่วิเคราะห์',
-    pending: 'รอแพทย์ตัดสิน',
-    review: 'รอ review',
-    accept: 'รับ',
-    reject: 'ปฏิเสธ',
+    no_analysis: t('schedule.decision.noAnalysis'),
+    pending: t('schedule.decision.pending'),
+    review: t('schedule.decision.review'),
+    accept: t('schedule.decision.accept'),
+    reject: t('schedule.decision.reject'),
   }
   const decisionStyle: Record<string, string> = {
     no_analysis: 'border-bbh-line bg-bbh-surface text-bbh-muted',
@@ -348,7 +356,7 @@ function ReportRow({ r }: { r: ScheduleReport }) {
         <p className="mt-0.5 truncate text-xs text-bbh-muted">{r.report_type} · {r.source}</p>
       </div>
       <div className="hidden text-right font-mono text-xs tabular-nums text-bbh-muted lg:block">
-        {new Date(r.uploaded_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+        {new Date(r.uploaded_at).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })}
       </div>
       <div className="text-right">
         <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${decisionStyle[decision]}`}>
@@ -360,6 +368,7 @@ function ReportRow({ r }: { r: ScheduleReport }) {
 }
 
 export function Schedule() {
+  const { t } = useTranslation()
   const [windowDays, setWindowDays] = useState<7 | 14 | 30>(7)
   const dateFrom = useMemo(() => todayIso(), [])
   const dateTo = useMemo(() => addDaysIso(dateFrom, windowDays), [dateFrom, windowDays])
@@ -398,9 +407,9 @@ export function Schedule() {
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Doctor Today</p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">สรุปงานแพทย์วันนี้</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('schedule.pageTitle')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              นัดหมาย คนไข้ถัดไป report ที่ต้องดู และสัญญาณสำคัญสำหรับการตรวจวันนี้
+              {t('schedule.pageSubtitle')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -415,7 +424,7 @@ export function Schedule() {
                     windowDays === d ? 'bg-bbh-green text-white' : 'text-bbh-muted hover:text-bbh-ink'
                   }`}
                 >
-                  <span className="font-mono tabular-nums">{d}</span> วัน
+                  <span className="font-mono tabular-nums">{d}</span> {t('schedule.daysUnit')}
                 </button>
               ))}
             </div>
@@ -423,7 +432,7 @@ export function Schedule() {
               to="/doctor-calendar"
               className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
-              <CalendarDays size={15} /> ปฏิทินเต็ม
+              <CalendarDays size={15} /> {t('schedule.fullCalendar')}
             </Link>
             <button
               type="button"
@@ -431,24 +440,24 @@ export function Schedule() {
               className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-              รีเฟรช
+              {t('schedule.refresh')}
             </button>
           </div>
         </div>
 
         {q.isLoading ? (
           <div className="animate-rise flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-            <Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลดงานวันนี้
+            <Loader2 size={16} className="mr-2 animate-spin" /> {t('schedule.loadingToday')}
           </div>
         ) : q.isError ? (
-          <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">โหลดข้อมูลไม่สำเร็จ</div>
+          <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{t('common.loadFailed')}</div>
         ) : data ? (
           <div className="space-y-8">
             <div className="animate-rise grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-2 xl:grid-cols-4" style={{ animationDelay: '50ms' }}>
-              <MetricCell label="นัดวันนี้" value={data.stats.today_appointments} icon={CalendarIcon} />
-              <MetricCell label="คนไข้ถัดไป" value={nextAppointment ? formatTime(nextAppointment.requested_time) : '-'} icon={Stethoscope} tone="ink" />
-              <MetricCell label="Report รอดู" value={data.stats.pending_reports} icon={ClipboardList} tone={data.stats.pending_reports > 0 ? 'amber' : 'green'} />
-              <MetricCell label={`ใน ${windowDays} วัน`} value={data.stats.window_appointments} icon={Clock} />
+              <MetricCell label={t('schedule.metrics.todayAppointments')} value={data.stats.today_appointments} icon={CalendarIcon} />
+              <MetricCell label={t('schedule.metrics.nextPatient')} value={nextAppointment ? formatTime(nextAppointment.requested_time) : '-'} icon={Stethoscope} tone="ink" />
+              <MetricCell label={t('schedule.metrics.reportsToReview')} value={data.stats.pending_reports} icon={ClipboardList} tone={data.stats.pending_reports > 0 ? 'amber' : 'green'} />
+              <MetricCell label={t('schedule.metrics.withinDays', { count: windowDays })} value={data.stats.window_appointments} icon={Clock} />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -464,13 +473,13 @@ export function Schedule() {
 
             <section className="animate-rise" style={{ animationDelay: '210ms' }}>
               <div className="mb-4 flex items-baseline justify-between gap-2">
-                <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">Timeline นัดหมาย</h2>
-                <span className="font-mono text-xs tabular-nums text-bbh-muted">{data.appointments.length} รายการ</span>
+                <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">{t('schedule.appointmentTimeline')}</h2>
+                <span className="font-mono text-xs tabular-nums text-bbh-muted">{t('schedule.itemsCount', { count: data.appointments.length })}</span>
               </div>
               {data.appointments.length === 0 ? (
                 <div className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white p-6 text-sm text-bbh-muted">
                   <CheckCircle2 size={16} className="text-bbh-green" />
-                  ไม่มีนัดหมายในช่วงเวลานี้
+                  {t('schedule.noAppointmentsInRange')}
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -478,7 +487,7 @@ export function Schedule() {
                     <div key={date_}>
                       <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
                         {formatThaiDate(date_)}
-                        {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· วันนี้</span> : null}
+                        {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· {t('common.today')}</span> : null}
                       </p>
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} />)}
@@ -492,20 +501,20 @@ export function Schedule() {
             <section className="animate-rise" style={{ animationDelay: '280ms' }}>
               <div className="mb-4 flex items-baseline justify-between gap-2">
                 <h2 className="font-serif text-lg font-semibold text-bbh-ink md:text-xl">Review queue</h2>
-                <span className="font-mono text-xs tabular-nums text-bbh-muted">{data.pending_reports.length} รายการ</span>
+                <span className="font-mono text-xs tabular-nums text-bbh-muted">{t('schedule.itemsCount', { count: data.pending_reports.length })}</span>
               </div>
               {data.pending_reports.length === 0 ? (
                 <div className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white p-6 text-sm text-bbh-muted">
                   <CheckCircle2 size={16} className="text-bbh-green" />
-                  ไม่มี report ค้างให้พิจารณา
+                  {t('schedule.noPendingReports')}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
                   <div className="hidden grid-cols-[160px_1fr_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
-                    <span>คนไข้</span>
-                    <span>เรื่อง</span>
-                    <span className="text-right">วันที่อัพโหลด</span>
-                    <span className="text-right">สถานะ</span>
+                    <span>{t('schedule.tableHead.patient')}</span>
+                    <span>{t('schedule.tableHead.subject')}</span>
+                    <span className="text-right">{t('schedule.tableHead.uploadedDate')}</span>
+                    <span className="text-right">{t('schedule.tableHead.status')}</span>
                   </div>
                   <div className="divide-y divide-bbh-line">
                     {data.pending_reports.map((r) => <ReportRow key={r.report_id} r={r} />)}
@@ -516,7 +525,7 @@ export function Schedule() {
 
             <p className="flex items-center gap-2 text-xs text-bbh-muted">
               <FileText size={12} />
-              หน้าแรกนี้จัดลำดับจากงานที่หมอต้องทำวันนี้ก่อน: คนไข้ถัดไป → safety signals → timeline → review queue
+              {t('schedule.footerNote')}
             </p>
           </div>
         ) : null}
@@ -528,6 +537,7 @@ export function Schedule() {
 // --- Schedule blocks (vacation) ----------------------------------------
 
 function ScheduleBlocksSection() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const doctorId = user ? Number(user.id) : undefined
   const q = useScheduleBlocks({ doctorId })
@@ -563,7 +573,7 @@ function ScheduleBlocksSection() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="inline-flex items-center gap-2 font-serif text-lg font-semibold text-bbh-ink md:text-xl">
           <CalendarOff size={16} className="text-amber-500" />
-          ลา / ไม่อยู่
+          {t('schedule.timeOff.title')}
           <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-xs font-semibold text-bbh-muted">
             <span className="font-mono tabular-nums">{blocks.length}</span>
           </span>
@@ -573,12 +583,12 @@ function ScheduleBlocksSection() {
           onClick={() => setOpen(true)}
           className={`inline-flex items-center gap-1 rounded-lg border border-bbh-line bg-white px-3 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
         >
-          <Plus size={12} /> เพิ่ม block
+          <Plus size={12} /> {t('schedule.timeOff.addBlock')}
         </button>
       </div>
 
       {blocks.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-sm text-bbh-muted">— ไม่มีรายการลา —</p>
+        <p className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-sm text-bbh-muted">{t('schedule.timeOff.empty')}</p>
       ) : (
         <div className="grid gap-2 md:grid-cols-2">
           {blocks.map((b) => (
@@ -600,15 +610,15 @@ function ScheduleBlocksSection() {
                     rel="noopener noreferrer"
                     className={`mt-2 inline-flex items-center gap-1 rounded-lg border border-bbh-green/40 bg-bbh-green/5 px-2 py-1 text-xs font-medium text-bbh-green-dark transition-colors duration-200 hover:bg-bbh-green/10 ${FOCUS_RING}`}
                   >
-                    <Video size={12} /> เข้าร่วมออนไลน์
+                    <Video size={12} /> {t('schedule.joinOnline')}
                   </a>
                 ) : null}
               </div>
               <button
                 type="button"
-                onClick={() => { if (confirm('ลบรายการนี้?')) del.mutate(b.id) }}
+                onClick={() => { if (confirm(t('schedule.timeOff.confirmDelete'))) del.mutate(b.id) }}
                 className={`rounded text-bbh-muted transition-colors duration-200 hover:text-red-600 ${FOCUS_RING}`}
-                title="ลบ"
+                title={t('common.delete')}
               >
                 <Trash2 size={13} />
               </button>
@@ -617,10 +627,10 @@ function ScheduleBlocksSection() {
         </div>
       )}
 
-      <Modal open={open} title="เพิ่ม block" onClose={() => setOpen(false)}>
+      <Modal open={open} title={t('schedule.timeOff.addBlock')} onClose={() => setOpen(false)}>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประเภท</label>
+            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.type')}</label>
             <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={`mt-2 ${fieldClass}`}>
               <option value="vacation">vacation</option>
               <option value="off_hours">off_hours</option>
@@ -631,40 +641,40 @@ function ScheduleBlocksSection() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">เริ่ม</label>
+              <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.start')}</label>
               <input required type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
             </div>
             <div>
-              <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">สิ้นสุด</label>
+              <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.end')}</label>
               <input required type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
             </div>
           </div>
-          <input type="text" placeholder="หมายเหตุ (เช่น พักร้อน)" value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} />
+          <input type="text" placeholder={t('schedule.timeOff.reasonPlaceholder')} value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} />
           <div>
             <input
               type="url"
-              placeholder="ลิงก์ประชุมออนไลน์ (ไม่บังคับ — Zoom / Meet / อื่นๆ)"
+              placeholder={t('schedule.timeOff.videoLinkPlaceholder')}
               value={videoLink}
               onChange={(e) => setVideoLink(e.target.value)}
               className={fieldClass}
             />
-            <p className="mt-1 text-[11px] text-bbh-muted">ใส่ลิงก์เมื่อเป็นการประชุมออนไลน์ — จะขึ้นบนปฏิทินและมีปุ่มเข้าร่วม</p>
+            <p className="mt-1 text-[11px] text-bbh-muted">{t('schedule.timeOff.videoLinkHint')}</p>
           </div>
-          {create.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+          {create.error ? <p className="text-xs text-red-600">{t('schedule.timeOff.saveFailed')}</p> : null}
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setOpen(false)}
               className={`rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
-              ยกเลิก
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={create.isPending}
               className={`rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
             >
-              บันทึก
+              {t('common.save')}
             </button>
           </div>
         </form>

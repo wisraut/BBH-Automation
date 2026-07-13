@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -30,20 +32,19 @@ import { useAuth } from '../lib/auth'
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-const DAY_LABELS = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์']
-const MONTH_DAY_LABELS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+// Weekday header cells (Sunday-first). Labels resolved via t('doctorCalendar.monthDayShort.*').
+const MONTH_DAY_CELLS = Array.from({ length: 7 })
 const HOURS = Array.from({ length: 11 }, (_, index) => index + 8)
-const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 const DAY_START_HOUR = 8
 const DAY_END_HOUR = 19
 const PX_PER_MINUTE = 1.2
 const DAY_HEIGHT = (DAY_END_HOUR - DAY_START_HOUR) * 60 * PX_PER_MINUTE
 const BLOCK_TYPES = [
-  { value: 'vacation', label: 'ลา' },
-  { value: 'off_hours', label: 'ไม่อยู่' },
-  { value: 'conference', label: 'ประชุม / conference' },
-  { value: 'sick', label: 'ป่วย' },
-  { value: 'other', label: 'อื่น ๆ' },
+  { value: 'vacation', labelKey: 'blockType.vacation' },
+  { value: 'off_hours', labelKey: 'blockType.offHours' },
+  { value: 'conference', labelKey: 'blockType.conference' },
+  { value: 'sick', labelKey: 'blockType.sick' },
+  { value: 'other', labelKey: 'blockType.other' },
 ]
 
 type CalendarMode = 'week' | 'month'
@@ -84,17 +85,18 @@ function monthCells(year: number, month: number): (number | null)[] {
   return [...Array(leadingBlanks).fill(null), ...Array.from({ length: days }, (_, i) => i + 1), ...Array(trailingBlanks).fill(null)]
 }
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })
 }
 function formatLongDate(date: Date): string {
-  return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
+  return date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 function formatTime(value: string | null): string {
   if (!value) return '-'
   return value.slice(0, 5)
 }
-function blockTypeLabel(type: string): string {
-  return BLOCK_TYPES.find((item) => item.value === type)?.label ?? type
+function blockTypeLabel(type: string, t: (key: string) => string): string {
+  const found = BLOCK_TYPES.find((item) => item.value === type)
+  return found ? t(`doctorCalendar.${found.labelKey}`) : type
 }
 function dateTimeLocal(dateKey: string, hour: number): string {
   return `${dateKey}T${String(hour).padStart(2, '0')}:00`
@@ -135,7 +137,7 @@ function overlapsDay(block: ScheduleBlock, dayKey: string): boolean {
 function formatBlockRange(block: ScheduleBlock): string {
   const start = new Date(block.start_at)
   const end = new Date(block.end_at)
-  return `${start.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} ${start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
+  return `${start.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })} ${start.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
@@ -167,6 +169,7 @@ function CreateBlockModal({
   initialStart: string
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const create = useCreateScheduleBlock()
   const [blockType, setBlockType] = useState('off_hours')
   const [startAt, setStartAt] = useState(initialStart)
@@ -198,36 +201,36 @@ function CreateBlockModal({
     `w-full rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30`
 
   return (
-    <Modal open={open} title="เพิ่มเวลาที่ไม่อยู่" onClose={onClose} size="md">
+    <Modal open={open} title={t('doctorCalendar.addTimeOff')} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">ประเภท</label>
+          <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.type')}</label>
           <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={`mt-2 ${fieldClass}`}>
-            {BLOCK_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            {BLOCK_TYPES.map((item) => <option key={item.value} value={item.value}>{t(`doctorCalendar.${item.labelKey}`)}</option>)}
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">เริ่ม</label>
+            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.start')}</label>
             <input required type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
           </div>
           <div>
-            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">สิ้นสุด</label>
+            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.end')}</label>
             <input required type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
           </div>
         </div>
-        <input value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} placeholder="เหตุผล เช่น ประชุมทีม / conference" />
+        <input value={reason} onChange={(e) => setReason(e.target.value)} className={fieldClass} placeholder={t('doctorCalendar.reasonPlaceholder')} />
         <input
           type="url"
           value={videoLink}
           onChange={(e) => setVideoLink(e.target.value)}
           className={fieldClass}
-          placeholder="ลิงก์ประชุมออนไลน์ (ไม่บังคับ — Zoom / Meet / อื่นๆ)"
+          placeholder={t('doctorCalendar.videoLinkPlaceholder')}
         />
-        {create.error ? <p className="text-xs text-red-600">บันทึกไม่สำเร็จ</p> : null}
+        {create.error ? <p className="text-xs text-red-600">{t('doctorCalendar.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className={`rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>ยกเลิก</button>
-          <button type="submit" disabled={create.isPending} className={`rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}>บันทึก</button>
+          <button type="button" onClick={onClose} className={`rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>{t('common.cancel')}</button>
+          <button type="submit" disabled={create.isPending} className={`rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}>{t('common.save')}</button>
         </div>
       </form>
     </Modal>
@@ -251,6 +254,7 @@ function MonthGrid({
   setSelectedDate: (date: string | null) => void
   openBlock: (dateKey: string, hour?: number) => void
 }) {
+  const { t } = useTranslation()
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
   const cells = monthCells(year, month)
@@ -259,9 +263,9 @@ function MonthGrid({
     <div className="overflow-x-auto pb-2">
       <div className="min-w-[640px] md:min-w-0">
         <div className="mb-2 grid grid-cols-7 gap-px">
-          {MONTH_DAY_LABELS.map((day) => (
-            <div key={day} className="py-2 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">
-              {day}
+          {MONTH_DAY_CELLS.map((_day, index) => (
+            <div key={index} className="py-2 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">
+              {t(`doctorCalendar.monthDayShort.${index}`)}
             </div>
           ))}
         </div>
@@ -289,12 +293,12 @@ function MonthGrid({
                 <div className="mt-auto flex w-full flex-col gap-0.5">
                   {dayAppointments.length > 0 ? (
                     <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark">
-                      <span className="font-mono tabular-nums">{dayAppointments.length}</span> นัด
+                      <span className="font-mono tabular-nums">{dayAppointments.length}</span> {t('doctorCalendar.appointmentsUnit')}
                     </span>
                   ) : null}
                   {dayBlocks.length > 0 ? (
                     <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700">
-                      <span className="font-mono tabular-nums">{dayBlocks.length}</span> ไม่อยู่
+                      <span className="font-mono tabular-nums">{dayBlocks.length}</span> {t('doctorCalendar.awayUnit')}
                     </span>
                   ) : null}
                 </div>
@@ -307,6 +311,7 @@ function MonthGrid({
   )
 }
 export function DoctorCalendar() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const doctorId = user ? Number(user.id) : undefined
   const [mode, setMode] = useState<CalendarMode>('week')
@@ -380,17 +385,17 @@ export function DoctorCalendar() {
   }
   const periodTitle = mode === 'week'
     ? `${formatLongDate(weekDays[0])} - ${formatLongDate(weekDays[6])}`
-    : `${THAI_MONTHS[monthStart.getMonth()]} ${monthStart.getFullYear()}`
+    : `${t(`doctorCalendar.monthName.${monthStart.getMonth()}`)} ${monthStart.getFullYear()}`
 
   return (
     <div className="flex h-full min-w-0 overflow-hidden bg-white">
       <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
-        <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div className="animate-rise mb-8 flex flex-col gap-4">
           <div>
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Doctor Calendar</p>
-            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">ปฏิทินแพทย์</h1>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('doctorCalendar.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
-              ดูนัดของตัวเองพร้อมชั้นเวลาเปิดรับนัดและเวลาที่ไม่อยู่ สำหรับให้ CRO จองคิวได้แม่นขึ้น
+              {t('doctorCalendar.subtitle')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -402,47 +407,47 @@ export function DoctorCalendar() {
                   onClick={() => setMode(item)}
                   className={`rounded-md px-3 py-1.5 transition-colors duration-200 ${FOCUS_RING} ${mode === item ? 'bg-bbh-green text-white' : 'text-bbh-muted hover:text-bbh-ink'}`}
                 >
-                  {item === 'week' ? 'สัปดาห์' : 'เดือน'}
+                  {item === 'week' ? t('doctorCalendar.week') : t('doctorCalendar.month')}
                 </button>
               ))}
             </div>
-            <button type="button" onClick={goToday} className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>วันนี้</button>
-            <button type="button" onClick={goPrevious} className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`} aria-label="ก่อนหน้า"><ArrowLeft size={16} /></button>
-            <button type="button" onClick={goNext} className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`} aria-label="ถัดไป"><ArrowRight size={16} /></button>
-            <button type="button" onClick={() => openBlock(selectedDate ?? todayKey, 9)} className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}><Plus size={16} /> Block time</button>
+            <button type="button" onClick={goToday} className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>{t('common.today')}</button>
+            <button type="button" onClick={goPrevious} className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`} aria-label={t('doctorCalendar.previous')}><ArrowLeft size={16} /></button>
+            <button type="button" onClick={goNext} className={`grid h-10 w-10 place-items-center rounded-lg border border-bbh-line bg-white text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`} aria-label={t('doctorCalendar.next')}><ArrowRight size={16} /></button>
+            <button type="button" onClick={() => openBlock(selectedDate ?? todayKey, 9)} className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}><Plus size={16} /> {t('doctorCalendar.blockTime')}</button>
             <button type="button" onClick={() => { void scheduleQ.refetch(); void blocksQ.refetch() }} className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>
-              <RefreshCw size={15} className={scheduleQ.isFetching || blocksQ.isFetching ? 'animate-spin' : ''} /> รีเฟรช
+              <RefreshCw size={15} className={scheduleQ.isFetching || blocksQ.isFetching ? 'animate-spin' : ''} /> {t('doctorCalendar.refresh')}
             </button>
           </div>
         </div>
 
         <div className="animate-rise mb-6 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-2 xl:grid-cols-4" style={{ animationDelay: '50ms' }}>
-          <MetricCell label="นัดวันนี้" value={todayAppointments.length} icon={CalendarClock} />
-          <MetricCell label={mode === 'week' ? 'นัดสัปดาห์นี้' : 'นัดเดือนนี้'} value={visibleAppointmentCount} icon={Stethoscope} />
-          <MetricCell label="เวลาที่ block" value={`${blockedHourCount} ชม.`} icon={CalendarOff} tone={blockedHourCount > 0 ? 'amber' : 'green'} />
-          <MetricCell label="ช่วงเปิดรับนัด" value="09-17" icon={Clock} tone="slate" />
+          <MetricCell label={t('doctorCalendar.metricToday')} value={todayAppointments.length} icon={CalendarClock} />
+          <MetricCell label={mode === 'week' ? t('doctorCalendar.metricThisWeek') : t('doctorCalendar.metricThisMonth')} value={visibleAppointmentCount} icon={Stethoscope} />
+          <MetricCell label={t('doctorCalendar.metricBlocked')} value={t('doctorCalendar.hoursValue', { count: blockedHourCount })} icon={CalendarOff} tone={blockedHourCount > 0 ? 'amber' : 'green'} />
+          <MetricCell label={t('doctorCalendar.metricAvailability')} value="09-17" icon={Clock} tone="slate" />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="animate-rise min-w-0 overflow-hidden rounded-xl border border-bbh-line bg-white" style={{ animationDelay: '100ms' }}>
             <div className="flex items-center justify-between gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4">
               <div>
-                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{mode === 'week' ? 'Week view' : 'Month view'}</p>
+                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{mode === 'week' ? t('doctorCalendar.weekView') : t('doctorCalendar.monthView')}</p>
                 <p className="mt-1 font-serif text-xl font-semibold text-bbh-ink">
                   {periodTitle}
                 </p>
               </div>
               <div className="hidden items-center gap-3 text-xs text-bbh-muted md:flex">
-                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-green" /> นัด</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> ไม่อยู่</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-green-soft" /> เปิดรับนัด</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-green" /> {t('doctorCalendar.legendAppointment')}</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> {t('doctorCalendar.legendAway')}</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-green-soft" /> {t('doctorCalendar.legendAvailable')}</span>
               </div>
             </div>
 
             {scheduleQ.isLoading || blocksQ.isLoading ? (
-              <div className="flex h-[480px] items-center justify-center text-sm text-bbh-muted"><Loader2 size={16} className="mr-2 animate-spin" /> กำลังโหลดปฏิทิน</div>
+              <div className="flex h-[480px] items-center justify-center text-sm text-bbh-muted"><Loader2 size={16} className="mr-2 animate-spin" /> {t('doctorCalendar.loadingCalendar')}</div>
             ) : scheduleQ.isError || blocksQ.isError ? (
-              <div className="p-6 text-sm text-red-700">โหลดปฏิทินไม่สำเร็จ</div>
+              <div className="p-6 text-sm text-red-700">{t('doctorCalendar.loadCalendarFailed')}</div>
             ) : mode === 'month' ? (
               <MonthGrid
                 monthStart={monthStart}
@@ -457,7 +462,7 @@ export function DoctorCalendar() {
               <div ref={weekScrollRef} className="overflow-x-auto">
                 <div className="min-w-[980px]">
                   <div className="grid grid-cols-[72px_repeat(7,minmax(116px,1fr))] border-b border-bbh-line bg-white">
-                    <div className="border-r border-bbh-line px-3 py-3 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">เวลา</div>
+                    <div className="border-r border-bbh-line px-3 py-3 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.timeColumn')}</div>
                     {weekDays.map((day, index) => {
                       const key = toDateKey(day)
                       const active = key === todayKey
@@ -468,7 +473,7 @@ export function DoctorCalendar() {
                           onClick={() => openBlock(key, 9)}
                           className={`border-r border-bbh-line px-3 py-3 text-left transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
                         >
-                          <p className={`font-mono text-[10px] font-medium uppercase tracking-[0.18em] ${active ? 'text-bbh-green-dark' : 'text-bbh-muted'}`}>{DAY_LABELS[index]}</p>
+                          <p className={`font-mono text-[10px] font-medium uppercase tracking-[0.18em] ${active ? 'text-bbh-green-dark' : 'text-bbh-muted'}`}>{t(`doctorCalendar.dayLabel.${index}`)}</p>
                           <p className="mt-1 font-serif text-lg font-semibold text-bbh-ink">{formatDate(day)}</p>
                         </button>
                       )
@@ -493,7 +498,7 @@ export function DoctorCalendar() {
                               key={hour}
                               type="button"
                               onClick={() => openBlock(dayKey, hour)}
-                              aria-label={`เพิ่ม block ${dayKey} ${hour}:00`}
+                              aria-label={t('doctorCalendar.addBlockAria', { date: dayKey, hour })}
                               className={`absolute left-0 right-0 border-b border-bbh-line/80 transition-colors duration-200 hover:bg-bbh-green-soft/50 ${FOCUS_RING}`}
                               style={{ top: (hour - DAY_START_HOUR) * 60 * PX_PER_MINUTE, height: 60 * PX_PER_MINUTE }}
                             />
@@ -508,7 +513,7 @@ export function DoctorCalendar() {
                                 className={`absolute left-1 right-1 overflow-hidden rounded-lg border border-slate-300 bg-slate-100 px-2 py-1 text-left text-xs text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-200 ${FOCUS_RING}`}
                                 style={{ top: pos.top, height: pos.height }}
                               >
-                                <p className="truncate font-semibold">{blockTypeLabel(block.block_type)}</p>
+                                <p className="truncate font-semibold">{blockTypeLabel(block.block_type, t)}</p>
                                 <p className="truncate font-mono text-[10px] tabular-nums">{formatBlockRange(block)}</p>
                               </button>
                             )
@@ -524,8 +529,8 @@ export function DoctorCalendar() {
                                 style={{ top: pos.top, height: pos.height }}
                               >
                                 <p className="truncate font-mono text-[10px] tabular-nums text-bbh-green-dark">{formatTime(apt.requested_time)}</p>
-                                <p className="truncate font-semibold text-bbh-ink">{apt.patient_name || '(ไม่ระบุชื่อ)'}</p>
-                                <p className="truncate text-[11px] text-bbh-muted">{apt.symptom || apt.appointment_type || 'consultation'}</p>
+                                <p className="truncate font-semibold text-bbh-ink">{apt.patient_name || t('doctorCalendar.unnamedPatient')}</p>
+                                <p className="truncate text-[11px] text-bbh-muted">{apt.symptom || apt.appointment_type || t('doctorCalendar.consultation')}</p>
                               </button>
                             )
                           })}
@@ -543,16 +548,16 @@ export function DoctorCalendar() {
               <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Inspector</p>
               {!selection && !selectedDate ? (
                 <div className="mt-6 text-sm leading-relaxed text-bbh-muted">
-                  <p>เลือกนัดเพื่อดูข้อมูลคนไข้ หรือเลือกวัน/block เพื่อจัดการเวลาที่ไม่อยู่</p>
+                  <p>{t('doctorCalendar.inspectorEmpty')}</p>
                   <button type="button" onClick={() => openBlock(todayKey, 9)} className={`mt-4 inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>
-                    <Plus size={15} /> เพิ่มเวลาที่ไม่อยู่
+                    <Plus size={15} /> {t('doctorCalendar.addTimeOff')}
                   </button>
                 </div>
               ) : !selection && selectedDate ? (
                 <div className="mt-5 space-y-5">
                   <div>
                     <p className="font-serif text-2xl font-semibold text-bbh-ink">{selectedDate}</p>
-                    <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{selectedAppointments.length} นัด · {selectedBlocks.length} block</p>
+                    <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{t('doctorCalendar.appointmentsCount', { count: selectedAppointments.length })} · {t('doctorCalendar.blocksCount', { count: selectedBlocks.length })}</p>
                   </div>
                   <div className="space-y-2">
                     {selectedAppointments.map((apt) => (
@@ -563,8 +568,8 @@ export function DoctorCalendar() {
                         className={`w-full rounded-lg border border-bbh-line bg-white p-3 text-left transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
                       >
                         <p className="font-mono text-[11px] tabular-nums text-bbh-green-dark">{formatTime(apt.requested_time)}</p>
-                        <p className="mt-1 text-sm font-semibold text-bbh-ink">{apt.patient_name || '(ไม่ระบุชื่อ)'}</p>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-bbh-muted">{apt.symptom || apt.appointment_type || 'consultation'}</p>
+                        <p className="mt-1 text-sm font-semibold text-bbh-ink">{apt.patient_name || t('doctorCalendar.unnamedPatient')}</p>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-bbh-muted">{apt.symptom || apt.appointment_type || t('doctorCalendar.consultation')}</p>
                       </button>
                     ))}
                     {selectedBlocks.map((block) => (
@@ -574,22 +579,22 @@ export function DoctorCalendar() {
                         onClick={() => setSelection({ kind: 'block', item: block })}
                         className={`w-full rounded-lg border border-slate-300 bg-slate-50 p-3 text-left text-slate-700 transition-colors duration-200 hover:bg-slate-100 ${FOCUS_RING}`}
                       >
-                        <p className="text-sm font-semibold">{blockTypeLabel(block.block_type)}</p>
+                        <p className="text-sm font-semibold">{blockTypeLabel(block.block_type, t)}</p>
                         <p className="mt-1 font-mono text-[11px] tabular-nums">{formatBlockRange(block)}</p>
                       </button>
                     ))}
                     {selectedAppointments.length === 0 && selectedBlocks.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-bbh-line bg-bbh-surface p-4 text-sm text-bbh-muted">ไม่มีนัดหรือ block ในวันนี้</p>
+                      <p className="rounded-lg border border-dashed border-bbh-line bg-bbh-surface p-4 text-sm text-bbh-muted">{t('doctorCalendar.noItemsToday')}</p>
                     ) : null}
                   </div>
                   <button type="button" onClick={() => openBlock(selectedDate, 9)} className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>
-                    <Plus size={15} /> เพิ่ม block วันนี้
+                    <Plus size={15} /> {t('doctorCalendar.addBlockToday')}
                   </button>
                 </div>
               ) : selection?.kind === 'appointment' ? (
                 <div className="mt-5 space-y-4">
                   <div>
-                    <p className="font-serif text-2xl font-semibold text-bbh-ink">{selection.item.patient_name || '(ไม่ระบุชื่อ)'}</p>
+                    <p className="font-serif text-2xl font-semibold text-bbh-ink">{selection.item.patient_name || t('doctorCalendar.unnamedPatient')}</p>
                     <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{selection.item.requested_date} · {formatTime(selection.item.requested_time)}</p>
                   </div>
                   <div className="rounded-lg border border-bbh-line bg-bbh-surface p-3">
@@ -599,12 +604,12 @@ export function DoctorCalendar() {
                   <div className="flex flex-wrap gap-2">
                     {selection.item.video_link ? (
                       <a href={selection.item.video_link} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}>
-                        <Video size={15} /> เข้าร่วมออนไลน์
+                        <Video size={15} /> {t('doctorCalendar.joinOnline')}
                       </a>
                     ) : null}
                     {selection.item.patient_id ? (
                       <Link to={`/patients?patient=${selection.item.patient_id}`} className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>
-                        <UserRound size={15} /> เปิดเคส
+                        <UserRound size={15} /> {t('doctorCalendar.openCase')}
                       </Link>
                     ) : null}
                     {selection.item.calendar_event_url ? (
@@ -617,7 +622,7 @@ export function DoctorCalendar() {
               ) : (
                 <div className="mt-5 space-y-4">
                   <div>
-                    <p className="font-serif text-2xl font-semibold text-bbh-ink">{blockTypeLabel(selection.item.block_type)}</p>
+                    <p className="font-serif text-2xl font-semibold text-bbh-ink">{blockTypeLabel(selection.item.block_type, t)}</p>
                     <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{formatBlockRange(selection.item)}</p>
                   </div>
                   <div className="rounded-lg border border-bbh-line bg-bbh-surface p-3">
@@ -631,19 +636,19 @@ export function DoctorCalendar() {
                       rel="noreferrer"
                       className={`inline-flex items-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark ${FOCUS_RING}`}
                     >
-                      <Video size={15} /> เข้าร่วมออนไลน์
+                      <Video size={15} /> {t('doctorCalendar.joinOnline')}
                     </a>
                   ) : null}
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('ลบเวลาที่ไม่อยู่นี้?')) {
+                      if (confirm(t('doctorCalendar.deleteBlockConfirm'))) {
                         deleteBlock.mutate(selection.item.id, { onSuccess: () => setSelection(null) })
                       }
                     }}
                     className={`inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition-colors duration-200 hover:bg-red-50 ${FOCUS_RING}`}
                   >
-                    <Trash2 size={15} /> ลบ block
+                    <Trash2 size={15} /> {t('doctorCalendar.deleteBlock')}
                   </button>
                 </div>
               )}
@@ -652,9 +657,9 @@ export function DoctorCalendar() {
             <div className="rounded-xl border border-bbh-line bg-white p-5">
               <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Availability rule</p>
               <div className="mt-4 space-y-3 text-sm text-bbh-muted">
-                <p className="flex items-start gap-2"><CheckCircle2 size={15} className="mt-0.5 shrink-0 text-bbh-green" /> พื้นเขียวจางคือช่วงเปิดรับนัดมาตรฐาน</p>
-                <p className="flex items-start gap-2"><CalendarOff size={15} className="mt-0.5 shrink-0 text-slate-500" /> block สีเทาคือเวลาที่ CRO ไม่ควรจองให้หมอ</p>
-                <p className="flex items-start gap-2"><Stethoscope size={15} className="mt-0.5 shrink-0 text-bbh-green" /> นัดจริงยังอิงจาก booking/calendar เดิมของระบบ</p>
+                <p className="flex items-start gap-2"><CheckCircle2 size={15} className="mt-0.5 shrink-0 text-bbh-green" /> {t('doctorCalendar.availabilityRule1')}</p>
+                <p className="flex items-start gap-2"><CalendarOff size={15} className="mt-0.5 shrink-0 text-slate-500" /> {t('doctorCalendar.availabilityRule2')}</p>
+                <p className="flex items-start gap-2"><Stethoscope size={15} className="mt-0.5 shrink-0 text-bbh-green" /> {t('doctorCalendar.availabilityRule3')}</p>
               </div>
             </div>
           </aside>

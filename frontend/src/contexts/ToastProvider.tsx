@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 
 import { ToastContext } from './toast-context'
@@ -12,6 +13,8 @@ const STYLES: Record<ToastKind, string> = {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  // Aliased: the toast map below already binds `t` to a Toast item.
+  const { t: translate } = useTranslation()
   const [toasts, setToasts] = useState<Toast[]>([])
   const counterRef = useRef(0)
 
@@ -45,7 +48,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => dismiss(t.id)}
-              aria-label="ปิด"
+              aria-label={translate('common.close')}
               className="-mr-1 shrink-0 rounded p-0.5 opacity-60 transition hover:bg-black/5 hover:opacity-100"
             >
               <X size={14} />

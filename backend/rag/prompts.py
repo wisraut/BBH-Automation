@@ -24,15 +24,20 @@ def _today_line() -> str:
         f"ห้ามใส่ (DD/MM) เป็น placeholder และห้ามเดาวันเอง"
     )
 
-SYSTEM = """คุณเป็น AI Assistant ของโรงพยาบาล Better Being (Functional Medicine)
+SYSTEM = """คุณเป็นผู้ช่วย AI ของโรงพยาบาล Better Being (Functional Medicine)
+
+ขอบเขตหน้าที่: ช่วย **สอบถามข้อมูลบริการ และ นัดหมายคิว** เป็นหลัก
+เรื่องผลตรวจ / การวินิจฉัย / การปรับยาเฉพาะบุคคล ไม่ใช่หน้าที่คุณ — ส่งต่อให้เจ้าหน้าที่หรือพยาบาลดูแลโดยตรง เพื่อความถูกต้องและปลอดภัยของคนไข้
+ตอนทักทายครั้งแรก ให้แนะนำตัวสั้นๆ ว่าเป็นผู้ช่วยของโรงพยาบาลที่ช่วยเรื่อง "สอบถามข้อมูลและนัดหมาย" ได้ เพื่อให้คนไข้เข้าใจขอบเขตตั้งแต่แรก (ไม่ต้องแนะนำตัวซ้ำทุกข้อความ)
 
 ตอบเป็นภาษาไทย สุภาพ กระชับ และตอบ **EXACTLY หนึ่งใน 5 format** นี้เท่านั้น — ห้ามใส่ข้อความอื่นนอกรูปแบบ:
 
 1. "AUTO: <คำตอบ>"
    ใช้กับ: ทักทาย / ขอบคุณ / ลา / คำถามทั่วไปที่มีคำตอบชัดใน Reference (เช่น walk-in, ราคา, เวลาเปิด, ประกัน, การนัด)
 
-2. "CONSULT: <คำตอบจากความรู้ทั่วไป + disclaimer>"
+2. "CONSULT: <คำตอบ + disclaimer>"
    ใช้กับ: คนไข้บรรยายอาการของตัวเอง หรือถามความรู้เรื่องโรค/ยา/โภชนาการทั่วไป
+   ถ้ามีส่วน "อ้างอิงตำราแพทย์" ด้านล่าง ให้ยึดข้อมูลจากตำราเป็นหลัก เสริมด้วยความรู้ทั่วไปเท่าที่จำเป็น — ห้ามอ้างเกินกว่าที่ตำราให้มา
    ต้องปิดท้ายด้วย: "\\n\\nข้อมูลนี้เป็นความรู้ทั่วไป ไม่ใช่การวินิจฉัย กรุณาปรึกษาแพทย์โดยตรงค่ะ"
 
 3. "BOOKING_ASK: <ข้อความถามข้อมูลจองต่อ>"
@@ -58,6 +63,7 @@ SYSTEM = """คุณเป็น AI Assistant ของโรงพยาบา
 - ตอบจาก **Reference ที่ให้มาเท่านั้น** สำหรับข้อมูลบริการ/นโยบาย ห้ามแต่งข้อมูลราคา/เงื่อนไขเอง
 - **ห้ามแต่งเบอร์โทร อีเมล ที่อยู่ หรือช่องทางติดต่อที่ไม่มีใน Reference เด็ดขาด** — ถ้าไม่มีข้อมูล ให้บอกว่า "เดี๋ยวเจ้าหน้าที่จะติดต่อกลับ" หรือ "ขอส่งต่อเจ้าหน้าที่นะคะ"
 - ถ้า Reference ไม่มีข้อมูลที่ตอบคำถามได้จริง → อย่าเดา ให้ ESCALATE:unknown แล้วบอกว่าจะส่งต่อเจ้าหน้าที่
+- เวลาต้องส่งต่อเจ้าหน้าที่ (ESCALATE) ให้สื่อสารเชิงบวกว่า "ขอให้เจ้าหน้าที่/พยาบาลดูแลโดยตรงเพื่อความถูกต้อง" ไม่ใช่บอกว่า "ตอบไม่ได้" — เพื่อไม่ให้คนไข้รู้สึกถูกปัด
 - เรียกตัวเองว่า "โรงพยาบาล" เสมอ ห้ามใช้คำว่า "คลินิก"
 """
 
@@ -79,14 +85,37 @@ def _format_context(hits: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-def build(query: str, hits: list[dict], history: list[dict]) -> list[dict]:
-    """Assemble OpenRouter chat messages: system + history + context+question."""
+def _format_books(hits: list[dict]) -> str:
+    lines = []
+    for i, h in enumerate(hits, 1):
+        cite = h.get("title") or h.get("source") or "-"
+        page = f" น.{h['page']}" if h.get("page") else ""
+        lines.append(f"[{i}] ({cite}{page}) {h['text']}")
+    return "\n\n".join(lines)
+
+
+def build(query: str, hits: list[dict], history: list[dict],
+          book_hits: list[dict] | None = None) -> list[dict]:
+    """Assemble OpenRouter chat messages: system + history + context+question.
+
+    book_hits (medical-textbook chunks) are included only when the caller passes
+    score-filtered hits — an FAQ/greeting turn passes none, so simple messages
+    never carry textbook context and CONSULT stays grounded in the books.
+    """
     messages = [{"role": "system", "content": SYSTEM + _today_line()}]
     for turn in history:
         messages.append({"role": turn["role"], "content": turn["text"]})
+    book_block = ""
+    if book_hits:
+        book_block = (
+            "\n\nอ้างอิงตำราแพทย์ (ใช้เฉพาะตอบ CONSULT เรื่องความรู้การแพทย์ "
+            "ห้ามใช้ตอบเรื่องบริการ/ราคา/นัดหมาย):\n"
+            f"{_format_books(book_hits)}"
+        )
     user_block = (
         f"Reference (ข้อมูล FAQ ที่เกี่ยวข้อง — เลือกใช้เฉพาะที่ตรงคำถาม):\n"
-        f"{_format_context(hits)}\n\n"
+        f"{_format_context(hits)}"
+        f"{book_block}\n\n"
         f"คำถามล่าสุดของคนไข้: {query}\n\n"
         f"ตอบตาม 1 ใน 5 format:"
     )

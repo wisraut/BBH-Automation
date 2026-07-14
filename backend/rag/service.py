@@ -76,13 +76,40 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
     hits = vector_store.search(query_vec, top_k=top_k)
     history = memory.load_history(external_user_id)
 
+    # Pass 1: classify + answer without books — most turns (AUTO / BOOKING /
+    # ESCALATE) end here, paying no book search and no book tokens.
     messages = prompts.build(text, hits, history)
     raw = llm.chat(messages).strip()
     route, clean = prompts.parse_prefix(raw)
 
-    # Safety net for gate-miss emergencies (see _EMERGENCY_SIGNALS above).
+    # Pass 2: a medical CONSULT re-answers grounded in the textbooks. The LLM's
+    # route gates this far better than an embedding-score threshold — a Thai FAQ
+    # ("ค่าตรวจเท่าไหร่") scores as high against the English books as a real
+    # symptom question does, so a score gate cannot separate the two.
+    #   - _rate_limited charges a second slot for the extra llm.chat() so CONSULT
+    #     traffic can't slip 2x the cost past the per-user cap; over the cap we
+    #     skip grounding and Pass 1's answer stands.
+    #   - if Pass 2 stops being a CONSULT (books made the model reroute), keep
+    #     Pass 1 — it already carried the mandatory not-a-diagnosis disclaimer —
+    #     and leave book_hits empty so book_sources never over-claims grounding.
+    book_hits: list[dict] = []
+    if route.upper().startswith("CONSULT") and not _rate_limited(external_user_id):
+        candidates = vector_store.search_books(query_vec)
+        if candidates:
+            messages = prompts.build(text, hits, history, book_hits=candidates)
+            raw2 = llm.chat(messages).strip()
+            route2, clean2 = prompts.parse_prefix(raw2)
+            if route2.upper().startswith("CONSULT"):
+                raw, route, clean, book_hits = raw2, route2, clean2, candidates
+
+    # Safety net for gate-miss emergencies (see _EMERGENCY_SIGNALS above). Rewrite
+    # the whole result — not just route_prefix — because cro.py and n8n branch on
+    # `raw`; leaving raw as the LLM's "AUTO: ..." would skip the 1669 escalation.
     if not route.upper().startswith("ESCALATE") and _answer_signals_emergency(clean):
         route = "ESCALATE:EMERGENCY"
+        clean = safety.EMERGENCY_ANSWER
+        raw = f"ESCALATE:emergency: {clean}"
+        book_hits = []
 
     return {
         "answer": clean,
@@ -91,5 +118,9 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
         "sources": [
             {"title": h["title"], "section": h["section"], "score": h["score"]}
             for h in hits
+        ],
+        "book_sources": [
+            {"title": h["title"], "page": h["page"], "score": h["score"]}
+            for h in book_hits
         ],
     }

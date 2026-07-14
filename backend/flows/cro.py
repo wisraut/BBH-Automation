@@ -18,7 +18,7 @@ from core.config import log
 from core.db import get_db
 from integrations import calendar_client, line_client
 from flows import routing
-from rag import service as rag_service
+from rag import service as rag_service, safety
 
 
 # ─── DB ops ────────────────────────────────────────────────────────────────────
@@ -357,8 +357,16 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
 
     if decision == "escalate":
         _save_message(conv_id, "bot", body or text, classifier=classifier, confidence=0)
+        # Emergency must get the 1669 message, never the generic "staff will call
+        # back" line — the safety gate already forced ESCALATE:emergency upstream.
+        if (classifier or "").lower() == "emergency":
+            notice = (safety.EMERGENCY_ANSWER +
+                      "\n\nรับเรื่องไว้แล้ว เจ้าหน้าที่กำลังติดต่อกลับนะคะ")
+        else:
+            notice = ("เรื่องนี้ขอส่งให้เจ้าหน้าที่ดูแลให้โดยตรงเพื่อความถูกต้องนะคะ "
+                      "รับเรื่องไว้แล้ว เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุดค่ะ")
         try:
-            line_client.push(patient_uid, "รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด")
+            line_client.push(patient_uid, notice)
         except Exception:
             log.exception("Failed escalate notice to customer %s", patient_uid)
         _notify_team(conv_id, patient_uid, text, escalated=True)

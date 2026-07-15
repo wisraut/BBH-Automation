@@ -1,16 +1,8 @@
 ﻿import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  Activity,
-  AlertTriangle,
-  Heart,
-  Pill,
-  Plus,
-  Scissors,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 
+import { useAuth } from '../../lib/auth'
 import {
   useAddAllergy,
   useAddCondition,
@@ -41,12 +33,10 @@ const SEVERITY_STYLE: Record<string, string> = {
 }
 
 function SectionCard({
-  title, icon: Icon, count, accent, children, onAdd,
+  title, count, children, onAdd,
 }: {
   title: string
-  icon: typeof Activity
   count: number
-  accent: string
   children: React.ReactNode
   onAdd?: () => void
 }) {
@@ -55,7 +45,6 @@ function SectionCard({
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Icon size={18} className={accent} />
           <h3 className="font-serif text-base font-semibold text-bbh-ink">{title}</h3>
           <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">{count}</span>
         </div>
@@ -76,8 +65,14 @@ function SectionCard({
 
 export function PatientMedicalRecords({ patientId }: { patientId: number }) {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const q = usePatientMedicalBundle(patientId)
   const [openForm, setOpenForm] = useState<'cond' | 'allergy' | 'med' | 'treat' | null>(null)
+  // Doctors read this record far more often than they edit it, so data-entry
+  // controls (add/delete/stop) start hidden for them and reveal on demand
+  // (Hick's law — fewer competing actions while reading). CRO/nurse/admin, who
+  // maintain the data, start in edit mode.
+  const [editing, setEditing] = useState(!!user && user.role !== 'doctor')
 
   const delCond = useDeleteCondition(patientId)
   const delAllergy = useDeleteAllergy(patientId)
@@ -91,14 +86,22 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
   const { conditions, allergies, medications, treatments } = q.data
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setEditing((v) => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors duration-200 ${editing ? 'border-bbh-green bg-bbh-green-soft text-bbh-green-dark' : 'border-bbh-line bg-white text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark'}`}
+        >
+          {editing ? t('patientMedicalRecords.doneEditing') : t('patientMedicalRecords.edit')}
+        </button>
+      </div>
+
       {/* Allergies first — most safety-critical */}
       <SectionCard
         title={t('patientMedicalRecords.allergies.title')}
-        icon={AlertTriangle}
-        accent="text-red-500"
         count={allergies.length}
-        onAdd={() => setOpenForm('allergy')}
+        onAdd={editing ? () => setOpenForm('allergy') : undefined}
       >
         {allergies.length === 0 ? (
           <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.allergies.empty')}</p>
@@ -118,12 +121,14 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                   {a.reaction ? <p className="text-xs text-bbh-muted">→ {a.reaction}</p> : null}
                   {a.notes ? <p className="mt-1 text-xs text-bbh-muted">{a.notes}</p> : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: a.allergen }))) delAllergy.mutate(a.id) }}
-                  className="text-bbh-muted hover:text-red-600"
-                  title={t('common.delete')}
-                ><Trash2 size={13} /></button>
+                {editing ? (
+                  <button
+                    type="button"
+                    onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: a.allergen }))) delAllergy.mutate(a.id) }}
+                    className="text-bbh-muted hover:text-red-600"
+                    title={t('common.delete')}
+                  ><Trash2 size={13} /></button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -132,10 +137,8 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
 
       <SectionCard
         title={t('patientMedicalRecords.conditions.title')}
-        icon={Heart}
-        accent="text-pink-500"
         count={conditions.length}
-        onAdd={() => setOpenForm('cond')}
+        onAdd={editing ? () => setOpenForm('cond') : undefined}
       >
         {conditions.length === 0 ? (
           <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.conditions.empty')}</p>
@@ -152,7 +155,9 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                   {c.diagnosed_year ? <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.conditions.diagnosedYear', { year: c.diagnosed_year })}</p> : null}
                   {c.notes ? <p className="mt-1 text-xs text-bbh-muted">{c.notes}</p> : null}
                 </div>
-                <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: c.condition_name }))) delCond.mutate(c.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
+                {editing ? (
+                  <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: c.condition_name }))) delCond.mutate(c.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -161,10 +166,8 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
 
       <SectionCard
         title={t('patientMedicalRecords.medications.title')}
-        icon={Pill}
-        accent="text-bbh-green"
         count={medications.filter((m) => m.is_active).length}
-        onAdd={() => setOpenForm('med')}
+        onAdd={editing ? () => setOpenForm('med') : undefined}
       >
         {medications.length === 0 ? (
           <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.medications.empty')}</p>
@@ -183,16 +186,18 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                     {m.started_year ? ` · ${t('patientMedicalRecords.medications.since', { year: m.started_year })}` : ''}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => toggleMed.mutate({ id: m.id, isActive: !m.is_active })}
-                    className="rounded border border-bbh-line bg-white px-2 py-0.5 text-[10px] font-semibold text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
-                  >
-                    {m.is_active ? t('patientMedicalRecords.medications.stop') : t('patientMedicalRecords.medications.resume')}
-                  </button>
-                  <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: m.drug_name }))) delMed.mutate(m.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
-                </div>
+                {editing ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleMed.mutate({ id: m.id, isActive: !m.is_active })}
+                      className="rounded border border-bbh-line bg-white px-2 py-0.5 text-[10px] font-semibold text-bbh-muted hover:border-bbh-green hover:text-bbh-green-dark"
+                    >
+                      {m.is_active ? t('patientMedicalRecords.medications.stop') : t('patientMedicalRecords.medications.resume')}
+                    </button>
+                    <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteNamed', { name: m.drug_name }))) delMed.mutate(m.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -201,10 +206,8 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
 
       <SectionCard
         title={t('patientMedicalRecords.treatments.title')}
-        icon={Scissors}
-        accent="text-blue-500"
         count={treatments.length}
-        onAdd={() => setOpenForm('treat')}
+        onAdd={editing ? () => setOpenForm('treat') : undefined}
       >
         {treatments.length === 0 ? (
           <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.treatments.empty')}</p>
@@ -221,7 +224,9 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
                   {tr.hospital ? <p className="text-xs text-bbh-muted">@ {tr.hospital}</p> : null}
                   {tr.outcome ? <p className="text-xs text-bbh-muted">{t('patientMedicalRecords.treatments.outcomeLabel', { outcome: tr.outcome })}</p> : null}
                 </div>
-                <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteItem'))) delTreat.mutate(tr.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
+                {editing ? (
+                  <button type="button" onClick={() => { if (confirm(t('patientMedicalRecords.confirmDeleteItem'))) delTreat.mutate(tr.id) }} className="text-bbh-muted hover:text-red-600" title={t('common.delete')}><Trash2 size={13} /></button>
+                ) : null}
               </li>
             ))}
           </ul>

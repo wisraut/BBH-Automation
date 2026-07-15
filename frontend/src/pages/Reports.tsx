@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
-  FileText,
   Loader2,
   RefreshCw,
   Search,
@@ -231,7 +230,6 @@ export function Reports() {
             </div>
           ) : !data || data.data.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-center">
-              <FileText size={28} className="mb-2 text-bbh-muted" />
               <p className="text-sm font-semibold text-bbh-ink">{t('reports.empty')}</p>
               <p className="mt-1 text-xs text-bbh-muted">{t('reports.emptyHint')}</p>
             </div>

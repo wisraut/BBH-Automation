@@ -151,7 +151,8 @@
   },
   "analysisPanel": {
     "heading": "AI analyses",
-    "analyze": "Analyze",
+    "reAnalyze": "Re-analyze",
+    "analyzeThisReport": "Analyze this report",
     "empty": "No analysis yet",
     "confirmDecision": "Confirm {{decision}}"
   },
@@ -739,6 +740,8 @@
     "notes": "Notes"
   },
   "patientMedicalRecords": {
+    "edit": "Edit",
+    "doneEditing": "Done",
     "loading": "Loading medical history...",
     "saveFailed": "Failed to save",
     "notesPlaceholder": "Notes",
@@ -833,6 +836,7 @@
     "noReportsMatchFilter": "No documents match the filter",
     "deleteReportTooltip": "Delete report",
     "notebookLmHint": "No NotebookLM link yet — upload this report to NotebookLM yourself via the web, then paste the link here",
+    "reportDetails": "Document details",
     "notebookLmPlaceholder": "Paste NotebookLM link here",
     "selectReportForExtraction": "Select a report above to extract lab values with AI",
     "confirmDeleteReport": "Delete this report? Deleting removes the file and all related analyses.",

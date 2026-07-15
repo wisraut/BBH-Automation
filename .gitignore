@@ -90,6 +90,7 @@ backups/*.tar
 !README.md
 !CLAUDE.md
 !docs/dev-setup-lan.md
+!frontend/DESIGN_PRINCIPLES.md
 
 # Graphify knowledge graph (generated)
 graphify-out/

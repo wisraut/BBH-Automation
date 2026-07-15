@@ -35,15 +35,15 @@ function BannerStrip({ banner, pauseUntil }: { banner: Banner; pauseUntil: strin
   const { t } = useTranslation()
   const map: Record<Banner, { bg: string; ink: string; icon: React.ReactNode; text: string }> = {
     auto: {
-      bg: 'bg-emerald-50 border-emerald-200', ink: 'text-emerald-800',
+      bg: 'bg-bbh-green-soft border-bbh-green/30', ink: 'text-bbh-green-dark',
       icon: <Bot size={14} />, text: t('chatPane.banner.auto'),
     },
     copilot: {
-      bg: 'bg-sky-50 border-sky-200', ink: 'text-sky-800',
+      bg: 'bg-bbh-surface border-bbh-line', ink: 'text-bbh-ink',
       icon: <Sparkles size={14} />, text: t('chatPane.banner.copilot'),
     },
     silent: {
-      bg: 'bg-orange-50 border-orange-200', ink: 'text-orange-800',
+      bg: 'bg-bbh-surface border-bbh-line', ink: 'text-bbh-muted',
       icon: <UserRoundCog size={14} />, text: t('chatPane.banner.silent'),
     },
     paused: {
@@ -52,11 +52,11 @@ function BannerStrip({ banner, pauseUntil }: { banner: Banner; pauseUntil: strin
       text: t('chatPane.banner.paused', { time: pauseUntil ? formatTime(pauseUntil) : '--:--' }),
     },
     after_hours: {
-      bg: 'bg-slate-100 border-slate-300', ink: 'text-slate-700',
+      bg: 'bg-bbh-surface border-bbh-line', ink: 'text-bbh-muted',
       icon: <Clock size={14} />, text: t('chatPane.banner.afterHours'),
     },
     keyword_handoff: {
-      bg: 'bg-rose-50 border-rose-200', ink: 'text-rose-800',
+      bg: 'bg-red-50 border-red-200', ink: 'text-red-800',
       icon: <AlertTriangle size={14} />, text: t('chatPane.banner.keywordHandoff'),
     },
   }
@@ -94,7 +94,7 @@ function MessageBubble({ direction, text, at, prefix }: {
     : isCroReply
       ? 'bg-bbh-green text-white'
       : isCopilotDraft
-        ? 'bg-sky-100 border border-sky-300 text-sky-900'
+        ? 'bg-bbh-surface border border-dashed border-bbh-line text-bbh-ink'
         : 'bg-bbh-green-soft text-bbh-ink'
   const author = !isOut
     ? { icon: <User size={12} />, name: t('chatPane.author.patient') }

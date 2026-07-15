@@ -1,17 +1,7 @@
 ﻿import { useState } from 'react'
 import { dateLocale } from '../../i18n/datetime'
 import { useTranslation } from 'react-i18next'
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Phone,
-  PhoneIncoming,
-  PhoneMissed,
-  PhoneOff,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Plus, Trash2, X } from 'lucide-react'
 
 import {
   useAddCallLog,
@@ -21,14 +11,14 @@ import {
   type CallOutcome,
 } from '../../hooks/usePatientCallLog'
 
-const OUTCOME_META: Record<CallOutcome, { tone: string; icon: typeof Phone }> = {
-  answered:     { tone: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark', icon: Phone },
-  no_answer:    { tone: 'border-amber-200 bg-amber-50 text-amber-700', icon: PhoneMissed },
-  voicemail:    { tone: 'border-amber-200 bg-amber-50 text-amber-700', icon: PhoneMissed },
-  wrong_number: { tone: 'border-red-200 bg-red-50 text-red-700', icon: PhoneOff },
-  refused:      { tone: 'border-red-200 bg-red-50 text-red-700', icon: PhoneOff },
-  busy:         { tone: 'border-amber-200 bg-amber-50 text-amber-700', icon: PhoneMissed },
-  other:        { tone: 'border-bbh-line bg-bbh-surface text-bbh-muted', icon: Phone },
+const OUTCOME_META: Record<CallOutcome, { tone: string }> = {
+  answered:     { tone: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark' },
+  no_answer:    { tone: 'border-amber-200 bg-amber-50 text-amber-700' },
+  voicemail:    { tone: 'border-amber-200 bg-amber-50 text-amber-700' },
+  wrong_number: { tone: 'border-red-200 bg-red-50 text-red-700' },
+  refused:      { tone: 'border-red-200 bg-red-50 text-red-700' },
+  busy:         { tone: 'border-amber-200 bg-amber-50 text-amber-700' },
+  other:        { tone: 'border-bbh-line bg-bbh-surface text-bbh-muted' },
 }
 
 const SUBJECT_KEYS = ['booking_confirm', 'no_show_followup', 'lab_result', 'billing', 'other'] as const
@@ -51,7 +41,6 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <PhoneIncoming size={18} className="text-bbh-green" />
           <h3 className="font-serif text-base font-semibold text-bbh-ink">{t('patientCallLog.title')}</h3>
           <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">{calls.length}</span>
         </div>
@@ -72,7 +61,6 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
         <ul className="space-y-2">
           {calls.map((c) => {
             const meta = OUTCOME_META[c.outcome] ?? OUTCOME_META.other
-            const Icon = meta.icon
             return (
               <li key={c.id} className="flex items-start justify-between gap-3 rounded-lg border border-bbh-line bg-bbh-surface/40 px-3 py-2">
                 <div className="min-w-0 flex-1">
@@ -82,7 +70,6 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
                     ) : (
                       <ArrowDownLeft size={12} className="text-bbh-muted" />
                     )}
-                    <Icon size={12} />
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.tone}`}>
                       {t(`patientCallLog.outcome.${c.outcome}`)}
                     </span>

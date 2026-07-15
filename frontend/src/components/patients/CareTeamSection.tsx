@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Star, UserPlus, X } from 'lucide-react'
+import { UserPlus, X } from 'lucide-react'
 
 import { useAuth } from '../../lib/auth'
 import { useDoctors } from '../../hooks/useDoctors'
@@ -81,7 +81,6 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
                         : 'border-bbh-line bg-bbh-surface text-bbh-muted'
                     }`}
                   >
-                    {isPrimary ? <Star size={11} className="fill-current" /> : null}
                     {t(`careTeamSection.${ROLE_LABEL_KEY[m.role]}`)}
                   </span>
                   {canManage && !isPrimary ? (

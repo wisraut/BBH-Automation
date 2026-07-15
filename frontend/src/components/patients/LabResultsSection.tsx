@@ -5,7 +5,7 @@
 // excluded by default and, when shown, are clearly labelled รอยืนยัน.
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FlaskConical, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 
 import {
   flagFor,
@@ -124,8 +124,8 @@ export function LabResultsSection({ patientId }: { patientId: number }) {
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-          <FlaskConical size={13} /> {t('labResultsSection.title')}
+        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+          {t('labResultsSection.title')}
         </h2>
         <div className="flex items-center gap-3">
           {rows.length > 0 ? (

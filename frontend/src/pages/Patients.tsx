@@ -2,7 +2,7 @@
 import { dateLocale } from '../i18n/datetime'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, Download, Edit3, ExternalLink, FileText, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Download, Edit3, ExternalLink, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { openReportFile, downloadReportFile } from '../lib/reportFile'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
@@ -101,6 +101,10 @@ export function Patients() {
   const [viewMode, setViewMode] = useState<'detail' | 'chat'>('detail')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [notebookUrlDraft, setNotebookUrlDraft] = useState('')
+  // Secondary report data (raw extracted text + NotebookLM) is collapsed by
+  // default so the aside leads with the report list + analysis (Hick's law —
+  // fewer competing choices per screen).
+  const [showReportExtras, setShowReportExtras] = useState(false)
 
   // Strip ?patient&?report from URL once we've consumed them so the user's
   // back-button history doesn't keep re-opening the same record.
@@ -184,8 +188,13 @@ export function Patients() {
     if (reportsQ.isLoading) return
     if (selectedReportId != null && reports.some((report) => report.id === selectedReportId)) return
     if (selectedReportId != null && reports.length === 0) return  // deep link to report still pending
-    setSelectedReportId(reports[0]?.id ?? null)
-  }, [reports, selectedReportId, reportsQ.isLoading])
+    // Lead with the newest report that still needs analysis (Tesler's law — the
+    // system surfaces the doctor's pending work instead of making them hunt for
+    // it); pick from the VISIBLE (filtered) list so the auto-selected report
+    // always has a highlightable row, falling back to the newest report.
+    const firstUnanalyzed = filteredReports.find((r) => r.latest_analysis_at == null)
+    setSelectedReportId((firstUnanalyzed ?? filteredReports[0] ?? reports[0])?.id ?? null)
+  }, [reports, filteredReports, selectedReportId, reportsQ.isLoading])
 
   function submitPatient(body: PatientCreateRequest | PatientUpdateRequest) {
     if (patientModal === 'create') {
@@ -441,6 +450,12 @@ export function Patients() {
               </div>
             </section>
 
+            {/* Drug allergies are the single highest-priority safety signal for a
+                doctor opening a record, so they lead the record full-width (clinical-
+                priority hierarchy) instead of sitting compact in the right aside.
+                Renders nothing when the patient has no allergies. */}
+            <AllergyBanner patientId={selectedPatient.id} />
+
             {/* Report workspace is a FIXED 360px column; the tab content column
                 takes all remaining width. Fixed aside = the tab column is a
                 constant width on every tab, so switching ภาพรวม/ผลแล็บ/กิจกรรม
@@ -591,7 +606,6 @@ export function Patients() {
                           }`}
                         >
                           <button type="button" onClick={() => setSelectedReportId(report.id)} className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left ${FOCUS_RING}`}>
-                            <FileText size={17} className="shrink-0 text-bbh-green" />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-bbh-ink">{report.title}</p>
                               <p className="text-xs text-bbh-muted">{report.report_type} · <span className="font-mono tabular-nums">{formatDate(report.uploaded_at)}</span></p>
@@ -611,49 +625,62 @@ export function Patients() {
                     </div>
                   )}
 
-                  {reportQ.data?.extracted_text ? (
-                    <div className="mt-4 rounded-xl bg-bbh-surface p-3">
-                      <p className="mb-2 text-xs font-semibold text-bbh-muted">Extracted text</p>
-                      <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-5 text-bbh-ink">
-                        {reportQ.data.extracted_text}
-                      </p>
-                    </div>
-                  ) : null}
-
                   {selectedReportId ? (
-                    <div className="mt-4 rounded-xl border border-bbh-line p-3">
-                      <p className="mb-2 text-xs font-semibold text-bbh-muted">NotebookLM</p>
-                      {reportQ.data?.notebooklm_url ? (
-                        <a href={reportQ.data.notebooklm_url} target="_blank" rel="noreferrer" className="mb-2 block truncate text-sm text-bbh-green underline">
-                          {reportQ.data.notebooklm_url}
-                        </a>
-                      ) : (
-                        <p className="mb-2 text-xs text-bbh-muted">{t('patients.notebookLmHint')}</p>
-                      )}
-                      {canAnalyze ? (
-                        <form onSubmit={submitNotebookUrl} className="flex gap-2">
-                          <input
-                            type="url"
-                            value={notebookUrlDraft}
-                            onChange={(e) => setNotebookUrlDraft(e.target.value)}
-                            placeholder={t('patients.notebookLmPlaceholder')}
-                            className="h-9 flex-1 rounded-lg border border-bbh-line px-3 text-xs transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
-                          />
-                          <button
-                            type="submit"
-                            disabled={setNotebookLmUrl.isPending || !notebookUrlDraft.trim()}
-                            className={`h-9 shrink-0 rounded-lg bg-bbh-green px-3 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
-                          >
-                            {t('common.save')}
-                          </button>
-                        </form>
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowReportExtras((v) => !v)}
+                        aria-expanded={showReportExtras}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+                      >
+                        {t('patients.reportDetails')}
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${showReportExtras ? 'rotate-180' : ''}`} />
+                      </button>
+                      {showReportExtras ? (
+                        <div className="mt-3 space-y-3">
+                          {reportQ.data?.extracted_text ? (
+                            <div className="rounded-xl bg-bbh-surface p-3">
+                              <p className="mb-2 text-xs font-semibold text-bbh-muted">Extracted text</p>
+                              <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-5 text-bbh-ink">
+                                {reportQ.data.extracted_text}
+                              </p>
+                            </div>
+                          ) : null}
+                          <div className="rounded-xl border border-bbh-line p-3">
+                            <p className="mb-2 text-xs font-semibold text-bbh-muted">NotebookLM</p>
+                            {reportQ.data?.notebooklm_url ? (
+                              <a href={reportQ.data.notebooklm_url} target="_blank" rel="noreferrer" className="mb-2 block truncate text-sm text-bbh-green underline">
+                                {reportQ.data.notebooklm_url}
+                              </a>
+                            ) : (
+                              <p className="mb-2 text-xs text-bbh-muted">{t('patients.notebookLmHint')}</p>
+                            )}
+                            {canAnalyze ? (
+                              <form onSubmit={submitNotebookUrl} className="flex gap-2">
+                                <input
+                                  type="url"
+                                  value={notebookUrlDraft}
+                                  onChange={(e) => setNotebookUrlDraft(e.target.value)}
+                                  placeholder={t('patients.notebookLmPlaceholder')}
+                                  className="h-9 flex-1 rounded-lg border border-bbh-line px-3 text-xs transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30"
+                                />
+                                <button
+                                  type="submit"
+                                  disabled={setNotebookLmUrl.isPending || !notebookUrlDraft.trim()}
+                                  className={`h-9 shrink-0 rounded-lg bg-bbh-green px-3 text-xs font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
+                                >
+                                  {t('common.save')}
+                                </button>
+                              </form>
+                            ) : null}
+                          </div>
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
                 </section>
 
-                <section className="rounded-xl border border-bbh-line bg-white p-4 space-y-3">
-                  <AllergyBanner patientId={selectedPatient.id} compact />
+                <section className="rounded-xl border border-bbh-line bg-white p-4">
                   <AnalysisPanel
                     analyses={analyses}
                     loading={analysesQ.isLoading}

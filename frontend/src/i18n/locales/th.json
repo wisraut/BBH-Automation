@@ -147,7 +147,8 @@
   },
   "analysisPanel": {
     "heading": "ผลวิเคราะห์ AI",
-    "analyze": "วิเคราะห์",
+    "reAnalyze": "วิเคราะห์อีกครั้ง",
+    "analyzeThisReport": "วิเคราะห์รายงานนี้",
     "empty": "ยังไม่มีผลวิเคราะห์",
     "confirmDecision": "ยืนยัน {{decision}}"
   },
@@ -731,6 +732,8 @@
     "notes": "หมายเหตุ"
   },
   "patientMedicalRecords": {
+    "edit": "แก้ไข",
+    "doneEditing": "เสร็จ",
     "loading": "กำลังโหลดประวัติการแพทย์...",
     "saveFailed": "บันทึกไม่สำเร็จ",
     "notesPlaceholder": "หมายเหตุ",
@@ -825,6 +828,7 @@
     "noReportsMatchFilter": "ไม่พบเอกสารที่ตรงกับตัวกรอง",
     "deleteReportTooltip": "ลบ report",
     "notebookLmHint": "ยังไม่มี link NotebookLM — อัพโหลด report นี้เข้า NotebookLM เองผ่านเว็บ แล้ววาง link ไว้ที่นี่",
+    "reportDetails": "รายละเอียดเอกสาร",
     "notebookLmPlaceholder": "วาง link NotebookLM ที่นี่",
     "selectReportForExtraction": "เลือก report ด้านบนเพื่อสกัดค่าแล็บด้วย AI",
     "confirmDeleteReport": "ลบ Report นี้ใช่ไหม? การลบจะลบไฟล์และผลวิเคราะห์ที่เกี่ยวข้องทั้งหมด",

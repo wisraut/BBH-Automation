@@ -5,7 +5,7 @@
 // graph faster than from a table, so this complements LabResults.
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, ArrowUp, ArrowDown, Minus } from 'lucide-react'
+import { ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
 import { Sparkline } from './Sparkline'
 import {
@@ -108,8 +108,8 @@ export function BiomarkerSection({ patientId }: { patientId: number }) {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-        <Activity size={13} /> {t('biomarkerSection.title')}
+      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+        {t('biomarkerSection.title')}
       </h2>
       {loading ? (
         <div className="rounded-xl border border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">{t('biomarkerSection.loading')}</div>

@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { dateLocale } from '../i18n/datetime'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, CalendarDays, CalendarOff, CheckCircle2, ChevronLeft, ChevronRight, Clock, Stethoscope, Video, X } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, Stethoscope, Video, X } from 'lucide-react'
 
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { RescheduleModal } from '../components/bookings/RescheduleModal'
@@ -66,7 +65,7 @@ function VideoLinkEditor({ uid, current }: { uid: string; current: string | null
   const setLink = useSetVideoLink()
   const changed = value.trim() !== (current ?? '')
   return (
-    <div className="mt-3 border-t border-sky-100 pt-3">
+    <div className="mt-3 border-t border-bbh-line pt-3">
       <label className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('calendar.onlineMeetingLink')}</label>
       <div className="mt-1.5 flex gap-1.5">
         <input
@@ -192,17 +191,12 @@ const FOCUS_RING =
 // Month-summary readout — a cell in the hairline metric cluster at the top of
 // the page. Numbers read as instrument values in mono/tabular. Green stays
 // reserved for confirmed load; other tones carry status semantics only.
-function SummaryCell({ label, value, icon: Icon, tone }: {
-  label: string; value: number; icon: LucideIcon; tone: 'ink' | 'green' | 'amber' | 'sky'
-}) {
-  const iconClass =
-    tone === 'green' ? 'text-bbh-green' : tone === 'amber' ? 'text-amber-500' : tone === 'sky' ? 'text-sky-500' : 'text-bbh-ink'
+// Month-summary readout — label + number only. No per-metric icon/colour: the
+// numbers are the signal, and decorative rainbow icons diluted the palette.
+function SummaryCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-col gap-3 bg-white p-4 md:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</span>
-        <Icon size={14} className={iconClass} />
-      </div>
+      <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</span>
       <span className="font-mono text-2xl font-semibold leading-none tracking-tight tabular-nums text-bbh-ink md:text-3xl">{value}</span>
     </div>
   )
@@ -416,11 +410,11 @@ export function Calendar() {
         {/* Month-summary strip — instrument metric cluster (hairline gap-px) so the
             page opens with a confident readout of the month's load, not empty space */}
         <div className="animate-rise mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-5" style={{ animationDelay: '40ms' }}>
-          <SummaryCell label={t('calendar.summaryTotal')} value={monthSummary.total} icon={CalendarDays} tone="ink" />
-          <SummaryCell label={t('calendar.summaryApproved')} value={monthSummary.approved} icon={CheckCircle2} tone="green" />
-          <SummaryCell label={t('calendar.summaryPending')} value={monthSummary.pending} icon={Clock} tone="amber" />
-          <SummaryCell label={t('calendar.summaryInCalendar')} value={monthSummary.google} icon={CalendarClock} tone="sky" />
-          <SummaryCell label={t('calendar.summaryDoctorOff')} value={monthSummary.unavailable} icon={CalendarOff} tone="amber" />
+          <SummaryCell label={t('calendar.summaryTotal')} value={monthSummary.total} />
+          <SummaryCell label={t('calendar.summaryApproved')} value={monthSummary.approved} />
+          <SummaryCell label={t('calendar.summaryPending')} value={monthSummary.pending} />
+          <SummaryCell label={t('calendar.summaryInCalendar')} value={monthSummary.google} />
+          <SummaryCell label={t('calendar.summaryDoctorOff')} value={monthSummary.unavailable} />
         </div>
 
         {/* Month navigation — kept right above the grid so changing month
@@ -519,10 +513,10 @@ export function Calendar() {
                     <div className="mt-auto flex w-full flex-col gap-0.5">
                       {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> {t('calendar.badgeApproved')}</span>}
                       {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> {t('calendar.badgePending')}</span>}
-                      {rescheduledCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{rescheduledCnt}</span> {t('calendar.badgeRescheduled')}</span>}
-                      {blockCnt > 0 && <span className="truncate rounded bg-zinc-200 px-1 text-[10px] font-medium leading-tight text-zinc-700"><span className="font-mono tabular-nums">{blockCnt}</span> {t('calendar.badgeDoctorOff')}</span>}
-                      {cancelledCnt > 0 && <span className="truncate rounded bg-gray-100 px-1 text-[10px] font-medium leading-tight text-gray-500"><span className="font-mono tabular-nums">{cancelledCnt}</span> {t('common.cancel')}</span>}
-                      {googleItems.length > 0 && <span className="truncate rounded bg-sky-50 px-1 text-[10px] font-medium leading-tight text-sky-700"><span className="font-mono tabular-nums">{googleItems.length}</span> {t('calendar.badgeAppointment')}</span>}
+                      {rescheduledCnt > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{rescheduledCnt}</span> {t('calendar.badgeRescheduled')}</span>}
+                      {blockCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{blockCnt}</span> {t('calendar.badgeDoctorOff')}</span>}
+                      {cancelledCnt > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{cancelledCnt}</span> {t('common.cancel')}</span>}
+                      {googleItems.length > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{googleItems.length}</span> {t('calendar.badgeAppointment')}</span>}
                     </div>
                   </button>
                 )
@@ -534,10 +528,6 @@ export function Calendar() {
         <div className="animate-rise mt-6 flex flex-wrap items-center gap-4 text-xs text-bbh-muted" style={{ animationDelay: '140ms' }}>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-bbh-green/30 bg-bbh-green-soft" />{t('calendar.summaryApproved')}</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />{t('calendar.summaryPending')}</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-slate-300 bg-slate-200" />{t('calendar.legendRescheduled')}</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-zinc-300 bg-zinc-200" />{t('calendar.legendDoctorOff')}</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-gray-200 bg-gray-100" />{t('calendar.legendCancelledRejected')}</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded border border-sky-200 bg-sky-50" />{t('calendar.legendInCalendar')}</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-[3px] rounded-full bg-bbh-green" />{t('common.today')}</span>
         </div>
       </section>
@@ -624,29 +614,29 @@ export function Calendar() {
             ) : (
               <div className="space-y-3">
                 {selectedBlocks.map((block) => (
-                  <div key={`block-${block.id}`} className="rounded-xl border border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-700">
+                  <div key={`block-${block.id}`} className="rounded-xl border border-bbh-line bg-bbh-surface p-4 text-sm text-bbh-muted">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-semibold text-bbh-ink">{block.doctor_name ?? t('calendar.doctorNumber', { id: block.doctor_id })}</p>
-                        <p className="mt-1 font-mono text-xs tabular-nums text-zinc-600">{formatBlockRange(block)}</p>
+                        <p className="mt-1 font-mono text-xs tabular-nums text-bbh-muted">{formatBlockRange(block)}</p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-700">{blockTypeLabel(block.block_type, t)}</span>
+                      <span className="shrink-0 rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[11px] font-semibold text-bbh-muted">{blockTypeLabel(block.block_type, t)}</span>
                     </div>
                     {block.reason ? <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{block.reason}</p> : null}
-                    <p className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">{t('calendar.doctorStatedLabel')} <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type, t)}</span></p>
+                    <p className="mt-3 rounded-lg border border-bbh-line bg-white px-3 py-2 text-xs text-bbh-muted">{t('calendar.doctorStatedLabel')} <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type, t)}</span></p>
                   </div>
                 ))}
                 {tbdBookings.map((b) => (
-                  <div key={`tbd-${b.request_uid}`} className="group rounded-xl border border-slate-300 bg-slate-50 p-4 transition-colors duration-200 hover:border-slate-400 hover:bg-slate-100/70">
+                  <div key={`tbd-${b.request_uid}`} className="group rounded-xl border border-bbh-line bg-bbh-surface p-4 transition-colors duration-200 hover:border-bbh-green/40">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-bbh-ink">{b.patient_name ?? '-'}</p>
                         <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">{b.phone ?? '-'}</p>
                       </div>
-                      <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">{t('calendar.rescheduleAwaitingTime')}</span>
+                      <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[11px] font-semibold text-bbh-muted">{t('calendar.rescheduleAwaitingTime')}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-600">{t('calendar.patientNotConfirmedTime')}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-bbh-muted">{t('calendar.patientNotConfirmedTime')}</span>
                       <span className="rounded-full bg-white px-2 py-0.5 text-bbh-muted">{APPT_TYPE_LABELS[b.appointment_type] ? t(APPT_TYPE_LABELS[b.appointment_type]) : b.appointment_type}</span>
                       <SourceBadge source={b.booking_source} />
                     </div>
@@ -709,14 +699,14 @@ export function Calendar() {
                   return (
                     <div
                       key={event.id}
-                      className="group rounded-xl border border-sky-100 bg-sky-50 p-4 transition-colors duration-200 hover:border-sky-300 hover:bg-sky-100/70"
+                      className="group rounded-xl border border-bbh-line bg-bbh-surface p-4 transition-colors duration-200 hover:border-bbh-green/40"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-bbh-ink">{info.patientName}</p>
-                          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-sky-700">{t('calendar.timeSuffix', { time: eventTimeLabel(event, t) })}</p>
+                          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-bbh-ink">{t('calendar.timeSuffix', { time: eventTimeLabel(event, t) })}</p>
                         </div>
-                        <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">{t('calendar.calendarBadge')}</span>
+                        <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[11px] font-semibold text-bbh-muted">{t('calendar.calendarBadge')}</span>
                       </div>
                       <div className="mt-3 space-y-1.5 text-xs text-bbh-muted">
                         {info.phone ? <p><span className="font-semibold text-bbh-ink">{t('calendar.phoneLabel')}</span> <span className="font-mono tabular-nums">{info.phone}</span></p> : null}
@@ -739,7 +729,7 @@ export function Calendar() {
                           href={event.html_link ?? undefined}
                           target="_blank"
                           rel="noreferrer"
-                          className={`rounded-lg border border-sky-200 bg-white px-3 py-2 text-center text-xs font-semibold text-sky-700 transition-colors duration-200 hover:bg-sky-50 ${FOCUS_RING}`}
+                          className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-center text-xs font-semibold text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
                         >
                           {t('calendar.openCalendar')}
                         </a>

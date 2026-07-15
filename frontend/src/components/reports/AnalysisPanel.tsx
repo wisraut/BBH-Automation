@@ -1,6 +1,6 @@
 ﻿import { useTranslation } from 'react-i18next'
 import { dateLocale } from '../../i18n/datetime'
-import { Brain, Check, CircleAlert, FileSearch, X } from 'lucide-react'
+import { Brain, Loader2 } from 'lucide-react'
 
 import type { AnalysisOut } from '../../hooks/useReportAnalyses'
 
@@ -28,13 +28,6 @@ const DECISION_STYLES: Record<Decision, string> = {
   pending: 'border-bbh-line bg-bbh-surface text-bbh-muted',
 }
 
-function decisionIcon(decision: Decision) {
-  if (decision === 'accept') return <Check size={14} />
-  if (decision === 'reject') return <X size={14} />
-  if (decision === 'review') return <CircleAlert size={14} />
-  return <FileSearch size={14} />
-}
-
 export function AnalysisPanel({
   analyses,
   loading,
@@ -49,15 +42,17 @@ export function AnalysisPanel({
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-bbh-ink">{t('analysisPanel.heading')}</h3>
-        {onAnalyze ? (
+        {/* Once results exist, re-analysis is a secondary affordance (small,
+            muted). The primary call to action lives in the empty state below. */}
+        {onAnalyze && analyses.length > 0 ? (
           <button
             type="button"
             onClick={onAnalyze}
             disabled={analyzing}
-            className={`inline-flex items-center gap-2 rounded-lg border border-bbh-green px-3 py-1.5 text-xs font-semibold text-bbh-green transition-colors duration-200 hover:bg-bbh-green-soft disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line px-2.5 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
           >
-            <Brain size={15} />
-            {t('analysisPanel.analyze')}
+            {analyzing ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
+            {t('analysisPanel.reAnalyze')}
           </button>
         ) : null}
       </div>
@@ -65,15 +60,28 @@ export function AnalysisPanel({
       {loading ? (
         <div className="h-24 animate-pulse rounded-xl bg-bbh-surface" />
       ) : analyses.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
-          {t('analysisPanel.empty')}
-        </div>
+        // Analysing the pending report is the doctor's primary action, so it is
+        // a large, full-width, filled button where attention lands (Fitts's law).
+        onAnalyze ? (
+          <button
+            type="button"
+            onClick={onAnalyze}
+            disabled={analyzing}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl bg-bbh-green px-4 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
+          >
+            {analyzing ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+            {t('analysisPanel.analyzeThisReport')}
+          </button>
+        ) : (
+          <div className="rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
+            {t('analysisPanel.empty')}
+          </div>
+        )
       ) : (
         analyses.map((analysis) => (
           <article key={analysis.id} className="rounded-xl border border-bbh-line bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${DECISION_STYLES[analysis.triage_decision]}`}>
-                {decisionIcon(analysis.triage_decision)}
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${DECISION_STYLES[analysis.triage_decision]}`}>
                 {analysis.triage_decision}
               </span>
               <span className="font-mono text-xs tabular-nums text-bbh-muted">

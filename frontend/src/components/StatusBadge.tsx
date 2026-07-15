@@ -9,7 +9,7 @@ const STYLES: Record<BookingStatus, string> = {
   rejected: 'border border-red-200 bg-red-50 text-red-700',
   cancelled: 'border border-bbh-line bg-bbh-surface text-bbh-muted',
   expired: 'border border-bbh-line bg-bbh-surface text-bbh-muted',
-  no_show: 'border border-orange-300 bg-orange-50 text-orange-800',
+  no_show: 'border border-amber-300 bg-white text-amber-700',
 }
 
 export function StatusBadge({ status }: { status: BookingStatus }) {

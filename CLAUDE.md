@@ -13,6 +13,17 @@
 
 ---
 
+# 🚧 LAUNCH STATUS: ยังไม่ launch — ยังไม่มีผู้ใช้จริง (2026-07-15)
+# ระบบ deploy บน bbh-hospital.com เพื่อ **test/dev** เท่านั้น ยังไม่มี CRO/หมอ/คนไข้ใช้งานจริง
+# → แก้/refactor/redesign ได้เต็มที่ ไม่ต้องกลัว "กระทบผู้ใช้บน prod" (ยังไม่มีใครใช้)
+# → ตอน launch จริงค่อยเข้มเรื่อง migration ระวัง downtime; ตอนนี้เน้นทำให้ถูก+ดีก่อน
+
+# ⚙️ TOOLING: เลิกใช้ Codex ถาวรแล้ว (2026-07-15) — Claude ทำงานเองทั้งหมด
+# → ไม่ต้องเช็ค/review/แยก commit งาน Codex อีกต่อไป (กฎ "check Codex work first" ยกเลิก)
+# → กฎห้ามใส่ Co-Authored-By Claude ยังคงอยู่ (แยกเรื่องกัน)
+
+---
+
 ## Architecture Philosophy
 
 **main.py คือ "พี่เลี้ยง" ของระบบ ไม่ใช่สมองของระบบ**

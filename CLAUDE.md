@@ -360,7 +360,7 @@ PostgreSQL (hospital_db):
 - [x] **Doctor assignment ตอน approve** — Web ApproveModal บังคับเลือก + amber panel สำหรับ LINE bookings ที่ยังไม่มี doctor + API `/assign-doctor` แก้ทีหลังได้
 - [x] **Cloudflare WAF `/internal/*`** — deploy ที่ edge, external 403 HTML block, internal Docker call ยังทำงาน (defense-in-depth alongside InternalPathGuard)
 - [x] **email_poller (deprecated)** — ปิดถาวรตั้งแต่ 2026-07-01; Reports page ใน Web Dashboard เป็นช่องทางรับ lab report แทน (CRO upload + assign doctor); ถ้าอนาคตต้องการรับ email อีกก็ restore import + task ใน `backend/core/lifespan.py`
-- [ ] **Security housekeeping** — user ยังต้อง revoke (1) Gmail App Password `<redacted>` ที่แชร์ในแชท → สร้างใหม่ + update .env, (2) Cloudflare API token `<redacted>` ที่แชร์ในแชท → delete row "BBH WAF automation"
+- [ ] **Security housekeeping [เลื่อนไปทำทีเดียวตอน pre-launch MVP — user ตัดสินใจ 2026-07-15]** — ทำรวดเดียวตอนใกล้ launch (ไม่ต้องเตือนซ้ำก่อนหน้านั้น แต่ **ห้ามลืมก่อน go-live**): (1) revoke Gmail App Password `<redacted>` ที่แชร์ในแชท → สร้างใหม่ + update .env, (2) delete Cloudflare API token `<redacted>` ที่แชร์ในแชท → ลบ row "BBH WAF automation"
 ---
 
 ## AI Architecture — 2 เส้นแยกกัน (Dify ถอดออกครบแล้ว 2026-07-03)

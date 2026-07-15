@@ -146,7 +146,7 @@ function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
   icon: typeof CalendarClock
   tone?: 'green' | 'slate' | 'amber'
 }) {
-  const color = tone === 'amber' ? 'text-amber-500' : tone === 'slate' ? 'text-slate-500' : 'text-bbh-green'
+  const color = tone === 'amber' ? 'text-amber-500' : tone === 'slate' ? 'text-bbh-muted' : 'text-bbh-green'
   return (
     <div className="flex min-h-[112px] flex-col justify-between bg-white p-5">
       <div className="flex items-center justify-between gap-3">
@@ -297,7 +297,7 @@ function MonthGrid({
                     </span>
                   ) : null}
                   {dayBlocks.length > 0 ? (
-                    <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700">
+                    <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted">
                       <span className="font-mono tabular-nums">{dayBlocks.length}</span> {t('doctorCalendar.awayUnit')}
                     </span>
                   ) : null}
@@ -439,7 +439,7 @@ export function DoctorCalendar() {
               </div>
               <div className="hidden items-center gap-3 text-xs text-bbh-muted md:flex">
                 <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-green" /> {t('doctorCalendar.legendAppointment')}</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> {t('doctorCalendar.legendAway')}</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-line" /> {t('doctorCalendar.legendAway')}</span>
                 <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-bbh-green-soft" /> {t('doctorCalendar.legendAvailable')}</span>
               </div>
             </div>
@@ -510,7 +510,7 @@ export function DoctorCalendar() {
                                 key={block.id}
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); setSelection({ kind: 'block', item: block }) }}
-                                className={`absolute left-1 right-1 overflow-hidden rounded-lg border border-slate-300 bg-slate-100 px-2 py-1 text-left text-xs text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-200 ${FOCUS_RING}`}
+                                className={`absolute left-1 right-1 overflow-hidden rounded-lg border border-bbh-line bg-bbh-surface px-2 py-1 text-left text-xs text-bbh-ink shadow-sm transition-colors duration-200 hover:border-bbh-green/40 ${FOCUS_RING}`}
                                 style={{ top: pos.top, height: pos.height }}
                               >
                                 <p className="truncate font-semibold">{blockTypeLabel(block.block_type, t)}</p>
@@ -577,7 +577,7 @@ export function DoctorCalendar() {
                         key={block.id}
                         type="button"
                         onClick={() => setSelection({ kind: 'block', item: block })}
-                        className={`w-full rounded-lg border border-slate-300 bg-slate-50 p-3 text-left text-slate-700 transition-colors duration-200 hover:bg-slate-100 ${FOCUS_RING}`}
+                        className={`w-full rounded-lg border border-bbh-line bg-bbh-surface p-3 text-left text-bbh-ink transition-colors duration-200 hover:border-bbh-green/40 ${FOCUS_RING}`}
                       >
                         <p className="text-sm font-semibold">{blockTypeLabel(block.block_type, t)}</p>
                         <p className="mt-1 font-mono text-[11px] tabular-nums">{formatBlockRange(block)}</p>
@@ -658,7 +658,7 @@ export function DoctorCalendar() {
               <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Availability rule</p>
               <div className="mt-4 space-y-3 text-sm text-bbh-muted">
                 <p className="flex items-start gap-2"><CheckCircle2 size={15} className="mt-0.5 shrink-0 text-bbh-green" /> {t('doctorCalendar.availabilityRule1')}</p>
-                <p className="flex items-start gap-2"><CalendarOff size={15} className="mt-0.5 shrink-0 text-slate-500" /> {t('doctorCalendar.availabilityRule2')}</p>
+                <p className="flex items-start gap-2"><CalendarOff size={15} className="mt-0.5 shrink-0 text-bbh-muted" /> {t('doctorCalendar.availabilityRule2')}</p>
                 <p className="flex items-start gap-2"><Stethoscope size={15} className="mt-0.5 shrink-0 text-bbh-green" /> {t('doctorCalendar.availabilityRule3')}</p>
               </div>
             </div>

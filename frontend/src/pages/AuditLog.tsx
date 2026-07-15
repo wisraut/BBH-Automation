@@ -28,14 +28,17 @@ const ACTIONS: Array<{ key: string; labelKey: string }> = [
   { key: 'decide_triage', labelKey: 'auditLog.actionDecideTriage' },
 ]
 
+// Colour is reserved for the one action that matters most on a compliance scan:
+// download_report = PHI leaving the system (amber = pay attention). Every other
+// audited action is neutral — the text label identifies it (palette discipline).
 const ACTION_STYLES: Record<string, string> = {
-  view_patient: 'border-blue-200 bg-blue-50 text-blue-700',
+  view_patient: 'border-bbh-line bg-bbh-surface text-bbh-muted',
   list_patients: 'border-bbh-line bg-bbh-surface text-bbh-muted',
-  view_report: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
+  view_report: 'border-bbh-line bg-bbh-surface text-bbh-muted',
   download_report: 'border-amber-200 bg-amber-50 text-amber-700',
   list_reports: 'border-bbh-line bg-bbh-surface text-bbh-muted',
-  analyze_report: 'border-purple-200 bg-purple-50 text-purple-700',
-  decide_triage: 'border-pink-200 bg-pink-50 text-pink-700',
+  analyze_report: 'border-bbh-line bg-bbh-surface text-bbh-muted',
+  decide_triage: 'border-bbh-line bg-bbh-surface text-bbh-muted',
 }
 
 function todayIso(): string {

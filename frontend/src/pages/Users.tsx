@@ -28,12 +28,15 @@ const ROLES = ['admin', 'doctor', 'cro', 'nurse', 'lab_staff'] as const
 
 function RoleBadge({ role }: { role: string }) {
   const { t } = useTranslation()
+  // admin = highest privilege (red = attention), doctor = clinical/brand (green);
+  // the rest are neutral and identified by their text label (palette discipline —
+  // BBH tokens don't carry 5 distinct hues, and role text already disambiguates).
   const tone: Record<string, string> = {
     admin: 'border-red-200 bg-red-50 text-red-700',
     doctor: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
-    cro: 'border-blue-200 bg-blue-50 text-blue-700',
-    nurse: 'border-pink-200 bg-pink-50 text-pink-700',
-    lab_staff: 'border-amber-200 bg-amber-50 text-amber-700',
+    cro: 'border-bbh-line bg-bbh-surface text-bbh-muted',
+    nurse: 'border-bbh-line bg-bbh-surface text-bbh-muted',
+    lab_staff: 'border-bbh-line bg-bbh-surface text-bbh-muted',
   }
   return (
     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${tone[role] ?? 'border-bbh-line bg-bbh-surface text-bbh-muted'}`}>

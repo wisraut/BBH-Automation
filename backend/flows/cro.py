@@ -308,6 +308,41 @@ def _notify_team(conv_id: int, patient_uid: str, first_msg: str, escalated: bool
             log.exception("Failed to push convo notification to CRO %s", uid)
 
 
+def notify_cro_block_conflicts(
+    *, uids: list[str], doctor_name: str, block_label: str, start_at, end_at,
+    conflicts: list[dict],
+) -> None:
+    """Informational LINE push (no action buttons) to the given CRO line_uids
+    when a doctor's new time-off block clashes with already-confirmed
+    appointments — so the CRO can reschedule the affected patients. Best-effort.
+    uids come from bot_sessions (line_cro), the same reachable source the booking
+    notifications use — not cro_users, whose line_uid is often unset."""
+    if not conflicts or not uids:
+        return
+    lines = [
+        "[แจ้งเตือน] แพทย์เพิ่งลงเวลาไม่ว่าง ทับกับนัดที่ยืนยันแล้ว",
+        f"แพทย์: {doctor_name} ({block_label})",
+        f"ช่วงไม่ว่าง: {start_at:%d/%m/%Y %H:%M} - {end_at:%H:%M}",
+        "",
+        f"นัดที่ได้รับผลกระทบ ({len(conflicts)}):",
+    ]
+    for c in conflicts:
+        tm = str(c.get("requested_time") or "")[:5]
+        lines.append(
+            f"- {c.get('patient_name') or '-'} "
+            f"({c.get('phone') or '-'}) {c.get('requested_date')} {tm}"
+        )
+    lines.append("")
+    lines.append("กรุณาติดต่อคนไข้เพื่อเลื่อนนัด")
+    text = "\n".join(lines)
+
+    for uid in uids:
+        try:
+            line_client.push(uid, text, ch=line_client.CRO)
+        except Exception:
+            log.exception("Failed to push block-conflict alert to CRO %s", uid)
+
+
 # ─── Handlers ──────────────────────────────────────────────────────────────────
 
 def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None:

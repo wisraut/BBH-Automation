@@ -485,6 +485,28 @@ def assign_doctor(
 
     _assert_is_doctor(assigned_doctor_id)
 
+    # When ATTACHING a new doctor — a real change, and only if the booking has a
+    # concrete time — enforce the same guards approve/reschedule use: the doctor
+    # must be free of a time-off block AND within their open-hours template.
+    # Re-saving the already-assigned doctor is exempt, so a doctor blocking their
+    # own time later never traps the CRO (that case is surfaced as a warning pill,
+    # and as a LINE alert), and a TBD booking (no requested_time) is not checked
+    # against a fabricated slot.
+    if (
+        assigned_doctor_id is not None
+        and assigned_doctor_id != row.get("assigned_doctor_id")
+        and row.get("requested_time")
+    ):
+        start_at = _row_start(row)
+        if start_at is not None:
+            duration_min = int(row.get("duration_min") or 60)
+            _assert_doctor_available(
+                doctor_id=assigned_doctor_id, start_at=start_at, duration_min=duration_min,
+            )
+            _assert_within_availability(
+                doctor_id=assigned_doctor_id, start_at=start_at, duration_min=duration_min,
+            )
+
     updated = booking_repo.assign_doctor(
         uid=uid,
         assigned_doctor_id=assigned_doctor_id,

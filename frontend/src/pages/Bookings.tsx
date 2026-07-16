@@ -13,6 +13,7 @@ import { useBooking } from '../hooks/useBooking'
 import { useBookings } from '../hooks/useBookings'
 import type { BookingGroup, BookingStatus } from '../hooks/useBookings'
 import { useDoctors } from '../hooks/useDoctors'
+import { useScheduleBlocks, type ScheduleBlock } from '../hooks/useScheduleBlocks'
 import { useToast } from '../hooks/useToast'
 import { ApiError } from '../lib/api'
 
@@ -57,6 +58,42 @@ function formatRelative(iso: string, t: (key: string, opts?: Record<string, unkn
   return t('bookings.relative.days', { count: day })
 }
 
+// Safety-net conflict detection: a booking's ASSIGNED doctor is unavailable
+// (a time-off block overlaps the appointment). The approve/assign guards stop
+// you assigning INTO a block, but a doctor can add a block AFTER being assigned
+// — this surfaces that as a yellow pill so the CRO can reschedule.
+function overlapsBlock(doctorId: number, start: Date, durationMin: number, blocks: ScheduleBlock[]): boolean {
+  if (Number.isNaN(start.getTime())) return false
+  const end = new Date(start.getTime() + durationMin * 60000)
+  return blocks.some(
+    (b) => b.doctor_id === doctorId && new Date(b.start_at) < end && new Date(b.end_at) > start,
+  )
+}
+
+// Best-effort parse of the list item's free-text datetime. Handles both the
+// ISO "YYYY-MM-DD HH:MM" and the Thai web display "DD/MM/YYYY HH:MM" formats.
+// Unparseable (e.g. Thai month names) -> null -> no pill (never a false one).
+function parseBookingStart(text?: string | null): Date | null {
+  const s = text ?? ''
+  const iso = s.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/)
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]), Number(iso[4]), Number(iso[5]))
+  const dmy = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\D+(\d{1,2}):(\d{2})/)
+  if (dmy) return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]), Number(dmy[4]), Number(dmy[5]))
+  return null
+}
+
+function ConflictPill() {
+  const { t } = useTranslation()
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+      title={t('bookings.timeConflictHint')}
+    >
+      <AlertTriangle size={11} /> {t('bookings.timeConflict')}
+    </span>
+  )
+}
+
 export function Bookings() {
   const { t } = useTranslation()
   const [tab, setTab] = useState<BookingGroup>('active')
@@ -78,6 +115,17 @@ export function Bookings() {
     limit: PAGE_LIMIT,
   })
   const detail = useBooking(selectedUid)
+
+  // All doctors' time-off blocks over a wide window (computed once so the query
+  // key stays stable) — used to flag bookings whose assigned doctor is now
+  // unavailable at the appointment time.
+  const [blocksRange] = useState(() => {
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const from = new Date(); from.setDate(from.getDate() - 90)
+    const to = new Date(); to.setDate(to.getDate() + 365)
+    return { from: iso(from), to: iso(to) }
+  })
+  const blocks = useScheduleBlocks({ dateFrom: blocksRange.from, dateTo: blocksRange.to }).data?.data ?? []
 
   function handleTab(key: BookingGroup) {
     setTab(key)
@@ -207,6 +255,8 @@ export function Bookings() {
               <div className="divide-y divide-bbh-line">
                 {list.data.data.map((row, i) => {
                   const active = row.request_uid === selectedUid
+                  const rowStart = row.assigned_doctor_id != null ? parseBookingStart(row.requested_datetime_text) : null
+                  const rowConflict = rowStart != null && overlapsBlock(row.assigned_doctor_id as number, rowStart, 60, blocks)
                   return (
                     <button
                       key={row.request_uid}
@@ -236,6 +286,7 @@ export function Bookings() {
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
                         <StatusBadge status={row.status} />
+                        {rowConflict ? <ConflictPill /> : null}
                         <span className="font-mono text-[11px] tabular-nums text-bbh-muted">
                           {formatRelative(row.created_at, t)}
                         </span>
@@ -305,9 +356,13 @@ export function Bookings() {
                 {detail.data.patient_name ?? '-'}
               </p>
               <p className="font-mono text-sm tabular-nums text-bbh-muted">{detail.data.phone ?? '-'}</p>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <StatusBadge status={detail.data.status} />
                 <SourceBadge source={detail.data.booking_source} />
+                {detail.data.assigned_doctor_id != null && detail.data.requested_date && detail.data.requested_time &&
+                overlapsBlock(detail.data.assigned_doctor_id, new Date(`${detail.data.requested_date}T${detail.data.requested_time}`), detail.data.duration_min ?? 60, blocks)
+                  ? <ConflictPill />
+                  : null}
               </div>
             </div>
 
@@ -373,9 +428,12 @@ export function Bookings() {
 
             {detail.data.status === 'approved' ? (
               <div className="space-y-3 pt-2">
-                {!detail.data.assigned_doctor_id ? (
-                  <AssignDoctorInlinePanel uid={detail.data.request_uid} onDone={() => void list.refetch()} />
-                ) : null}
+                <AssignedDoctorField
+                  key={detail.data.request_uid}
+                  uid={detail.data.request_uid}
+                  assignedDoctorId={detail.data.assigned_doctor_id ?? null}
+                  onDone={() => void list.refetch()}
+                />
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -425,15 +483,26 @@ export function Bookings() {
   )
 }
 
-// Inline picker for bookings that were confirmed via LINE (n8n CONFIRM) and
-// arrived without a doctor. CRO picks a doctor to complete the assignment;
-// email reschedule notifications rely on this being set.
-function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => void }) {
+// Attending-doctor field for an approved booking. Shown ALWAYS (context-field
+// pattern — Linear/Jira): read state resolves the name via useDoctors and
+// "เปลี่ยน" swaps to an inline picker on the same spot. Reschedule email
+// notifications rely on this being set, so the unassigned state stays amber and
+// opens straight into the picker to prompt the CRO to complete it.
+function AssignedDoctorField({ uid, assignedDoctorId, onDone }: {
+  uid: string
+  assignedDoctorId: number | null
+  onDone: () => void
+}) {
   const { t } = useTranslation()
   const doctorsQ = useDoctors()
   const assign = useAssignDoctor()
   const toast = useToast()
-  const [doctorId, setDoctorId] = useState<number | ''>('')
+  const assigned = assignedDoctorId != null
+  const [editing, setEditing] = useState(!assigned)
+  const [doctorId, setDoctorId] = useState<number | ''>(assignedDoctorId ?? '')
+
+  const doctors = doctorsQ.data?.data ?? []
+  const current = doctors.find((d) => d.id === assignedDoctorId)
 
   async function submit() {
     if (doctorId === '') {
@@ -443,47 +512,77 @@ function AssignDoctorInlinePanel({ uid, onDone }: { uid: string; onDone: () => v
     try {
       await assign.mutateAsync({ uid, body: { assigned_doctor_id: Number(doctorId) } })
       toast.show('success', t('bookings.assignDoctorSuccess'))
+      setEditing(false)
       onDone()
     } catch (error) {
-      const msg = error instanceof ApiError ? error.message : t('bookings.saveFailed')
-      toast.show('error', msg)
+      toast.show('error', error instanceof ApiError ? error.message : t('bookings.saveFailed'))
     }
   }
 
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-      <div className="flex items-start gap-2">
-        <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-amber-900">{t('bookings.noDoctorAssignedTitle')}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
-            {t('bookings.noDoctorAssignedHint')}
-          </p>
+    <div className={`rounded-xl border p-4 ${assigned ? 'border-bbh-line bg-white' : 'border-amber-300 bg-amber-50'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('bookings.attendingDoctor')}</p>
+        {!editing ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className={`rounded text-xs font-medium text-bbh-muted transition-colors duration-200 hover:text-bbh-green-dark ${FOCUS_RING}`}
+          >
+            {assigned ? t('bookings.changeDoctor') : t('bookings.assignDoctorCta')}
+          </button>
+        ) : null}
+      </div>
+
+      {editing ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <select
+            value={doctorId}
+            onChange={(e) => setDoctorId(e.target.value === '' ? '' : Number(e.target.value))}
+            className={`min-w-[160px] flex-1 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30 ${FOCUS_RING}`}
+          >
+            <option value="">{t('bookings.selectDoctorPlaceholder')}</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={assign.isPending || doctorId === ''}
+            className={`inline-flex items-center gap-1.5 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
+          >
+            {assign.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+            {t('common.save')}
+          </button>
+          {assigned ? (
+            <button
+              type="button"
+              onClick={() => { setEditing(false); setDoctorId(assignedDoctorId ?? '') }}
+              className={`rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              {t('common.cancel')}
+            </button>
+          ) : null}
         </div>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <select
-          value={doctorId}
-          onChange={(e) => setDoctorId(e.target.value === '' ? '' : Number(e.target.value))}
-          className={`min-w-[180px] flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm transition-colors duration-200 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 ${FOCUS_RING}`}
-        >
-          <option value="">{t('bookings.selectDoctorPlaceholder')}</option>
-          {(doctorsQ.data?.data ?? []).map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={assign.isPending || doctorId === ''}
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-amber-700 disabled:opacity-60 ${FOCUS_RING}`}
-        >
-          {assign.isPending ? <Loader2 size={14} className="animate-spin" /> : <Stethoscope size={14} />}
-          {t('common.save')}
-        </button>
-      </div>
+      ) : (
+        <div className="mt-2 flex items-center gap-2">
+          <Stethoscope size={16} className={assigned ? 'text-bbh-green' : 'text-amber-600'} />
+          <span className={`text-sm font-semibold ${assigned ? 'text-bbh-ink' : 'text-amber-800'}`}>
+            {current
+              ? current.display_name
+              : assigned
+                ? (doctorsQ.isLoading ? '…' : t('bookings.doctorNumber', { id: assignedDoctorId }))
+                : t('bookings.noDoctorAssignedTitle')}
+          </span>
+        </div>
+      )}
+
+      {!assigned ? (
+        <p className="mt-2 text-xs leading-relaxed text-amber-800">{t('bookings.noDoctorAssignedHint')}</p>
+      ) : null}
     </div>
   )
 }

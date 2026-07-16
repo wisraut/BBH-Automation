@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from core.config import log
 from core.security import require_user
 from integrations import calendar_client
-from repositories import schedule_block_repo, user_repo
+from repositories import booking_repo, schedule_block_repo, user_repo
 
 
 router = APIRouter(prefix="/api/schedule-blocks", tags=["schedule-blocks"])
@@ -90,6 +90,27 @@ def create_block(body: ScheduleBlockCreate, user: _DoctorOrAdmin) -> dict:
         start_at=body.start_at, end_at=body.end_at, reason=body.reason,
         video_link=video_link,
     )
+
+    # Warn the CRO (informational LINE push) when this new block clashes with an
+    # already-approved appointment for this doctor — best-effort; a failure here
+    # must never break the block itself (already persisted + enforced via DB).
+    try:
+        conflicts = booking_repo.find_approved_overlapping(
+            doctor_id=body.doctor_id, start_at=body.start_at, end_at=body.end_at,
+        )
+        if conflicts:
+            from flows import cro  # lazy import — avoids any load-order cycle
+
+            doctor = user_repo.find_user_by_id(int(body.doctor_id))
+            cro.notify_cro_block_conflicts(
+                uids=booking_repo.list_active_cro_line_uids(),
+                doctor_name=(doctor or {}).get("display_name") or "แพทย์",
+                block_label=_BLOCK_LABEL.get(body.block_type, "ไม่ว่าง"),
+                start_at=body.start_at, end_at=body.end_at, conflicts=conflicts,
+            )
+    except Exception as exc:  # noqa: BLE001 — CRO alert is best-effort
+        log.warning("Block %s CRO conflict alert failed: %s", new_id, exc)
+
     return {"id": new_id}
 
 

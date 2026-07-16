@@ -592,6 +592,51 @@ def list_rescheduled_in_range(
     return result
 
 
+def find_approved_overlapping(
+    *, doctor_id: int, start_at: datetime, end_at: datetime,
+) -> list[dict[str, Any]]:
+    """Approved bookings for this doctor whose appointment window overlaps
+    [start_at, end_at]. Used to warn the CRO when a doctor blocks time that
+    clashes with already-confirmed appointments (the reverse of the approve/
+    assign DOCTOR_BLOCKED guard — a block added AFTER the doctor was assigned)."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT request_uid, patient_name, phone,
+                       requested_date, requested_time, requested_datetime_text
+                FROM booking_requests
+                WHERE assigned_doctor_id = %s
+                  AND status = 'approved'
+                  AND requested_date IS NOT NULL
+                  AND requested_time IS NOT NULL
+                  AND TIMESTAMP(requested_date, requested_time) < %s
+                  AND TIMESTAMP(requested_date, requested_time)
+                      + INTERVAL COALESCE(duration_min, 60) MINUTE > %s
+                ORDER BY requested_date, requested_time
+                """,
+                (doctor_id, end_at, start_at),
+            )
+            return cur.fetchall() or []
+
+
+def list_active_cro_line_uids() -> list[str]:
+    """Distinct CRO LINE user ids that have messaged the CRO bot (bot_sessions,
+    channel='line_cro', valid LINE uid). This is the reachable CRO target the
+    booking notifications use — cro_users.line_uid is frequently unset."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT external_user_id
+                FROM bot_sessions
+                WHERE channel = 'line_cro'
+                  AND external_user_id REGEXP '^U[0-9a-f]{32}$'
+                """
+            )
+            return [r["external_user_id"] for r in cur.fetchall()]
+
+
 def assign_doctor(
     *,
     uid: str,

@@ -169,7 +169,6 @@ line-dify-bridge/
 ├── tools/                         # backup.py, restore.py, ask_patient.py
 ├── backups/                       # backup tar.gz files (gitignored)
 ├── work/                          # temporary/manual debugging scripts and artifacts
-├── _legacy/                       # archived pre-pivot code (do not import)
 ├── docker-compose.bridge.yaml     # bridge compose, build context = ./backend
 ├── .env.example                   # environment template
 └── README.md

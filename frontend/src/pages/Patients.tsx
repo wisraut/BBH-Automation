@@ -366,7 +366,7 @@ export function Patients() {
         </div>
       </section>
 
-      <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
+      <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
             {t('patients.selectPatient')}

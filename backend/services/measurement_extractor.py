@@ -39,6 +39,8 @@ _SYSTEM = (
 
 
 def _allowed_codes_hint() -> str:
+    """สร้างรายการรหัส marker ที่อนุญาต (พร้อม label + alias ตัวอย่าง) ยัดเข้า prompt
+    เพื่อบังคับให้ LLM เลือก code จาก catalog เท่านั้น ลดการเดา code มั่ว"""
     lines = []
     for code, meta in measurement_catalog.MARKERS.items():
         lines.append(f"- {code}: {meta['label_th']} ({', '.join(meta['aliases'][:3])})")
@@ -46,6 +48,8 @@ def _allowed_codes_hint() -> str:
 
 
 def _strip_fences(text: str) -> str:
+    """ลอก code fence ```json ... ``` ที่ LLM มักห่อ JSON มาให้ ถ้าไม่มีคืนตามเดิม
+    เพื่อให้ json.loads ทำงานได้"""
     t = text.strip()
     # Remove ```json ... ``` or ``` ... ``` wrappers if the model added them.
     fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", t, re.DOTALL)
@@ -53,6 +57,8 @@ def _strip_fences(text: str) -> str:
 
 
 def _parse_date(raw: Any, fallback: date) -> date:
+    """แปลงวันที่รูปแบบ YYYY-MM-DD จาก LLM เป็น date; ถ้า parse ไม่ได้ใช้ fallback
+    (ปกติคือวันอัปโหลด report) กันค่าวันที่เพี้ยนทำ insert ล้ม"""
     if isinstance(raw, str):
         try:
             return datetime.strptime(raw.strip(), "%Y-%m-%d").date()
@@ -62,6 +68,8 @@ def _parse_date(raw: Any, fallback: date) -> date:
 
 
 def _coerce_number(raw: Any) -> float | None:
+    """ดึงตัวเลขจากค่า LLM ที่อาจเป็น int/float หรือ string (เช่น '5.6 mg/dL') —
+    คืน None ถ้าหาเลขไม่ได้ เพื่อข้ามรายการนั้นแทนที่จะพัง"""
     if isinstance(raw, (int, float)):
         return float(raw)
     if isinstance(raw, str):
@@ -72,6 +80,10 @@ def _coerce_number(raw: Any) -> float | None:
 
 
 def extract_measurements(*, report_id: int, user: dict[str, Any]) -> dict[str, Any]:
+    """สกัดค่าแล็บเชิงตัวเลขจาก text ของ report ด้วย LLM แล้วเก็บเป็น draft ให้แพทย์
+    ยืนยันภายหลัง — PII-redact ก่อนส่งออก, normalize code/หน่วย, ตัดค่าที่เกินขนาด
+    column; idempotent (ลบ draft เก่าของ report นี้ก่อน ไม่แตะแถวที่ confirmed แล้ว);
+    parse ล้มคืน 0 แถว ไม่แต่งค่าเอง"""
     report = report_repo.get_by_id(report_id)
     if not report:
         raise HTTPException(

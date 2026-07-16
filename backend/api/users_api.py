@@ -38,6 +38,7 @@ def admin_list_users(
     page: int = 1,
     limit: int = 30,
 ) -> dict:
+    """admin ดูรายการ user ทั้งระบบ กรองตาม role/สถานะ/คำค้น พร้อม pagination"""
     page = max(1, page)
     limit = max(1, min(100, limit))
     rows, total = user_repo.list_users(
@@ -52,6 +53,8 @@ def admin_list_users(
 
 @router.post("/api/users", response_model=UserOut, status_code=201)
 def admin_create_user(body: UserCreateRequest, user: _AdminUser) -> dict:
+    """admin สร้าง user ใหม่ (หมอ/พยาบาล/cro/admin) — กันอีเมลซ้ำ, เช็คความแข็งแรง
+    รหัสผ่าน, hash แล้ว insert; คืน user ที่เพิ่งสร้าง"""
     if user_repo.find_user_by_email(body.email):
         raise HTTPException(
             status_code=409,
@@ -73,6 +76,8 @@ def admin_create_user(body: UserCreateRequest, user: _AdminUser) -> dict:
 
 @router.patch("/api/users/{user_id}", response_model=UserOut)
 def admin_update_user(user_id: int, body: UserUpdateRequest, user: _AdminUser) -> dict:
+    """admin แก้ไขข้อมูล user (ชื่อ/role/specialty/สถานะ) — กันไม่ให้ admin
+    disable หรือลด role ของตัวเอง; คืน user หลังอัปเดต"""
     existing = user_repo.find_user_by_id(user_id)
     if not existing:
         raise HTTPException(404, {"code": "USER_NOT_FOUND", "message": "ไม่พบ user"})
@@ -97,6 +102,8 @@ def admin_update_user(user_id: int, body: UserUpdateRequest, user: _AdminUser) -
 
 @router.post("/api/users/{user_id}/reset-password", status_code=204)
 def admin_reset_password(user_id: int, body: PasswordResetRequest, user: _AdminUser) -> None:
+    """admin รีเซ็ตรหัสผ่านให้ user คนอื่น — เช็คความแข็งแรงรหัสใหม่แล้ว hash เก็บ;
+    raise 404 ถ้าไม่พบ user"""
     existing = user_repo.find_user_by_id(user_id)
     if not existing:
         raise HTTPException(404, {"code": "USER_NOT_FOUND", "message": "ไม่พบ user"})

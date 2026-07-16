@@ -49,6 +49,8 @@ def _get_service():
 
 
 def is_configured() -> bool:
+    """เช็คว่า Google Calendar พร้อมใช้ไหม (มี calendar id + ไฟล์ service account)
+    caller เรียกก่อน auto-book เพื่อ fallback ไป flow 'จองเอง' เมื่อยังไม่ได้ตั้งค่า"""
     return bool(GOOGLE_CALENDAR_ID) and os.path.exists(GOOGLE_SERVICE_ACCOUNT_FILE)
 
 
@@ -170,6 +172,8 @@ def book_event(summary: str, description: str, start: datetime,
 
 
 def cancel_event(event_id: str, calendar_id: str | None = None) -> bool:
+    """ลบ event ออกจากปฏิทิน — คืน False (log ไว้) แทนโยน error เมื่อพัง
+    เพื่อไม่ให้การลบ event ล้มเหลวไปทำ flow ยกเลิกนัดฝั่งเราพังตาม"""
     try:
         _get_service().events().delete(
             calendarId=(calendar_id or GOOGLE_CALENDAR_ID), eventId=event_id

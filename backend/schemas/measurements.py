@@ -8,6 +8,8 @@ MeasurementStatus = Literal["draft", "confirmed", "rejected"]
 
 
 class MeasurementOut(BaseModel):
+    """response ของค่าแล็บ/biomarker หนึ่งค่า (draft/confirmed/rejected) พร้อมข้อมูล
+    ผู้ยืนยัน — ใช้ในหน้า LabResults/Biomarker"""
     id: int
     patient_id: int
     report_id: int | None = None
@@ -25,10 +27,13 @@ class MeasurementOut(BaseModel):
 
 
 class MeasurementListResponse(BaseModel):
+    """response ของ GET measurement list"""
     data: list[MeasurementOut]
 
 
 class ExtractResponse(BaseModel):
+    """response หลังสกัดค่าแล็บด้วย AI — คืน draft ที่สกัดได้ + parse_error (true ถ้า
+    LLM คืน JSON ไม่ถูกรูป จึงได้ 0 แถว ให้กรอกเอง)"""
     ok: bool
     data: list[MeasurementOut]
     parse_error: bool = False
@@ -40,6 +45,8 @@ _VALUE_MAX = 99_999_999
 
 
 class ConfirmRequest(BaseModel):
+    """request body ตอนแพทย์ยืนยันค่าแล็บทีละตัว — ทุก field optional (ยืนยันค่าที่
+    สกัดได้เลย หรือแก้ก่อนยืนยัน)"""
     # All optional: doctor may just confirm the extracted values, or edit first.
     code: str | None = Field(default=None, max_length=32)
     value: float | None = Field(default=None, ge=_VALUE_MIN, le=_VALUE_MAX)
@@ -49,6 +56,7 @@ class ConfirmRequest(BaseModel):
 
 
 class BulkConfirmItem(BaseModel):
+    """หนึ่งรายการใน bulk confirm — id ของ draft ที่จะยืนยัน + field ที่จะแก้ (optional)"""
     id: int
     code: str | None = Field(default=None, max_length=32)
     value: float | None = Field(default=None, ge=_VALUE_MIN, le=_VALUE_MAX)
@@ -58,10 +66,13 @@ class BulkConfirmItem(BaseModel):
 
 
 class BulkConfirmRequest(BaseModel):
+    """request body สำหรับยืนยันค่าแล็บหลายตัวพร้อมกัน (1-100 รายการ)"""
     items: list[BulkConfirmItem] = Field(min_length=1, max_length=100)
 
 
 class CatalogItem(BaseModel):
+    """response ของ marker หนึ่งตัวใน catalog (label + หน่วย + ช่วงอ้างอิง/optimal) —
+    ให้ frontend ใช้แทนการ hardcode ช่วงค่าเอง"""
     code: str
     label_th: str
     unit: str
@@ -73,4 +84,5 @@ class CatalogItem(BaseModel):
 
 
 class CatalogResponse(BaseModel):
+    """response ของ GET marker catalog"""
     data: list[CatalogItem]

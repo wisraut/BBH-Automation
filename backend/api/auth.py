@@ -23,6 +23,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _client_ip(request: Request) -> str:
+    """คืน IP จริงของ client โดยอ่านจาก X-Forwarded-For ก่อน (ผ่าน Cloudflare Tunnel)
+    แล้ว fallback ไป request.client — ใช้บันทึก audit log ของ auth"""
     forwarded_for = request.headers.get("x-forwarded-for", "")
     if forwarded_for:
         return forwarded_for.split(",", 1)[0].strip()
@@ -30,6 +32,8 @@ def _client_ip(request: Request) -> str:
 
 
 def _is_https_request(request: Request) -> bool:
+    """ตรวจว่า request เดิมเป็น HTTPS ไหม โดยดู X-Forwarded-Proto ก่อน (เพราะ
+    Cloudflare Tunnel ถอด TLS ทำให้ขาเข้า bridge เป็น http) — ใช้ตัดสิน secure flag ของ cookie"""
     # Cloudflare Tunnel terminates TLS — the inbound request to bridge is plain
     # http but the original scheme is in X-Forwarded-Proto.
     proto = request.headers.get("x-forwarded-proto", "").lower()

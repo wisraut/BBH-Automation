@@ -27,6 +27,7 @@ const FOCUS_RING =
 const FIELD_CLASS =
   'w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
 
+// ค่าเริ่มต้นของช่องวัน-เวลานัด = ต้นชั่วโมงถัดไป (รูปแบบ local สำหรับ input datetime-local)
 function defaultStart(): string {
   // Local datetime input (no TZ) - naive YYYY-MM-DDTHH:MM
   const d = new Date()
@@ -36,12 +37,14 @@ function defaultStart(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// คืนวันถัดไป (YYYY-MM-DD) — ใช้ทำช่วง dateFrom..dateTo ตอน query ตารางว่าง/ไม่ว่างของหมอ 1 วัน
 function nextDateKey(dateKey: string): string {
   const d = new Date(`${dateKey}T00:00:00`)
   d.setDate(d.getDate() + 1)
   return d.toISOString().slice(0, 10)
 }
 
+// แปลงชนิดช่วงเวลาที่หมอไม่ว่าง (ลาพักร้อน/นอกเวลา/ประชุม/ลาป่วย/อื่นๆ) เป็นข้อความแปลไว้แสดง
 function blockTypeLabel(type: string, t: (key: string) => string): string {
   const keys: Record<string, string> = {
     vacation: 'approveModal.blockType.vacation',
@@ -53,6 +56,7 @@ function blockTypeLabel(type: string, t: (key: string) => string): string {
   return keys[type] ? t(keys[type]) : type
 }
 
+// จัดรูปช่วงเวลาที่หมอไม่ว่างเป็น "HH:MM-HH:MM" สำหรับโชว์ในกล่องเตือนชนคิว
 function formatBlockRange(block: ScheduleBlock): string {
   const start = new Date(block.start_at)
   const end = new Date(block.end_at)
@@ -61,6 +65,7 @@ function formatBlockRange(block: ScheduleBlock): string {
   return `${startTime}-${endTime}`
 }
 
+// เช็คว่านัด (เวลาเริ่ม+ระยะเวลา) ทับกับช่วงที่หมอไม่ว่างไหม — ใช้เตือน/ปิดปุ่มยืนยันไม่ให้จองชนคิว
 function overlapsBlock(block: ScheduleBlock, startAt: string, duration: number): boolean {
   if (!startAt) return false
   const start = new Date(`${startAt}:00`)
@@ -71,6 +76,8 @@ function overlapsBlock(block: ScheduleBlock, startAt: string, duration: number):
   return start < blockEnd && end > blockStart
 }
 
+// Modal ยืนยันอนุมัตินัด (ใช้โดย CRO) — เลือกหมอ + วัน-เวลา + ระยะเวลา, เตือน/ปิดปุ่มถ้าชนช่วงที่หมอไม่ว่าง
+// และบังคับยืนยันตัวตนคนไข้เมื่อเบอร์โทรตรงกับหลายเวชระเบียน (ห้าม merge จากเบอร์อย่างเดียว)
 export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctorId }: ApproveModalProps) {
   const { t } = useTranslation()
   const [startAt, setStartAt] = useState(defaultStart())

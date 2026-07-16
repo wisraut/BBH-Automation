@@ -27,6 +27,8 @@ class LineChannel:
     token_expiry: float = 0.0
 
     def enabled(self) -> bool:
+        """channel นี้ตั้งค่าครบพร้อมใช้ไหม (มีทั้ง id + secret) — CRO channel เป็น optional
+        ถ้าไม่ได้ตั้งใน .env จะ disabled แล้วโค้ดจะข้ามการส่งไป channel นี้"""
         return bool(self.channel_id and self.channel_secret)
 
 
@@ -62,6 +64,8 @@ def verify_signature(body: bytes, signature: str, ch: LineChannel) -> bool:
 
 
 def _truncate(text: str) -> str:
+    """ตัดข้อความให้ไม่เกิน limit ของ LINE (5000 ตัว) เติม … ท้าย
+    LINE จะ reject ทั้งข้อความถ้าเกิน limit จึงต้องตัดก่อนส่งทุกครั้ง"""
     return text[:4997] + "…" if len(text) > 5000 else text
 
 

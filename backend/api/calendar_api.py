@@ -32,6 +32,8 @@ class CalendarEventsResponse(BaseModel):
 
 
 def _parse_range(value: str) -> datetime:
+    """แปลงสตริง ISO 8601 เป็น datetime โซนกรุงเทพ (เติมโซนให้ถ้าไม่มี) — ใช้ parse
+    ช่วงเวลา time_min/time_max; รูปแบบผิดโยน HTTP 422"""
     try:
         parsed = datetime.fromisoformat(value)
     except ValueError as exc:

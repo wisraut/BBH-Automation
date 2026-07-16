@@ -24,6 +24,7 @@ def list_by_doctor(doctor_id: int) -> list[dict[str, Any]]:
 
 
 def has_template(doctor_id: int) -> bool:
+    """True ถ้าหมอคนนี้ตั้ง template เวลาว่างไว้แล้ว (มีอย่างน้อย 1 ช่วง)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

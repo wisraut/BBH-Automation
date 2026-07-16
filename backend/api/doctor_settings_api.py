@@ -27,6 +27,8 @@ class SettingsPut(BaseModel):
 
 
 def _out(row: dict | None) -> dict:
+    """ประกอบ response settings ของผู้ใช้ (notebooklm_url + google_calendar_id) และเติม
+    service_account_email แบบ read-only ที่หมอต้องใช้แชร์ Google Calendar"""
     return {
         "notebooklm_url": (row or {}).get("notebooklm_url"),
         "google_calendar_id": (row or {}).get("google_calendar_id"),
@@ -36,11 +38,15 @@ def _out(row: dict | None) -> dict:
 
 @router.get("", response_model=SettingsOut)
 def get_settings(user: _User) -> dict:
+    """คืนค่าตั้งค่าส่วนตัวของผู้ใช้ที่ล็อกอิน (NotebookLM link + Google Calendar id) —
+    self-scoped อ่านได้เฉพาะของตัวเอง"""
     return _out(doctor_settings_repo.get(int(user["id"])))
 
 
 @router.put("", response_model=SettingsOut)
 def put_settings(body: SettingsPut, user: _User) -> dict:
+    """บันทึกค่าตั้งค่าส่วนตัวของผู้ใช้ที่ล็อกอิน (NotebookLM link + Google Calendar id) —
+    self-scoped; validate รูปแบบ URL/Calendar id ก่อน upsert, ผิด = 422"""
     url = (body.notebooklm_url or "").strip() or None
     if url and not (url.startswith("http://") or url.startswith("https://")):
         raise HTTPException(

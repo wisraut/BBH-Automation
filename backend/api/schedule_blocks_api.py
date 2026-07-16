@@ -51,6 +51,8 @@ def list_blocks(
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
 ) -> dict:
+    """staff (cro/หมอ/พยาบาล/admin) ดูรายการ block ตารางแพทย์ (ลา/ไม่อยู่/ประชุม)
+    กรองตามแพทย์และช่วงวันได้ — CRO ใช้เลี่ยงจองทับเวลาที่หมอไม่ว่าง"""
     rows = schedule_block_repo.list_blocks(
         doctor_id=doctor_id, date_from=date_from, date_to=date_to,
     )
@@ -59,6 +61,8 @@ def list_blocks(
 
 @router.post("", status_code=201)
 def create_block(body: ScheduleBlockCreate, user: _DoctorOrAdmin) -> dict:
+    """หมอ (block ตัวเอง) / admin (block แทนได้) สร้าง block ตารางแพทย์ — บันทึก DB,
+    mirror ขึ้น Google Calendar (transparent), และเตือน CRO ทาง LINE ถ้าทับนัดที่ approve แล้ว"""
     if body.end_at <= body.start_at:
         raise HTTPException(
             400, {"code": "INVALID_RANGE", "message": "end_at ต้องหลัง start_at"},
@@ -118,6 +122,8 @@ def _sync_block_to_calendar(
     *, block_id: int, doctor_id: int, block_type: str,
     start_at: datetime, end_at: datetime, reason: str | None, video_link: str | None,
 ) -> None:
+    """mirror block ขึ้น Google Calendar เป็น event แบบ transparent (ไม่นับว่า busy)
+    แล้วเก็บ event id กลับลง DB; best-effort — Google ล่มไม่กระทบ block ที่บันทึกแล้ว"""
     if not calendar_client.is_configured():
         return
     try:
@@ -142,6 +148,8 @@ def _sync_block_to_calendar(
 
 @router.delete("/{block_id}")
 def delete_block(block_id: int, user: _DoctorOrAdmin) -> dict:
+    """หมอ (ลบได้เฉพาะ block ตัวเอง) / admin ลบ block ตารางแพทย์ — ลบ event ที่ mirror
+    บน Google Calendar ก่อน (best-effort) แล้วลบ row; raise 404 ถ้าไม่พบ"""
     block = schedule_block_repo.get_block(block_id)
     if not block:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})

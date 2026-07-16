@@ -5,6 +5,7 @@ from core.mysql import mysql_db
 
 
 def find_user_by_email(email: str) -> dict[str, Any] | None:
+    """หา user ด้วย email (รวม password_hash) — ใช้ตอน login. คืน None ถ้าไม่เจอ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -21,6 +22,7 @@ def find_user_by_email(email: str) -> dict[str, Any] | None:
 
 
 def find_user_by_id(user_id: int) -> dict[str, Any] | None:
+    """หา user ด้วย id (รวม password_hash) — ใช้ตอน resolve session. คืน None ถ้าไม่เจอ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -50,6 +52,8 @@ def list_users(
     page: int = 1,
     limit: int = 30,
 ) -> tuple[list[dict[str, Any]], int]:
+    """ลิสต์ user สำหรับหน้าจัดการ (filter role/active/ค้นชื่อ-email) แบบ paging.
+    ไม่คืน password_hash. เรียง active ก่อน แล้ว role/ชื่อ. คืน (rows, total)."""
     conditions: list[str] = []
     args: list[Any] = []
     if role:
@@ -85,6 +89,7 @@ def create_user(
     role: str,
     specialty: str | None,
 ) -> int:
+    """สร้าง user ใหม่ (is_active=1) คืน id ใหม่. caller ต้อง hash password มาก่อน."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -107,6 +112,8 @@ def update_user_fields(
     specialty: str | None = None,
     is_active: bool | None = None,
 ) -> int:
+    """อัปเดตเฉพาะ field ที่ส่งมา (ไม่ None) ของ user. ไม่มี field ให้แก้ = คืน 0
+    โดยไม่แตะ DB. คืนจำนวนแถวที่แก้."""
     fields: list[str] = []
     args: list[Any] = []
     if display_name is not None:
@@ -135,6 +142,7 @@ def update_user_fields(
 
 
 def list_doctors() -> list[dict[str, Any]]:
+    """รายชื่อหมอที่ยัง active (role='doctor') สำหรับ dropdown assign แพทย์."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -149,6 +157,7 @@ def list_doctors() -> list[dict[str, Any]]:
 
 
 def update_password_hash(user_id: int, password_hash: str) -> int:
+    """เปลี่ยนรหัสผ่าน (เก็บเป็น hash ที่ caller เตรียมมา). คืนจำนวนแถวที่แก้."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -160,6 +169,7 @@ def update_password_hash(user_id: int, password_hash: str) -> int:
 
 
 def list_audit_logs_by_user(user_id: int, *, limit: int = 20) -> list[dict[str, Any]]:
+    """ประวัติ auth event (login/logout/fail) ของ user 1 คน เรียงใหม่สุดก่อน."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -177,6 +187,7 @@ def list_audit_logs_by_user(user_id: int, *, limit: int = 20) -> list[dict[str, 
 
 
 def mark_login_success(user_id: int) -> None:
+    """อัปเดต last_login_at เป็นเวลาปัจจุบันหลัง login สำเร็จ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET last_login_at = NOW() WHERE id = %s", (user_id,))
@@ -184,6 +195,7 @@ def mark_login_success(user_id: int) -> None:
 
 
 def mark_logout(user_id: int) -> None:
+    """อัปเดต last_logout_at เป็นเวลาปัจจุบันหลัง logout."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET last_logout_at = NOW() WHERE id = %s", (user_id,))
@@ -199,6 +211,8 @@ def insert_auth_audit(
     user_id: int | None = None,
     fail_reason: str | None = None,
 ) -> None:
+    """บันทึก auth event 1 แถว (login/logout/login_failed พร้อม IP/UA) ลง
+    auth_audit_logs สำหรับ compliance และตรวจสอบการเข้าถึง."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

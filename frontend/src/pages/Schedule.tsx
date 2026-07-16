@@ -367,6 +367,8 @@ function ReportRow({ r }: { r: ScheduleReport }) {
   )
 }
 
+// หน้าแรกของหมอ (และ nurse/admin) แบบ clinical cockpit — โฟกัสคนไข้คนถัดไป, สรุป AI ก่อนพบ,
+// สัญญาณทางคลินิก, ไทม์ไลน์นัดวันนี้ และคิว review ที่รอหมอจัดการ
 export function Schedule() {
   const { t } = useTranslation()
   const [windowDays, setWindowDays] = useState<7 | 14 | 30>(7)

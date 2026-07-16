@@ -43,6 +43,8 @@ class RejectBooking(BaseModel):
 
 @router.post("")
 def create_booking(body: BookingCreate, x_internal_token: str | None = Header(None)):
+    """สร้าง booking จากบอต LINE (n8n เรียกด้วย internal token) — INSERT ลง
+    booking_requests สถานะ pending_approval รอ CRO อนุมัติ. ชื่อ/เบอร์มาจาก free-text คนไข้"""
     _require_internal_token(x_internal_token)
     request_uid = str(uuid.uuid4())
     with _db() as conn:
@@ -70,6 +72,8 @@ def create_booking(body: BookingCreate, x_internal_token: str | None = Header(No
 
 @router.get("/cro-user/latest")
 def get_latest_cro_user(x_internal_token: str | None = Header(None)):
+    """คืน LINE user_id ของ CRO ที่ทักล่าสุด (n8n เรียกด้วย internal token) — ใช้เป็น
+    ปลายทาง push แจ้ง booking ใหม่; กรอง test user เอาเฉพาะ userId LINE จริง"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -86,6 +90,8 @@ def get_latest_cro_user(x_internal_token: str | None = Header(None)):
 
 @router.get("/latest-pending")
 def get_latest_pending(x_internal_token: str | None = Header(None)):
+    """คืน booking ที่ pending_approval ล่าสุด (n8n เรียกด้วย internal token) — ใช้ให้ CRO
+    ยืนยัน/ปฏิเสธด้วยคำสั่งข้อความโดยไม่ต้องอ้าง uid; ไม่มีรายการค้าง = 404"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -102,6 +108,8 @@ def get_latest_pending(x_internal_token: str | None = Header(None)):
 
 @router.get("/{request_uid}")
 def get_booking(request_uid: str, x_internal_token: str | None = Header(None)):
+    """คืนรายละเอียด booking หนึ่งรายการตาม request_uid (n8n เรียกด้วย internal token)
+    — แปลงค่า datetime เป็น ISO ก่อนส่ง; ไม่พบ = 404"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -125,6 +133,8 @@ def approve_booking(
     body: ApproveBooking,
     x_internal_token: str | None = Header(None),
 ):
+    """อนุมัติ booking จากฝั่ง LINE (CRO กด CONFIRM ในแชท → n8n เรียกด้วย internal
+    token) — mark approved + สร้าง/ผูก patient (gen HN) ผ่าน booking_repo; ไม่ได้ pending = 409"""
     _require_internal_token(x_internal_token)
     hn_year = datetime.now(timezone(timedelta(hours=7))).strftime("%y")
     approved = booking_repo.update_approved(
@@ -147,6 +157,8 @@ def reject_booking(
     body: RejectBooking,
     x_internal_token: str | None = Header(None),
 ):
+    """ปฏิเสธ booking จากฝั่ง LINE (CRO กด REJECT ในแชท → n8n เรียกด้วย internal
+    token) — เปลี่ยนสถานะเป็น rejected พร้อมบันทึกเหตุผลลง notes"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:

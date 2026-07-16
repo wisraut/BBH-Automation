@@ -11,6 +11,7 @@ _COLUMNS = (
 
 
 def get_by_id(measurement_id: int) -> dict[str, Any] | None:
+    """ดึงค่าตรวจ 1 แถวด้วย id (คืน None ถ้าไม่เจอ)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -26,6 +27,7 @@ def list_by_patient(
     status: str | None = None,
     codes: list[str] | None = None,
 ) -> list[dict[str, Any]]:
+    """ค่าตรวจของคนไข้ 1 คน filter ตาม status และ/หรือชุด code ได้ เรียงตามเวลาที่วัดล่าสุดก่อน."""
     conditions = ["patient_id = %s"]
     args: list[Any] = [patient_id]
     if status:
@@ -50,6 +52,7 @@ def list_by_patient(
 
 
 def list_drafts_by_report(report_id: int) -> list[dict[str, Any]]:
+    """ค่าตรวจ status='draft' ที่สกัดจากรีพอร์ต 1 ใบ (รอหมอ confirm/reject)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -101,6 +104,8 @@ def series(patient_id: int, code: str) -> list[dict[str, Any]]:
 
 
 def delete_drafts_by_report(report_id: int) -> int:
+    """ลบค่าตรวจ draft ทั้งหมดของรีพอร์ต (เช่นก่อนสกัดใหม่). ลบเฉพาะ draft ไม่แตะ
+    ค่าที่ confirmed แล้ว. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(

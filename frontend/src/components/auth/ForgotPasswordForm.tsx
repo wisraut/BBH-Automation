@@ -8,6 +8,7 @@ type ForgotPasswordFormProps = {
   onBackToLogin: () => void
 }
 
+// ฟอร์มขอรีเซ็ตรหัสผ่าน — รับอีเมลแล้วส่งลิงก์รีเซ็ต; เป็น controlled component (state อยู่ที่หน้าแม่)
 export function ForgotPasswordForm({
   email,
   onEmailChange,

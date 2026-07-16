@@ -11,6 +11,8 @@ def list_blocks(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> list[dict[str, Any]]:
+    """ลิสต์ช่วงเวลาที่หมองด (ลา/ประชุม/นอกเวลา) filter ตามหมอ+ช่วงวันได้
+    (ช่วงวันใช้เงื่อนไข overlap: end_at>=from และ start_at<=to) เรียงใหม่สุดก่อน."""
     conds: list[str] = []
     args: list[Any] = []
     if doctor_id is not None:
@@ -45,6 +47,7 @@ def insert_block(
     *, doctor_id: int, block_type: str, start_at: datetime, end_at: datetime,
     reason: str | None, video_link: str | None, created_by: int | None,
 ) -> int:
+    """สร้างช่วงเวลางดของหมอ 1 รายการ คืน id ใหม่."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -61,6 +64,7 @@ def insert_block(
 
 
 def get_block(block_id: int) -> dict[str, Any] | None:
+    """ดึงช่วงเวลางด 1 รายการด้วย id (คืน None ถ้าไม่เจอ)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -73,6 +77,8 @@ def get_block(block_id: int) -> dict[str, Any] | None:
 
 
 def set_calendar_event(block_id: int, event_id: str, event_url: str) -> int:
+    """ผูก Google Calendar event id/url เข้ากับ block หลังสร้าง event สำเร็จ.
+    คืนจำนวนแถวที่แก้."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -85,6 +91,7 @@ def set_calendar_event(block_id: int, event_id: str, event_url: str) -> int:
 
 
 def delete_block(block_id: int) -> int:
+    """ลบช่วงเวลางด 1 รายการถาวรด้วย id. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(

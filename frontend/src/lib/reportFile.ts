@@ -13,6 +13,7 @@ export async function fetchReportBlob(reportId: number): Promise<Blob> {
   return res.blob()
 }
 
+// เปิดไฟล์ผลแล็บในแท็บใหม่ (ดึง blob พร้อม auth แล้วสร้าง object URL ชั่วคราว)
 export async function openReportFile(reportId: number): Promise<void> {
   const blob = await fetchReportBlob(reportId)
   const url = URL.createObjectURL(blob)
@@ -20,6 +21,7 @@ export async function openReportFile(reportId: number): Promise<void> {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+// ดาวน์โหลดไฟล์ผลแล็บลงเครื่อง (ดึง blob พร้อม auth แล้ว trigger ลิงก์ดาวน์โหลด)
 export async function downloadReportFile(reportId: number, filename: string): Promise<void> {
   const blob = await fetchReportBlob(reportId)
   const url = URL.createObjectURL(blob)

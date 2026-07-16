@@ -12,4 +12,5 @@ export interface ToastContextValue {
   show: (kind: ToastKind, message: string) => void
 }
 
+// React context ของระบบ toast — แยกจาก ToastProvider เพื่อให้ hook useToast import ได้โดยไม่ดึง provider
 export const ToastContext = createContext<ToastContextValue | null>(null)

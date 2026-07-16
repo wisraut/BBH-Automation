@@ -12,6 +12,8 @@ interface ProtectedRouteProps {
   children?: ReactNode
 }
 
+// ยามเฝ้า route — กันคนที่ยังไม่ล็อกอิน (เด้งไป /login) และกัน role ที่ไม่มีสิทธิ์
+// (โชว์หน้า access denied); ห่อทุกหน้าใน dashboard เพื่อบังคับ auth + role
 export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
   const { t } = useTranslation()
   const { user, isReady } = useAuth()

@@ -49,6 +49,7 @@ _DOCTOR_SYSTEM = (
 
 
 def list_reports(patient_id: int) -> dict[str, list[dict[str, Any]]]:
+    """คืน report ทั้งหมดของคนไข้รายเดียว (ใช้ในหน้า patient) — 404 ถ้าไม่พบคนไข้"""
     if not patient_repo.get_by_id(patient_id):
         raise HTTPException(
             status_code=404,
@@ -104,6 +105,7 @@ def list_reports_workspace(
 
 
 def get_report(report_id: int) -> dict[str, Any]:
+    """คืน report รายเดียว — 404 ถ้าไม่พบ"""
     row = report_repo.get_by_id(report_id)
     if not row:
         raise HTTPException(
@@ -132,6 +134,8 @@ def delete_report(report_id: int, *, user: dict[str, Any]) -> dict[str, bool]:
 
 
 def set_notebooklm_url(report_id: int, url: str | None) -> dict[str, Any]:
+    """บันทึกลิงก์ NotebookLM ให้ report — บังคับต้องขึ้นต้น http(s):// เพราะลิงก์นี้
+    ถูก render เป็น <a href> ใน dashboard กัน stored XSS (javascript:/data:)"""
     if not report_repo.get_by_id(report_id):
         raise HTTPException(
             status_code=404,
@@ -160,6 +164,9 @@ async def upload_report(
     assigned_doctor_id: int | None = None,
     user: dict[str, Any],
 ) -> dict[str, Any]:
+    """รับไฟล์ report ที่อัปโหลด: ตรวจขนาด (<=10MB) + ชนิดไฟล์จาก magic bytes จริง
+    (ไม่เชื่อ Content-Type ที่ client แจ้ง), เซฟลงดิสก์, สกัด text, บันทึกลง DB แล้ว
+    แจ้งแพทย์ทางอีเมล (best-effort ไม่บล็อกการอัปโหลด)"""
     patient = patient_repo.get_by_id(patient_id)
     if not patient:
         raise HTTPException(
@@ -235,6 +242,7 @@ async def upload_report(
 
 
 def list_analyses(report_id: int) -> dict[str, list[dict[str, Any]]]:
+    """คืนผลวิเคราะห์ AI ทั้งหมดของ report — 404 ถ้าไม่พบ report"""
     if not report_repo.get_by_id(report_id):
         raise HTTPException(
             status_code=404,
@@ -244,6 +252,9 @@ def list_analyses(report_id: int) -> dict[str, list[dict[str, Any]]]:
 
 
 def analyze_report(*, report_id: int, user: dict[str, Any]) -> dict[str, Any]:
+    """วิเคราะห์ report ด้วย LLM ให้แพทย์อ่าน — ต้องมี extracted_text (ไม่งั้น 422),
+    PII-redact ก่อนส่งออก OpenRouter, ดึง triage decision จากคำตอบ แล้วเก็บผลลง DB;
+    LLM ล้มโยน 502"""
     report = report_repo.get_by_id(report_id)
     if not report:
         raise HTTPException(
@@ -304,6 +315,8 @@ def analyze_report(*, report_id: int, user: dict[str, Any]) -> dict[str, Any]:
 def decide_triage(
     *, analysis_id: int, decision: str, user: dict[str, Any]
 ) -> dict[str, bool]:
+    """บันทึกการตัดสิน triage ของแพทย์ (accept/reject/review) ต่อผลวิเคราะห์หนึ่งอัน
+    — 404 ถ้าไม่พบ analysis"""
     rows = report_repo.decide_triage(
         analysis_id=analysis_id,
         decision=decision,
@@ -464,6 +477,8 @@ def _detect_mime(raw: bytes) -> str:
 
 
 def _save_to_disk(raw: bytes, mime: str) -> str:
+    """เซฟไฟล์ลงดิสก์ในโฟลเดอร์ตามปี/เดือน ตั้งชื่อด้วย uuid — นามสกุลมาจาก mime ที่
+    ตรวจแล้ว (ไม่ใช้ชื่อไฟล์จาก client) กันชื่อ/นามสกุลอันตราย; คืน relative path"""
     now = datetime.now()
     rel_dir = f"{now:%Y/%m}"
     abs_dir = os.path.join(REPORTS_ROOT, rel_dir)
@@ -476,6 +491,7 @@ def _save_to_disk(raw: bytes, mime: str) -> str:
 
 
 def _ext_for(mime: str) -> str:
+    """map mime ที่ตรวจแล้วเป็นนามสกุลไฟล์ — mime ที่ไม่รู้จักตกเป็น .bin"""
     return {
         "application/pdf": ".pdf",
         "image/jpeg": ".jpg",
@@ -485,6 +501,9 @@ def _ext_for(mime: str) -> str:
 
 
 def _extract_text(raw: bytes, mime: str) -> str | None:
+    """สกัด text จากไฟล์: text ตรงๆ, PDF ผ่าน pypdf (จำกัดหน้า/ความยาวกัน bomb),
+    รูปยังไม่ทำ OCR (คืน None); ทุก path จำกัดที่ MAX_EXTRACTED_CHARS และไม่โยน error
+    (parse ล้ม -> None) เพราะการอัปโหลดยังต้องสำเร็จ"""
     if mime == "text/plain":
         try:
             text = raw.decode("utf-8", errors="ignore").strip()
@@ -514,6 +533,8 @@ def _extract_text(raw: bytes, mime: str) -> str | None:
 
 
 def _build_context(*, patient: dict[str, Any], report: dict[str, Any]) -> str:
+    """ประกอบ prompt วิเคราะห์: ข้อมูลคนไข้ + text ของ report + หัวข้อที่ให้ AI ตอบ
+    (รวมบรรทัด Triage ที่ backend ต้อง parse กลับ)"""
     parts = [
         "กรุณาวิเคราะห์ Report ของคนไข้ตามข้อมูลด้านล่าง โดยใช้ความรู้ทางการแพทย์ทั่วไปเป็นแหล่งอ้างอิง",
         "",

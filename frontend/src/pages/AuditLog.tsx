@@ -55,6 +55,8 @@ function fmtDateTime(iso: string): string {
   return d.toLocaleString(dateLocale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+// หน้าดู audit trail ทั้งระบบ (admin เท่านั้น) — ใครเข้าดู/ดาวน์โหลด record คนไข้เมื่อไหร่
+// สำหรับ compliance ระดับ HIPAA-like; กรองตาม action และ user พร้อม pagination
 export function AuditLog() {
   const { t } = useTranslation()
   const usersQ = useUsers({ limit: 100 })

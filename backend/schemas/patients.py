@@ -8,6 +8,7 @@ Gender = Literal["male", "female", "other", "unknown"]
 
 
 class PatientListItem(BaseModel):
+    """แถวสรุปคนไข้สำหรับ list view (รวมยอด booking/report เพื่อโชว์ในตาราง)"""
     id: int
     hn: str | None = None
     display_name: str
@@ -20,6 +21,7 @@ class PatientListItem(BaseModel):
 
 
 class PatientOut(BaseModel):
+    """response แบบเต็มของคนไข้หนึ่งราย — ใช้ในหน้า detail/หลังสร้าง-แก้ไข"""
     id: int
     hn: str | None = None
     display_name: str
@@ -34,6 +36,7 @@ class PatientOut(BaseModel):
 
 
 class PaginationMeta(BaseModel):
+    """meta การแบ่งหน้ามาตรฐาน (หน้าปัจจุบัน/จำนวนต่อหน้า/ยอดรวม/จำนวนหน้า)"""
     page: int
     limit: int
     total: int
@@ -41,11 +44,13 @@ class PaginationMeta(BaseModel):
 
 
 class PatientListResponse(BaseModel):
+    """response ของ GET patient list แบบแบ่งหน้า"""
     data: list[PatientListItem]
     pagination: PaginationMeta
 
 
 class PatientCreateRequest(BaseModel):
+    """request body ตอนสร้างคนไข้ใหม่ (HN ถูก assign ฝั่ง server ไม่รับจาก client)"""
     display_name: str = Field(min_length=1, max_length=120)
     phone: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=191)
@@ -55,6 +60,7 @@ class PatientCreateRequest(BaseModel):
 
 
 class PatientUpdateRequest(BaseModel):
+    """request body ตอนแก้ไขคนไข้ — ทุก field optional, ส่งมาเฉพาะ field ที่จะเปลี่ยน"""
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     phone: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=191)

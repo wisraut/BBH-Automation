@@ -101,6 +101,9 @@ def _assert_is_doctor(doctor_id: int | None) -> None:
 
 
 def _normalize_booking_date(value: str) -> tuple[str, str]:
+    """แปลงวันที่ที่ผู้ใช้พิมพ์มา (รับได้ทั้ง YYYY-MM-DD และ DD/MM/YYYY) ให้เป็น
+    รูปแบบมาตรฐาน คืนคู่ (วันแบบ ISO สำหรับเก็บ DB, วันแบบไทยสำหรับโชว์) —
+    ถ้ารูปแบบไม่ถูกโยน 422 กันข้อมูลเพี้ยนเข้าระบบ"""
     clean = value.strip()
     for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
         try:
@@ -120,6 +123,8 @@ def _normalize_booking_date(value: str) -> tuple[str, str]:
 def list_bookings(
     *, status: str | None, group: str | None = None, page: int, limit: int
 ) -> dict[str, Any]:
+    """ดึงรายการจองแบบแบ่งหน้า สำหรับหน้า inbox ของ CRO — กรองได้ทั้งด้วย
+    status ตรงๆ (เช่น pending_approval) หรือด้วยกลุ่มวงจร (active/history)"""
     rows, total = booking_repo.list_bookings(
         status=status, group=group, page=page, limit=limit,
     )
@@ -127,6 +132,9 @@ def list_bookings(
 
 
 def get_booking(uid: str) -> dict[str, Any]:
+    """ดึงรายการจอง 1 ใบด้วย uid (ไม่เจอ = 404). ถ้ายัง pending และยังไม่ผูก
+    คนไข้ จะแนบ 'patient_candidates' คนไข้เดิมที่เบอร์ตรงกันมาด้วย เพื่อให้
+    ApproveModal ถาม CRO ยืนยันตัวตนก่อน (กันสร้าง chart ซ้ำคนเดียวกัน)"""
     row = booking_repo.get_by_uid(uid)
     if not row:
         raise HTTPException(
@@ -180,6 +188,8 @@ def _resolve_patient_choice(
 
 
 def create_booking(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
+    """สร้างรายการจองด้วยมือจากฟอร์มบนเว็บ (กรณี CRO รับนัดทางโทรศัพท์/walk-in
+    แทนที่จะมาจาก LINE) — คืน request_uid ของใบจองที่เพิ่งสร้าง"""
     requested_date, display_date = _normalize_booking_date(body.requested_date)
     requested_time = body.requested_time.strip()
     request_uid = booking_repo.create_manual_booking(
@@ -205,6 +215,11 @@ def approve_booking(
     link_patient_id: int | None = None,
     create_new_patient: bool = False,
 ) -> dict[str, str]:
+    """อนุมัตินัดที่ยัง pending — หัวใจของ flow ฝั่ง CRO ทำตามลำดับนี้:
+    ตรวจ state/เวลา/แพทย์ว่าง -> เช็คคิวชนใน Google Calendar -> ระบุตัวคนไข้
+    (ผูก chart เดิมหรือสร้างใหม่) -> สร้าง event บนปฏิทิน -> เขียน DB แบบ
+    atomic (แพ้ race จะยกเลิก event ที่เพิ่งสร้างทิ้ง) -> mirror ขึ้นปฏิทินหมอ
+    -> push LINE แจ้งคนไข้. คืน id คนไข้ + HN + ข้อมูล event ปฏิทิน"""
     row = booking_repo.get_by_uid(uid)
     if not row:
         raise HTTPException(
@@ -426,6 +441,8 @@ def set_video_link(
 def reject_booking(
     *, uid: str, reason: str, user: dict[str, Any]
 ) -> dict[str, bool]:
+    """ปฏิเสธนัดที่ยัง pending (เช่น เวลาที่ขอมาไม่ว่างจริง) — อัปเดต DB เป็น
+    rejected แล้ว push LINE แจ้งคนไข้พร้อมเหตุผลว่าจะติดต่อกลับหาวันใหม่"""
     row = booking_repo.get_by_uid(uid)
     if not row:
         raise HTTPException(
@@ -729,6 +746,8 @@ def _notify_doctor_reschedule(
 
 
 def _render_reschedule_text(**k: Any) -> str:
+    """ประกอบเนื้ออีเมลแบบ plain-text แจ้งหมอเรื่องเลื่อนนัด (fallback สำหรับ
+    เมลไคลเอนต์ที่ไม่แสดง HTML) — ปรับหัวเรื่องตามว่ามีเวลาใหม่แล้วหรือยัง TBD"""
     lead = "รอเวลาใหม่จากคนไข้" if k["is_tbd"] else "เวลานัดถูกเลื่อน"
     return render_text_shell(
         eyebrow=f"การแจ้งเตือน · {lead}",
@@ -798,6 +817,9 @@ def _render_reschedule_html(**k: Any) -> str:
 def cancel_booking(
     *, uid: str, reason: str, user: dict[str, Any]
 ) -> dict[str, bool]:
+    """ยกเลิกนัดที่อนุมัติไปแล้ว — อัปเดต DB เป็น cancelled แบบ atomic แล้ว
+    ลบ event ทั้งบนปฏิทินกลางและปฏิทินส่วนตัวของหมอ (การลบปฏิทินเป็น best-effort
+    ทำหลัง DB สำเร็จแล้ว ถ้าลบพลาดก็ไม่ทำให้ยกเลิกล้มเหลว)"""
     row = booking_repo.get_by_uid(uid)
     if not row:
         raise HTTPException(
@@ -878,6 +900,9 @@ def _cancel_doctor_mirror(*, doctor_id: int | None, mirror_event_id: str | None)
 
 
 def _safe_push_patient(user_id: str | None, text: str) -> None:
+    """push ข้อความ LINE หาคนไข้แบบ 'ไม่ล้ม' — ถ้าไม่มี user_id หรือ LINE พัง
+    จะเงียบไว้ ไม่โยน error ออกไป เพราะการแจ้งเตือนพลาดไม่ควรทำให้ทั้ง API
+    (เช่น approve/reject ที่สำเร็จไปแล้ว) พังตาม"""
     if not user_id:
         return
     try:

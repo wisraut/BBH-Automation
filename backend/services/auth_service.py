@@ -40,6 +40,8 @@ _attempts_lock = Lock()
 
 
 def _rate_limit_check(ip: str) -> None:
+    """จำกัดจำนวน login ต่อ IP (sliding window) — เกิน _RATE_MAX ใน 15 นาทีโยน 429
+    พร้อม Retry-After; ล็อกด้วย lock เพราะ bucket ถูกเข้าถึงข้าม thread"""
     now = time.time()
     with _attempts_lock:
         bucket = _attempts[ip]
@@ -92,6 +94,8 @@ def _check_password_strength(pw: str) -> None:
 
 
 def _public_user(row: dict[str, Any]) -> dict[str, Any]:
+    """คัดเฉพาะ field ที่ปลอดภัยส่งออก client จาก user row — ตัด password_hash และ
+    field ภายในอื่นทิ้ง กันข้อมูล sensitive หลุด"""
     return {
         "id": row["id"],
         "email": row["email"],
@@ -110,6 +114,9 @@ def login_user(
     ip_address: str,
     user_agent: str | None,
 ) -> dict[str, Any]:
+    """ตรวจ login: rate-limit -> เช็ค credential -> เช็ค pilot allowlist ของ role
+    -> ออก JWT; ทุกกรณีสำเร็จ/ล้มเขียน auth audit; ข้อความ error เป็นกลางกัน
+    บอกใบ้ว่า email มีจริงไหม"""
     # Rate limit BEFORE touching DB so login flood can't DoS MySQL.
     _rate_limit_check(ip_address or "unknown")
 
@@ -165,6 +172,8 @@ def login_user(
 
 
 def logout_user(*, user: dict[str, Any], ip_address: str, user_agent: str | None) -> None:
+    """บันทึกเวลา logout + เขียน auth audit (JWT เป็น stateless ฝั่ง server ไม่มี
+    session ให้ทำลาย — client ทิ้ง token เอง)"""
     mark_logout(user["id"])
     insert_auth_audit(
         event_type="logout",
@@ -223,5 +232,7 @@ def change_password(
 
 
 def list_my_audit_logs(*, user: dict[str, Any], limit: int = 20) -> dict[str, Any]:
+    """คืน auth audit log ของผู้ใช้ที่ล็อกอินอยู่ (login/logout/เปลี่ยนรหัส) ให้ดู
+    ประวัติเข้าใช้งานของตัวเอง"""
     rows = list_audit_logs_by_user(user["id"], limit=limit)
     return {"data": rows}

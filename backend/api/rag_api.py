@@ -25,5 +25,7 @@ class AnswerRequest(BaseModel):
 
 @router.post("/answer")
 def rag_answer(body: AnswerRequest, x_internal_token: str | None = Header(None)) -> dict:
+    """endpoint ภายในให้ n8n เรียก — รับข้อความลูกค้าจาก LINE ส่งเข้า RAG
+    pipeline แล้วคืน answer + route_prefix ให้ n8n เอาไปตอบ/แตกสาขา"""
     _require_internal_token(x_internal_token)
     return service.answer(body.channel, body.external_user_id, body.text)

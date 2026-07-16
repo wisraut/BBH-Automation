@@ -21,6 +21,9 @@ NEEDS_PREFIX = "e5" in EMBED_MODEL.lower()
 
 
 def _apply_prefix(texts: list[str], kind: str) -> list[str]:
+    """เติม prefix 'query:'/'passage:' ให้แต่ละข้อความถ้าโมเดลตระกูล e5 (ซึ่ง
+    เทรนมาแบบต้องมี prefix); BGE-M3 ไม่ต้อง จึงคืนข้อความเดิม — คุมด้วย
+    NEEDS_PREFIX เพื่อให้สลับโมเดลได้โดยไม่ต้องแก้ caller"""
     if not NEEDS_PREFIX:
         return texts
     p = "query: " if kind == "query" else "passage: "
@@ -36,4 +39,6 @@ def embed(texts: list[str], kind: str = "passage") -> list[list[float]]:
 
 
 def embed_one(text: str, kind: str = "query") -> list[float]:
+    """embed ข้อความเดียวแล้วคืน vector เดียว — ทางลัดสำหรับ query ของ user
+    (default kind='query') เพื่อไม่ต้องห่อ list เองทุกครั้ง"""
     return embed([text], kind=kind)[0]

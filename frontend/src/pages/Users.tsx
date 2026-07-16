@@ -45,6 +45,8 @@ function RoleBadge({ role }: { role: string }) {
   )
 }
 
+// หน้าจัดการผู้ใช้ระบบ (admin เท่านั้น) — สร้าง/แก้ไข staff account และกำหนด role
+// (admin/doctor/nurse/cro/lab_staff) ที่คุมสิทธิ์การเข้าถึงแต่ละหน้า
 export function Users() {
   const { t } = useTranslation()
   const { user: me } = useAuth()

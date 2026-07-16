@@ -29,6 +29,8 @@ function fmtDateTime(iso: string): string {
   })
 }
 
+// บันทึกการโทรของคนไข้ — แสดงประวัติโทรเข้า/ออกพร้อมผลลัพธ์ (รับสาย/ไม่รับ/ฝากข้อความ)
+// ให้ CRO ติดตามการติดต่อคนไข้ (ยืนยันนัด/ตาม no-show/แจ้งผลแล็บ) และเพิ่มบันทึกใหม่ได้
 export function PatientCallLog({ patientId }: { patientId: number }) {
   const { t } = useTranslation()
   const q = usePatientCallLog(patientId)
@@ -107,6 +109,7 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
   )
 }
 
+// ฟอร์ม modal สำหรับบันทึกการโทรครั้งใหม่ — เลือกทิศทาง/ผลลัพธ์/เรื่องที่คุย + จดโน้ต
 function AddCallForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
   const { t } = useTranslation()
   const m = useAddCallLog()

@@ -21,6 +21,8 @@ export type AuthContextValue = {
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
 
+// hook อ่าน auth context (user ปัจจุบัน + login/logout) — ใช้ทั่วแอปเพื่อเช็คว่า login แล้วหรือยัง
+// และ role ของผู้ใช้; throw ถ้าเรียกนอก AuthProvider
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {

@@ -147,6 +147,7 @@ export function setOwner(ownerKey: string | null) {
 const listeners = new Set<() => void>()
 function emit() { listeners.forEach((l) => l()) }
 
+// สมัครรับการเปลี่ยนแปลงของ store (ใช้กับ useSyncExternalStore ในหน้า AiAssistant)
 export function subscribe(cb: () => void): () => void {
   listeners.add(cb)
   return () => { listeners.delete(cb) }
@@ -160,6 +161,8 @@ function update(patch: Partial<AiStoreSnapshot>) {
   snapshot = { ...snapshot, ...patch }
 }
 
+// ชุด action สำหรับแก้ไข AI chat store — สร้าง/สลับ/ลบ session, อัปเดตข้อความ,
+// และคุมสถานะ loading/error; ทุก action persist ลง localStorage แล้ว emit ให้ UI re-render
 export const aiActions = {
   patchById(id: string, patcher: (s: AiSession) => Partial<AiSession>) {
     const sessions = snapshot.sessions.map((s) =>

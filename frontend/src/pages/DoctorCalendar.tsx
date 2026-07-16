@@ -310,6 +310,8 @@ function MonthGrid({
     </div>
   )
 }
+// หน้าปฏิทินส่วนตัวของหมอ (และ nurse/admin) — มุมมองสัปดาห์/เดือน เฉพาะนัดของหมอคนนั้น +
+// ช่วงเวลาไม่ว่าง/ลาหยุด; เปิด inspector รายวัน และ block เวลาไม่รับนัด (กัน CRO จองทับ)
 export function DoctorCalendar() {
   const { t } = useTranslation()
   const { user } = useAuth()

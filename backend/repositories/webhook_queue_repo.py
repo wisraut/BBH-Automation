@@ -87,6 +87,7 @@ def claim(queue_id: int) -> dict[str, Any] | None:
 
 
 def mark_done(queue_id: int) -> None:
+    """ปิดงานในคิวเป็น status='done' + ตั้ง processed_at หลังประมวลผลสำเร็จ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

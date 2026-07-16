@@ -12,6 +12,8 @@ const STYLES: Record<ToastKind, string> = {
   info: 'bg-bbh-surface text-bbh-ink border-bbh-line',
 }
 
+// Provider แสดง toast notification มุมขวาบน — ให้ฟังก์ชัน show(kind, message) ผ่าน context,
+// จำกัดกอง toast ไว้ 3 อัน และปิดอัตโนมัติใน 4.5 วิ
 export function ToastProvider({ children }: { children: ReactNode }) {
   // Aliased: the toast map below already binds `t` to a Toast item.
   const { t: translate } = useTranslation()

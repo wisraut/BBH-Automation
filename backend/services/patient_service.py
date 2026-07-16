@@ -13,6 +13,8 @@ TZ_BANGKOK = timezone(timedelta(hours=7))
 def list_patients(
     *, search: str | None, page: int, limit: int, panel_doctor_id: int | None = None,
 ) -> dict[str, Any]:
+    """คืนรายชื่อคนไข้แบบแบ่งหน้า ค้นด้วย search ได้; panel_doctor_id จำกัดเฉพาะ
+    คนไข้ในความดูแลของแพทย์คนนั้น (ใช้ในมุมมองของหมอ)"""
     rows, total = patient_repo.list_patients(
         search=search, page=page, limit=limit, panel_doctor_id=panel_doctor_id,
     )
@@ -20,6 +22,7 @@ def list_patients(
 
 
 def get_patient(patient_id: int) -> dict[str, Any]:
+    """คืนข้อมูลคนไข้รายเดียว — 404 ถ้าไม่พบ (หรือถูก soft-delete ไปแล้ว)"""
     row = patient_repo.get_by_id(patient_id)
     if not row:
         raise HTTPException(
@@ -43,6 +46,8 @@ def delete_patient(patient_id: int, *, user: dict[str, Any]) -> dict[str, bool]:
 
 
 def create_patient(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
+    """สร้างคนไข้ใหม่ — จอง HN แบบ atomic ตามปี พ.ศ. (ปีจากเวลาไทย), strip ช่องว่าง
+    field ที่พิมพ์มา แล้วคืนคนไข้ที่สร้างเสร็จ"""
     year_yy = datetime.now(TZ_BANGKOK).strftime("%y")
     hn = patient_repo.reserve_hn(year_yy)
     new_id = patient_repo.create(
@@ -61,6 +66,8 @@ def create_patient(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
 def update_patient(
     *, patient_id: int, body: Any, user: dict[str, Any]
 ) -> dict[str, Any]:
+    """อัปเดตคนไข้แบบ partial — อัปเดตเฉพาะ field ที่ส่งมา (ไม่ใช่ None); ถ้าไม่มี
+    field ให้แก้เลยคืนข้อมูลเดิม ไม่ยิง DB เปล่าๆ"""
     existing = get_patient(patient_id)
     fields: dict[str, Any] = {}
     if body.display_name is not None:

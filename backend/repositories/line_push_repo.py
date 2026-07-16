@@ -47,6 +47,8 @@ def log_push(
 
 
 def _truncate_preview(text: Any, n: int = 255) -> str | None:
+    """ตัดข้อความ preview ให้ยาวไม่เกิน n ตัวอักษร (คืน None ถ้า input เป็น None)
+    กันเกินความยาวคอลัมน์ payload_preview."""
     if text is None:
         return None
     s = str(text)

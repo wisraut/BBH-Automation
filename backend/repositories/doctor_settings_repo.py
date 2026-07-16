@@ -5,6 +5,7 @@ from core.mysql import mysql_db
 
 
 def get(doctor_id: int) -> dict[str, Any] | None:
+    """ดึงตั้งค่าส่วนตัวของหมอ (NotebookLM/Google Calendar id). คืน None ถ้ายังไม่เคยตั้ง."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -18,6 +19,7 @@ def get(doctor_id: int) -> dict[str, Any] | None:
 def upsert(
     doctor_id: int, *, notebooklm_url: str | None, google_calendar_id: str | None
 ) -> None:
+    """สร้างหรือแก้ตั้งค่าส่วนตัวของหมอ (upsert ด้วย ON DUPLICATE KEY) — 1 แถวต่อหมอ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

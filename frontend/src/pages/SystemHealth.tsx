@@ -128,6 +128,8 @@ function ServiceCard({ check }: { check: ServiceCheck }) {
   )
 }
 
+// หน้าเฝ้าดูสุขภาพระบบ (admin เท่านั้น) — สถานะ health check ของแต่ละ service (DB, RAG,
+// LINE, Google Calendar ฯลฯ) พร้อม latency เพื่อจับปัญหา infra ก่อนกระทบผู้ใช้
 export function SystemHealth() {
   const { t } = useTranslation()
   const q = useSystemHealth()

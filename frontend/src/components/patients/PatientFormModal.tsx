@@ -41,6 +41,8 @@ function clean(value: string): string | null {
   return trimmed ? trimmed : null
 }
 
+// Modal ฟอร์มเพิ่ม/แก้ไขข้อมูลคนไข้ (ชื่อ/เบอร์/อีเมล/วันเกิด/เพศ/โน้ต) — ใช้ทั้งตอน
+// สร้างคนไข้ใหม่และแก้ข้อมูลเดิม (mode create/edit) จากหน้ารายชื่อคนไข้
 export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmit }: PatientFormModalProps) {
   const { t } = useTranslation()
   const [form, setForm] = useState<FormState>(EMPTY)

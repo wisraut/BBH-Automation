@@ -12,6 +12,7 @@ const STYLES: Record<BookingStatus, string> = {
   no_show: 'border border-amber-300 bg-white text-amber-700',
 }
 
+// ป้ายสถานะนัด (รออนุมัติ/อนุมัติ/ปฏิเสธ/ยกเลิก ฯลฯ) — map แต่ละสถานะเป็นสีเฉพาะ ใช้ทั่วหน้า bookings/calendar
 export function StatusBadge({ status }: { status: BookingStatus }) {
   const { t } = useTranslation()
   return (

@@ -42,6 +42,8 @@ interface RequestOptions {
   noAuth?: boolean;
 }
 
+// core ของ API client — ประกอบ header (auth token + CSRF), ยิง fetch ไป backend,
+// จัดการ 401 (เคลียร์ token + emit event), และแปลง error body เป็น ApiError ที่ typed
 async function request<T>(
   method: string,
   path: string,

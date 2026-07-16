@@ -13,6 +13,8 @@ import { useAuth } from '../lib/auth'
 
 type AuthMode = 'login' | 'forgot' | 'reset' | 'signed-in'
 
+// หน้า login สำหรับ staff ทุก role — สลับ mode ระหว่าง login / ลืมรหัส / รีเซ็ต / signed-in
+// จัดการ submit เข้าสู่ระบบและแสดง notice; หลัง login สำเร็จ App จะ redirect ไปหน้าแรกตาม role
 export function Login() {
   const { t } = useTranslation()
   const { user, isReady, login, logout } = useAuth()

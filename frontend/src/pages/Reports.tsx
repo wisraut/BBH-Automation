@@ -86,6 +86,8 @@ function ReportRow({ r, index, onOpen }: { r: WorkspaceReport; index: number; on
   )
 }
 
+// หน้าจัดการผลแล็บ (หมอ/nurse/admin/lab_staff) — CRO/staff อัปโหลดผลแล็บ + ผูกกับคนไข้/หมอ,
+// เปิดไฟล์ดู, และสั่ง AI วิเคราะห์เพื่อสรุปผล
 export function Reports() {
   const { t } = useTranslation()
   const { user } = useAuth()

@@ -45,6 +45,9 @@ def parse_chunks(md_text: str) -> list[tuple[str | None, str, str]]:
 
 
 def main(path: str) -> None:
+    """อ่าน FAQ markdown ตาม path → แตกเป็น chunk → embed → ล้างของเก่าจาก
+    source เดิมแล้ว insert ใหม่ลง kb_chunks (idempotent) — entry point ตอนสั่ง
+    ingest FAQ ผ่าน python -m rag.ingester"""
     with open(path, encoding="utf-8") as f:
         md = f.read()
 

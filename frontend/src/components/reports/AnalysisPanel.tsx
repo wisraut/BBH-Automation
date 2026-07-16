@@ -28,6 +28,8 @@ const DECISION_STYLES: Record<Decision, string> = {
   pending: 'border-bbh-line bg-bbh-surface text-bbh-muted',
 }
 
+// แผงผลวิเคราะห์ AI ของ report หนึ่งฉบับ — กดวิเคราะห์, อ่านสรุป triage, และให้หมอ
+// ตัดสิน accept/reject/review; ตอนยังไม่มีผลจะโชว์ปุ่มวิเคราะห์ใหญ่เป็น action หลัก
 export function AnalysisPanel({
   analyses,
   loading,

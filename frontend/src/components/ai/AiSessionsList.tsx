@@ -17,6 +17,7 @@ interface AiSessionsListProps {
   onDelete: (id: string) => void
 }
 
+// แปลง timestamp เป็นข้อความ "เมื่อสักครู่ / N นาทีที่แล้ว / ชั่วโมง / วัน" สำหรับโชว์เวลาแชทล่าสุด
 function formatRelative(ms: number, t: TFunction): string {
   const diff = Date.now() - ms
   const min = Math.floor(diff / 60000)
@@ -28,6 +29,8 @@ function formatRelative(ms: number, t: TFunction): string {
   return t('aiSessionsList.daysAgo', { count: day })
 }
 
+// แถบประวัติแชท AI ฝั่งซ้ายของหน้า /ai — ปุ่มเริ่มแชทใหม่ + รายการ session พร้อมเวลาล่าสุดและจำนวนข้อความ
+// เลือกเพื่อเปิดแชทเดิม หรือกดถังขยะเพื่อลบ (มี confirm ก่อน)
 export function AiSessionsList({
   sessions,
   currentId,

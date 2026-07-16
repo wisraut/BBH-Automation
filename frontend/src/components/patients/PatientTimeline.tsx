@@ -31,6 +31,7 @@ function formatDate(iso: string): string {
   })
 }
 
+// แปลง report/booking ให้เป็น TimelineItem รูปแบบเดียวกัน (มี kind + เวลา) เพื่อเอามาเรียงรวมในไทม์ไลน์เดียว
 function reportItems(reports: ReportListItem[]): TimelineItem[] {
   return reports.map((report) => ({
     kind: 'report',
@@ -55,6 +56,8 @@ interface PatientTimelineProps {
   onSelectReport?: (id: number) => void
 }
 
+// ไทม์ไลน์รวมของคนไข้ — ผสม report ที่อัปโหลดกับ booking นัดหมาย เรียงใหม่สุดขึ้นก่อน
+// ให้เห็นลำดับเหตุการณ์ทั้งหมดในที่เดียว; คลิก report เพื่อเปิดดูรายละเอียดได้
 export function PatientTimeline({ reports, bookings, onSelectReport }: PatientTimelineProps) {
   const { t } = useTranslation()
   const items = [...reportItems(reports), ...bookingItems(bookings)].sort((a, b) => b.at.localeCompare(a.at))

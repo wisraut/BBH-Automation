@@ -49,6 +49,8 @@ def log_message(body: LogMessageRequest, x_internal_token: str | None = Header(N
 
 @contextmanager
 def _db():
+    """context manager เปิด connection ไป Bot Ops MySQL (bot_sessions ฯลฯ)
+    แล้วปิดให้อัตโนมัติเมื่อออกจาก with block"""
     conn = pymysql.connect(**BOT_OPS_DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
     try:
         yield conn
@@ -176,6 +178,8 @@ def save_session(
     body: SessionUpdate,
     x_internal_token: str | None = Header(None),
 ):
+    """endpoint ภายใน (n8n เรียก) — บันทึก/อัปเดต conversation id + current_state
+    ของ session ผู้ใช้ LINE ลง bot_sessions หลังคุยกับ RAG จบรอบ"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:

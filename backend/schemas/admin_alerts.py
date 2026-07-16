@@ -12,6 +12,8 @@ AckPolicy = Literal["auto_close", "manual", "sticky"]
 
 
 class RuleOut(BaseModel):
+    """response ของ alert rule หนึ่งตัว (config + threshold + สถานะเปิด/ปิด) —
+    ใช้ที่ GET rules ในหน้า admin"""
     rule_key: str
     display_name: str
     description: str | None = None
@@ -28,6 +30,8 @@ class RuleOut(BaseModel):
 
 
 class AlertOut(BaseModel):
+    """response ของ alert หนึ่งใบ (รวมข้อมูล rule + สถานะ ack/resolve) — ใช้ที่
+    GET alert list/detail ในหน้า admin"""
     alert_id: int
     rule_key: str
     rule_display_name: str
@@ -50,6 +54,7 @@ class AlertOut(BaseModel):
 
 
 class AlertListResponse(BaseModel):
+    """response ของ GET alert list แบบแบ่งหน้า (data + pagination meta)"""
     data: list[AlertOut]
     pagination: dict[str, int]
 
@@ -62,6 +67,8 @@ class AlertSummary(BaseModel):
 
 
 class AlertEventOut(BaseModel):
+    """response ของ event หนึ่งรายการใน timeline ของ alert (ใครทำอะไร เปลี่ยนสถานะ
+    จากไหนไปไหน) — ใช้ในหน้า detail ของ alert"""
     event_id: int
     alert_id: int
     event_type: str
@@ -75,22 +82,28 @@ class AlertEventOut(BaseModel):
 
 
 class AckRequest(BaseModel):
+    """request body ตอน admin กด acknowledge alert — note ประกอบ และ snooze_hours
+    (1 ชม. ถึง 30 วัน) สำหรับเลื่อนเวลากลับมาเตือน"""
     note: str | None = Field(default=None, max_length=1000)
     snooze_hours: int | None = Field(default=None, ge=1, le=24 * 30)
 
 
 class ResolveRequest(BaseModel):
+    """request body ตอน admin กดปิด (resolve) alert — reason บังคับ, note ประกอบ"""
     reason: str = Field(min_length=1, max_length=64)
     note: str | None = Field(default=None, max_length=1000)
 
 
 class RuleEnableRequest(BaseModel):
+    """request body สำหรับเปิด/ปิด alert rule"""
     enabled: bool
 
 
 class RuleThresholdRequest(BaseModel):
+    """request body สำหรับแก้ค่า threshold (เกณฑ์ trigger) ของ alert rule"""
     threshold: dict[str, Any]
 
 
 class SimpleOk(BaseModel):
+    """response มาตรฐานแบบสั้นสำหรับ action ที่ไม่คืนข้อมูล (แค่บอกว่าสำเร็จ)"""
     ok: bool = True

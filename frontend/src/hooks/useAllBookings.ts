@@ -5,6 +5,8 @@ import type { BookingListResponse, BookingStatus } from './useBookings'
 
 const PAGE_SIZE = 100
 
+// ดึงรายการจองทั้งหมดของ status หนึ่งแบบครบทุกหน้า (ยิงหน้าแรกก่อนเพื่อรู้ total_pages
+// แล้วยิงหน้าที่เหลือขนานกัน) ใช้ตอนต้องการชุดข้อมูลเต็มเช่น mount ลงปฏิทิน ไม่ใช่ inbox แบบแบ่งหน้า
 export function useAllBookings(status: BookingStatus) {
   const page1 = useQuery({
     queryKey: ['bookings-all', status, 1],

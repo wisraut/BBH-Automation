@@ -39,6 +39,9 @@ def chat(
     patient_id: int | None,
     user: dict[str, Any],
 ) -> dict[str, str]:
+    """ตอบแชทเจ้าหน้าที่แบบครั้งเดียวจบ (non-stream) — โหลด/สร้าง conversation,
+    inject context คนไข้+ตารางนัด, ยิง LLM แล้วบันทึกเทิร์นเป็น short-term memory
+    ถ้า LLM ล้มโยน 502 AI_ERROR (ไม่ให้ error ภายในหลุดถึง client)"""
     conv_pk, conv_token = ai_message_repo.get_or_create(
         conversation_id, user_id=int(user["id"]), patient_id=patient_id
     )
@@ -266,6 +269,8 @@ def _build_patient_context(patient_id: int) -> str:
 
 
 def _recent_bookings(patient_id: int, *, limit: int) -> list[dict[str, Any]]:
+    """ดึง booking ล่าสุดของคนไข้ (เรียงใหม่->เก่า) จำกัด limit แถว
+    ใช้เติม context ให้ AI — query ตรงเพราะต้องการ field เฉพาะชุดนี้"""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -282,6 +287,7 @@ def _recent_bookings(patient_id: int, *, limit: int) -> list[dict[str, Any]]:
 
 
 def _count_bookings(patient_id: int) -> int:
+    """นับจำนวน booking ทั้งหมดของคนไข้ ใช้แสดง 'ล่าสุด N จาก M ครั้ง' ใน context"""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

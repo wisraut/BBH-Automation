@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 
 import { BrandMark } from './BrandMark'
 
+// แผงแบรนด์ฝั่งซ้ายของหน้า login (โชว์เฉพาะจอ desktop) — โลโก้ BBH + headline + tagline
+// ทำให้หน้า auth ดูเป็นทางการระดับโรงพยาบาล ไม่ใช่แค่ฟอร์มลอยๆ
 export function AuthBrandPanel() {
   const { t } = useTranslation()
   return (

@@ -32,6 +32,7 @@ const SEVERITY_STYLE: Record<string, string> = {
   mild: 'border-bbh-line bg-bbh-surface text-bbh-muted',
 }
 
+// การ์ดหัวข้อหนึ่งกลุ่ม (แพ้ยา/โรค/ยา/การรักษา) — หัวเรื่อง + จำนวน + ปุ่มเพิ่ม (ถ้าอยู่โหมดแก้ไข)
 function SectionCard({
   title, count, children, onAdd,
 }: {
@@ -63,6 +64,8 @@ function SectionCard({
   )
 }
 
+// บันทึกทางการแพทย์ของคนไข้ครบ 4 กลุ่ม (แพ้ยาก่อนเพราะสำคัญสุด, โรคประจำตัว, ยาที่ใช้, ประวัติการรักษา)
+// หมอเปิดดูเป็นหลัก แก้ไขน้อย จึงซ่อนปุ่ม add/delete ไว้เริ่มต้น; CRO/พยาบาล/admin เข้าโหมดแก้ทันที
 export function PatientMedicalRecords({ patientId }: { patientId: number }) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -243,6 +246,7 @@ export function PatientMedicalRecords({ patientId }: { patientId: number }) {
 
 // --- Inline forms (small modals) -----------------------------------------
 
+// เปลือก modal กลางจอที่ฟอร์มเพิ่มข้อมูลทั้ง 4 แบบใช้ร่วมกัน — หัวเรื่อง + ปุ่มปิด + backdrop
 function FormShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   const { t } = useTranslation()
   return (
@@ -258,6 +262,7 @@ function FormShell({ title, onClose, children }: { title: string; onClose: () =>
   )
 }
 
+// ฟอร์มเพิ่มโรคประจำตัว — ชื่อโรค/ICD-10/ปีที่วินิจฉัย/สถานะ (active/controlled/resolved)
 function ConditionForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
   const { t } = useTranslation()
   const m = useAddCondition()
@@ -286,6 +291,7 @@ function ConditionForm({ patientId, onClose }: { patientId: number; onClose: () 
   )
 }
 
+// ฟอร์มเพิ่มประวัติแพ้ — สารก่อแพ้/อาการ/ระดับความรุนแรง (mild ถึง life-threatening)
 function AllergyForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
   const { t } = useTranslation()
   const m = useAddAllergy()
@@ -313,6 +319,7 @@ function AllergyForm({ patientId, onClose }: { patientId: number; onClose: () =>
   )
 }
 
+// ฟอร์มเพิ่มยาที่ใช้อยู่ — ชื่อยา/ขนาด/ความถี่/ข้อบ่งใช้/ปีที่เริ่ม
 function MedicationForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
   const { t } = useTranslation()
   const m = useAddMedication()
@@ -338,6 +345,7 @@ function MedicationForm({ patientId, onClose }: { patientId: number; onClose: ()
   )
 }
 
+// ฟอร์มเพิ่มประวัติการรักษา/ผ่าตัด — ประเภท/รายละเอียด/โรงพยาบาล/วันที่/ผลลัพธ์
 function TreatmentForm({ patientId, onClose }: { patientId: number; onClose: () => void }) {
   const { t } = useTranslation()
   const m = useAddTreatment()

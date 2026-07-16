@@ -20,6 +20,7 @@ const FOCUS_RING =
 const FIELD_CLASS =
   'mt-1.5 h-11 w-full rounded-lg border border-bbh-line bg-white px-3 text-sm outline-none transition-colors duration-200 focus:border-bbh-green focus:ring-2 focus:ring-bbh-green/30'
 
+// จัดรูปแบบ ISO timestamp เป็นวัน-เวลาแบบย่อ ตาม locale ที่ผู้ใช้เลือก (ไทย/อังกฤษ)
 function formatDateTime(iso?: string | null): string {
   if (!iso) return '-'
   return new Date(iso).toLocaleString(dateLocale(), {
@@ -28,6 +29,8 @@ function formatDateTime(iso?: string | null): string {
   })
 }
 
+// หน้าตั้งค่าบัญชีของผู้ใช้ที่ login อยู่ (ทุก role) — เปลี่ยนรหัสผ่าน, ดูข้อมูลบัญชี,
+// ดู audit log ของตัวเอง และปุ่ม logout
 export function Account() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()

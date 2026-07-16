@@ -31,6 +31,8 @@ function formatDay(iso: string | null): string {
   return new Date(iso).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// แถบสถานะโหมด AI เหนือช่องแชท — บอกว่าตอนนี้บอทกำลัง auto/copilot/silent/หยุดชั่วคราว
+// เพื่อให้ CRO รู้ทันทีว่าข้อความจะถูกตอบอัตโนมัติหรือรอคนตอบ
 function BannerStrip({ banner, pauseUntil }: { banner: Banner; pauseUntil: string | null }) {
   const { t } = useTranslation()
   const map: Record<Banner, { bg: string; ink: string; icon: React.ReactNode; text: string }> = {
@@ -69,6 +71,8 @@ function BannerStrip({ banner, pauseUntil }: { banner: Banner; pauseUntil: strin
   )
 }
 
+// ฟองข้อความหนึ่งบรรทัดในแชท — แยกสี/ผู้เขียนตามที่มา (คนไข้ / บอท AI / CRO ตอบเอง /
+// ร่าง copilot) และ system message กลางจอ ให้ดูออกว่าใครพูด
 function MessageBubble({ direction, text, at, prefix }: {
   direction: 'in' | 'out' | 'system'
   text: string | null
@@ -122,6 +126,8 @@ function MessageBubble({ direction, text, at, prefix }: {
   )
 }
 
+// หน้าต่างแชท LINE ของคนไข้หนึ่งคน — ดูประวัติข้อความ, สลับโหมด AI, และพิมพ์ตอบเอง
+// ใช้ในหน้าคนไข้/หน้าแชท CRO เพื่อคุยกับคนไข้ผ่าน LINE โดยตรง
 export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
   const { t } = useTranslation()
   const toast = useToast()

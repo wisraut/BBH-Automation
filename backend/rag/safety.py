@@ -72,6 +72,10 @@ EMERGENCY_ANSWER = (
 
 
 def is_emergency(text: str) -> bool:
+    """ตรวจว่าข้อความมีสัญญาณฉุกเฉินไหม โดยเช็ค 3 ชั้นบน text ที่ normalize แล้ว:
+    คำตรงๆ (_DIRECT_TERMS), co-occurrence อวัยวะ+อาการ (กันสลับคำ/ภาษาพูด), และ
+    ชุดคำอังกฤษ. คืน True = ระบบ short-circuit บังคับ ESCALATE:emergency ก่อนถึง
+    LLM เพราะ LLM เคย mis-route เคสฉุกเฉินเป็น AUTO ซึ่งอันตรายกับโรงพยาบาล"""
     n = _normalize(text)
     if not n:
         return False

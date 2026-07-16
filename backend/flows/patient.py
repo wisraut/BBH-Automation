@@ -8,6 +8,7 @@ from rag import service as rag_service
 
 
 def is_patient(user_id: str) -> bool:
+    """เช็คว่า LINE user_id นี้ผูกกับคนไข้ที่ login อยู่ไหม — ใช้ route ข้อความเข้า patient flow"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM patients WHERE line_uid = %s", (user_id,))

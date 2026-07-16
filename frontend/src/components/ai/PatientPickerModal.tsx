@@ -19,6 +19,7 @@ interface PatientPickerModalProps {
   onPick: (p: PatientListItem) => void
 }
 
+// Modal ค้นหาและเลือกคนไข้เพื่อ pin เข้าแชท AI — พิมพ์ค้นหา แล้วเลือกคนไข้ให้ backend ดึง context มาช่วยตอบ
 export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModalProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')

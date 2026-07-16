@@ -19,12 +19,14 @@ const FOCUS_RING =
 const FIELD_CLASS =
   'w-full rounded-lg border border-bbh-line px-3 py-2 text-sm transition-colors duration-200 focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30'
 
+// ค่าเริ่มต้นช่องเวลาใหม่ = อีก 1 ชั่วโมงข้างหน้า ปัดเป็นต้นชั่วโมง (รูปแบบ local สำหรับ datetime-local)
 function localIsoNow(): string {
   const d = new Date(Date.now() + 60 * 60 * 1000)
   d.setMinutes(0, 0, 0)
   return d.toISOString().slice(0, 16)
 }
 
+// Modal เลื่อนนัด (CRO) — ตั้งเวลาใหม่ หรือติ๊ก TBD (ยังไม่รู้เวลา → ดันนัดกลับไปรออนุมัติ) พร้อมเหตุผล
 export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuccess }: Props) {
   const { t } = useTranslation()
   const m = useRescheduleBooking()

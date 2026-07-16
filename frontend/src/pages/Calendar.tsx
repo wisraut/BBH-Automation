@@ -202,6 +202,7 @@ function SummaryCell({ label, value }: { label: string; value: number }) {
   )
 }
 
+// จัดกลุ่ม item (นัด/event) เข้าตามวันที่ (คีย์ = วันที่) เพื่อวางลงช่องปฏิทินแต่ละวัน
 function mapByDate<T>(items: T[], getDate: (item: T) => string | null): Record<string, T[]> {
   const map: Record<string, T[]> = {}
   for (const item of items) {
@@ -213,6 +214,8 @@ function mapByDate<T>(items: T[], getDate: (item: T) => string | null): Record<s
   return map
 }
 
+// หน้าปฏิทินนัดของ CRO (และ admin) — มุมมองราย สัปดาห์/เดือน รวมนัดที่ approve แล้ว +
+// Google Calendar events + block เวลาที่หมอไม่ว่าง; กด approve/reschedule/cancel ได้จากปฏิทิน
 export function Calendar() {
   const { t } = useTranslation()
   const cancelBooking = useCancelBooking()

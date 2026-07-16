@@ -76,6 +76,8 @@ function MetaChip({ children }: { children: React.ReactNode }) {
   )
 }
 
+// หน้าตั้งค่ากฎการแจ้งเตือน (admin เท่านั้น) — เปิด/ปิดแต่ละกฎ และปรับ threshold
+// ที่ทำให้ระบบสร้าง alert ขึ้นบน AdminDashboard
 export function AlertRules() {
   const { t } = useTranslation()
   const q = useAdminAlertRules()

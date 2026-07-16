@@ -154,6 +154,8 @@ function StatusPill({ status }: { status: AlertOut['status'] }) {
   )
 }
 
+// หน้าแรกของ admin — ศูนย์รวมภาพรวมระบบ: การ์ด alert ที่ต้องจัดการ (acknowledge/resolve),
+// ทางลัดไป workspace ของแต่ละ role และสรุปสถานะ operations ของโรงพยาบาล
 export function AdminDashboard() {
   const { t } = useTranslation()
   const navigate = useNavigate()

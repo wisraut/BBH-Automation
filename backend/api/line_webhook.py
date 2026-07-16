@@ -37,6 +37,8 @@ _n8n_client: httpx.AsyncClient | None = None
 
 
 def _get_n8n_client() -> httpx.AsyncClient:
+    """คืน httpx.AsyncClient แบบ singleton สำหรับยิงไป n8n — สร้างครั้งเดียว
+    เพื่อ reuse TCP/TLS connection แทนสร้างใหม่ทุก request"""
     global _n8n_client
     if _n8n_client is None:
         _n8n_client = httpx.AsyncClient(timeout=20)
@@ -62,6 +64,9 @@ async def _reply_unsupported(reply_token: str) -> None:
 
 @router.post("/webhook")
 async def webhook(request: Request, background_tasks: BackgroundTasks):
+    """webhook หลักที่ LINE เรียกเข้ามาทุกข้อความจากคนไข้ — verify signature,
+    log inbound, enqueue แล้ว dispatch งานหนัก (n8n + AI) เป็น background task
+    ต้องคืน 200 เร็วภายใน 1-2 วิ ไม่งั้น LINE retry; non-text ตอบ guide ให้พิมพ์ข้อความ"""
     # LINE webhook must return 200 within ~1-2s or LINE retries the event.
     # All slow work (n8n + AI) is scheduled as a background task.
     t0 = time.perf_counter()
@@ -185,6 +190,9 @@ async def _handle_event_async_inner(event: dict) -> None:
 
 
 async def _try_handle_public_with_n8n(event: dict) -> bool:
+    """ส่ง event ต่อให้ n8n workflow (bbh-line-main) ตอบลูกค้าผ่าน RAG แล้ว
+    reply กลับ LINE; คืน True ถ้า n8n ตอบสำเร็จ, False ถ้าล้มเหลว/ไม่มี answer
+    เพื่อให้ caller fallback ไป CRO flow"""
     if not N8N_INTERNAL_BASE_URL:
         return False
 

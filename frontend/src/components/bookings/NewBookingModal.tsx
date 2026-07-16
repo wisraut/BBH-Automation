@@ -30,6 +30,7 @@ const SOURCE_OPTIONS: { value: BookingSource; labelKey: string }[] = [
   { value: 'walkin', labelKey: 'newBookingModal.source.walkin' },
 ]
 
+// ค่าเริ่มต้นช่องวัน-เวลานัด = ต้นชั่วโมงถัดไป (รูปแบบ local สำหรับ input datetime-local)
 function defaultDateTime() {
   const next = new Date()
   next.setHours(next.getHours() + 1, 0, 0, 0)
@@ -37,6 +38,7 @@ function defaultDateTime() {
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`
 }
 
+// แยกค่า datetime-local ("YYYY-MM-DDTHH:MM") เป็น requested_date กับ requested_time ให้ API
 function splitLocalDateTime(value: string) {
   const [datePart, timePart = ''] = value.split('T')
   return {
@@ -45,6 +47,7 @@ function splitLocalDateTime(value: string) {
   }
 }
 
+// Modal สร้างนัดใหม่ด้วยมือ (CRO) — กรอกชื่อ/เบอร์/วัน-เวลา/ช่องทาง/อาการ แล้วสร้างคำขอนัดเข้าคิวรออนุมัติ
 export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalProps) {
   const { t } = useTranslation()
   const [patientName, setPatientName] = useState('')

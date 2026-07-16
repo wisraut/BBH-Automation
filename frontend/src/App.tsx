@@ -179,6 +179,8 @@ function DashboardLayout() {
   )
 }
 
+// นิยาม route ทั้งหมดของ dashboard — ห่อด้วย ProtectedRoute เพื่อคุมสิทธิ์ตาม role
+// และ DashboardLayout (sidebar + topbar); path ที่ role เข้าไม่ได้จะถูก redirect
 function AppRoutes() {
   return (
     <Routes>
@@ -214,6 +216,7 @@ function AppRoutes() {
   )
 }
 
+// รากของแอป — ครอบทุกหน้าด้วย provider หลัก (React Query, Auth, Toast) แล้วเรนเดอร์ route
 function App() {
   return (
     <QueryClientProvider client={queryClient}>

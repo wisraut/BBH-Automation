@@ -16,6 +16,8 @@ type MeResponse = {
   user: DashboardUser
 }
 
+// Provider จัดการ auth ทั้งแอป — hydrate user จาก token ตอนโหลด, ให้ login/logout,
+// ผูก AI chat store กับผู้ใช้ปัจจุบัน และ redirect ไป /login เมื่อ session หมดอายุ (401)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DashboardUser | null>(null)
   const [isReady, setIsReady] = useState(false)

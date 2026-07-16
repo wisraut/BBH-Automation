@@ -77,6 +77,8 @@ _PREFIX_RE = re.compile(
 
 
 def _format_context(hits: list[dict]) -> str:
+    """จัดรูป FAQ chunk ที่ค้นเจอเป็นบล็อกอ้างอิงมีเลขกำกับ [1] [2] ให้ LLM ยึด
+    ตอบ; ถ้าไม่มี hit คืนข้อความว่าไม่พบข้อมูล เพื่อกัน LLM แต่งข้อมูลบริการเอง"""
     if not hits:
         return "(ไม่พบข้อมูลที่เกี่ยวข้องใน FAQ)"
     lines = []
@@ -86,6 +88,8 @@ def _format_context(hits: list[dict]) -> str:
 
 
 def _format_books(hits: list[dict]) -> str:
+    """จัดรูป chunk จากตำราแพทย์เป็นบล็อกอ้างอิงมีเลขกำกับ พร้อมชื่อเล่ม+เลขหน้า
+    เพื่อให้คำตอบ CONSULT grounded ในตำราจริงและอ้างอิงแหล่งได้"""
     lines = []
     for i, h in enumerate(hits, 1):
         cite = h.get("title") or h.get("source") or "-"

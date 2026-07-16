@@ -65,6 +65,7 @@ function normalize(value?: string | null): string {
   return (value ?? '').trim().toLowerCase()
 }
 
+// จับคู่รายการนัดกับคนไข้ด้วยเบอร์โทรหรือชื่อ (normalize ก่อนเทียบ) เพื่อโชว์ประวัตินัดในหน้าคนไข้
 function matchingBookings(bookings: BookingItem[], patient?: { display_name?: string; phone?: string | null } | null) {
   if (!patient) return []
   const phone = normalize(patient.phone)
@@ -76,6 +77,8 @@ function matchingBookings(bookings: BookingItem[], patient?: { display_name?: st
   })
 }
 
+// หน้าเวชระเบียนคนไข้ (CRO/หมอ/nurse/admin) — ค้นหา/เพิ่ม/แก้คนไข้ และดูรายละเอียด:
+// โรคประจำตัว, แพ้ยา, ยาที่ใช้, ประวัตินัด, ผลแล็บ; การเข้าดูถูกบันทึกลง audit log
 export function Patients() {
   const { t } = useTranslation()
   const { user } = useAuth()

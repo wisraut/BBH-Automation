@@ -27,6 +27,9 @@ _BYPASS_EXACT = {"/auth/login"}
 
 class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        """เช็ค CSRF ต่อทุก request ก่อนส่งต่อ — บังคับ header X-CSRF-Token ตรงกับ
+        cookie bbh_csrf เฉพาะ request ที่เปลี่ยน state และใช้ session cookie
+        (ข้าม safe method / webhook / internal / login / Bearer token ตามที่ระบุด้านบน)"""
         if request.method in _SAFE_METHODS:
             return await call_next(request)
         path = request.url.path

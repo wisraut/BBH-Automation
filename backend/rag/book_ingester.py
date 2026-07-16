@@ -47,6 +47,9 @@ def _embed_batch(texts: list[str], attempt: int = 0) -> list[list[float]]:
 
 
 def _clean(text: str) -> str:
+    """ทำความสะอาดข้อความก่อนแตก paragraph: ตัด null byte, แปลง CRLF/CR เป็น LF
+    (สำคัญ เพราะตัวแตก paragraph ยึด '\\n{2,}' — ถ้าไม่แปลง CRLF จะรวมทั้งไฟล์เป็น
+    ก้อนยักษ์), ยุบ whitespace และบรรทัดว่างซ้อนให้เหลือพอดี"""
     text = (text or "").replace("\x00", " ")
     # Normalize line endings first — the paragraph splitter keys on "\n{2,}",
     # which a CRLF blank line ("\r\n\r\n") would defeat, collapsing a whole file
@@ -93,7 +96,11 @@ def _md_blocks(path: str):
 
 
 def _pack(blocks) -> list[tuple]:
-    """Greedy pack (page, section, para) blocks into ~TARGET_CHARS chunks."""
+    """Greedy pack (page, section, para) blocks into ~TARGET_CHARS chunks.
+
+    รวม paragraph ต่อกันจนใกล้ TARGET_CHARS แล้วตัดเป็น chunk (section-aware) เพื่อ
+    ให้ขนาด chunk เหมาะกับ retrieval; paragraph ที่ยาวเกินเป้าจะถูก hard-split
+    พร้อม overlap เพื่อไม่ให้ context ขาดตรงรอยต่อ"""
     chunks: list[tuple] = []
     cur: list[str] = []
     cur_len = 0
@@ -127,6 +134,10 @@ def _pack(blocks) -> list[tuple]:
 
 
 def ingest(path: str, book_title: str) -> None:
+    """ingest ตำราแพทย์ 1 เล่ม (PDF/Markdown) ลง kb_book_chunks: แตก block →
+    pack เป็น chunk → embed ทั้งหมดก่อน แล้วค่อย DELETE ของเก่า+INSERT ใหม่ใน
+    transaction เดียว (atomic) — embed ก่อนแตะ DB เพื่อว่าถ้า embedder ล่มกลางคัน
+    chunk เดิมของเล่มนี้ยังอยู่ครบ ไม่มีช่วง ingest ค้างครึ่งๆ กลางๆ"""
     ext = os.path.splitext(path)[1].lower()
     blocks = list(_pdf_blocks(path) if ext == ".pdf" else _md_blocks(path))
     chunks = _pack(blocks)

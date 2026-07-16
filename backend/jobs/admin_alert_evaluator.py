@@ -232,6 +232,9 @@ EVALUATORS: dict[str, EvaluatorFn] = {
 # ---------------------------------------------------------------------------
 
 def _upsert_for_rule(rule: dict[str, Any], candidates: list[Candidate]) -> None:
+    """sync alert ให้ตรงกับ candidate ที่ evaluator เจอในรอบนี้:
+    subject ใหม่ = insert, subject เดิม = touch (+ reopen ถ้าหมด ack window),
+    subject ที่หายไป = auto-resolve เฉพาะ rule ที่ ack_policy='auto_close' (state หายเอง)"""
     severity = rule["severity"]
     rule_key = rule["rule_key"]
     seen_subjects: set[tuple[str, str]] = set()
@@ -302,6 +305,8 @@ def _upsert_for_rule(rule: dict[str, Any], candidates: list[Candidate]) -> None:
 
 
 def _is_past(dt: datetime) -> bool:
+    """คืน True ถ้าเวลา dt ผ่านมาแล้วเทียบกับตอนนี้ (UTC)
+    เติม tzinfo=UTC ให้ naive datetime ก่อนเทียบ กัน error 'compare naive vs aware'"""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt < datetime.now(timezone.utc)

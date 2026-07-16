@@ -37,6 +37,8 @@ _INTERNAL_NETS = [
 
 
 def _is_internal(ip: str) -> bool:
+    """คืน True ถ้า ip อยู่ใน subnet ภายใน (Docker/localhost/IPv6 ULA)
+    IP ที่ parse ไม่ได้ถือว่าไม่ใช่ internal (fail-closed) เพื่อกัน spoof header หลุดเข้ามา"""
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
@@ -46,6 +48,8 @@ def _is_internal(ip: str) -> bool:
 
 class InternalPathGuard(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        """บล็อก /internal/* ที่มาจากเน็ตสาธารณะ — ตอบ 404 (ไม่ใช่ 403) เพื่อไม่บอกใบ้ว่า
+        endpoint มีอยู่จริง; traffic จาก subnet ภายในผ่านได้ตามปกติ (defense-in-depth คู่กับ Cloudflare Tunnel)"""
         path = request.url.path
         if path.startswith("/internal/"):
             client = request.client

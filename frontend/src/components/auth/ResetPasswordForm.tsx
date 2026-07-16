@@ -5,6 +5,7 @@ type ResetPasswordFormProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
+// ฟอร์มตั้งรหัสผ่านใหม่ (หลังกดลิงก์รีเซ็ตจากอีเมล) — รหัสใหม่ + ยืนยัน + แถบวัดความแข็งแรง
 export function ResetPasswordForm({ onSubmit }: ResetPasswordFormProps) {
   const { t } = useTranslation()
   return (

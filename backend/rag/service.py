@@ -41,6 +41,8 @@ def _rate_limited(user_id: str) -> bool:
 
 
 def _rate_limit_result() -> dict:
+    """คืนผลลัพธ์สำเร็จรูป (route=AUTO) ตอนโดน rate limit — ขอให้ user เว้นระยะ
+    โดยไม่เรียก LLM เพื่อกัน cost DoS; รูปทรงตรงกับ answer() ให้ caller ใช้ต่อได้เลย"""
     return {
         "answer": "ระบบได้รับข้อความจำนวนมากค่ะ กรุณาเว้นระยะสักครู่แล้วส่งใหม่นะคะ",
         "route_prefix": "AUTO",
@@ -60,10 +62,20 @@ _EMERGENCY_SIGNALS = ("1669", "ฉุกเฉิน")
 
 
 def _answer_signals_emergency(answer: str) -> bool:
+    """เช็คว่าคำตอบของ LLM มีสัญญาณฉุกเฉิน (1669 / คำว่าฉุกเฉิน) ไหม — ใช้เป็น
+    safety net จับเคสที่ deterministic gate พลาด (พิมพ์ผิดหนัก) แต่ LLM ยังใส่คำ
+    แนะนำฉุกเฉินมา ทั้งที่ route เป็น AUTO เพื่อ upgrade เป็น ESCALATE ให้ทัน"""
     return any(sig in answer for sig in _EMERGENCY_SIGNALS)
 
 
 def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> dict:
+    """RAG pipeline หลัก: safety gate → rate limit → embed → search FAQ → build
+    prompt → LLM (pass 1 classify) → ถ้า route=CONSULT ค่อยค้นตำราแล้ว re-answer
+    แบบ grounded (pass 2 / adaptive RAG) → parse route. คืน {answer, route_prefix,
+    sources} ให้ n8n อ่าน route_prefix ไปตัดสินใจ. Two-pass เพราะ route ของ LLM
+    แยกเคสการแพทย์ได้ดีกว่า score-gate (Thai↔ตำราอังกฤษ score ชนกัน) และเคสทั่วไป
+    จะไม่เสีย cost ค้นตำรา; มี emergency net ปิดท้ายกันเคสที่ LLM route AUTO ทั้งที่
+    ตอบเรื่องฉุกเฉิน"""
     # Safety gate first: a hard emergency keyword forces ESCALATE:emergency
     # regardless of the LLM. Replaces Dify's if_else_emergency node.
     if safety.is_emergency(text):

@@ -17,6 +17,7 @@ type SignedInPreviewProps = {
   onLogout: () => void | Promise<void>
 }
 
+// การ์ดที่แสดงเมื่อเข้ามาหน้า login ทั้งที่ล็อกอินอยู่แล้ว — โชว์ชื่อ/role + ปลายทางที่เข้าได้ตาม role + ปุ่มออกจากระบบ
 export function SignedInPreview({ user, notice, onLogout }: SignedInPreviewProps) {
   const { t } = useTranslation()
   return (

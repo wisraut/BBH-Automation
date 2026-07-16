@@ -21,6 +21,7 @@ from core.config import (
 
 
 def _parse_hhmm(s: str) -> time:
+    """แปลง string "HH:MM" (จาก config เวลาทำการ CRO) เป็น datetime.time"""
     h, m = s.split(":")
     return time(int(h), int(m))
 

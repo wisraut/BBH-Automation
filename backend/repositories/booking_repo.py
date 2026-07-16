@@ -93,6 +93,8 @@ def list_by_date_range(start: date, end: date) -> list[dict[str, Any]]:
 
 
 def get_by_uid(uid: str) -> dict[str, Any] | None:
+    """ดึงการจอง 1 ใบด้วย request_uid พร้อมคอลัมน์รายละเอียดครบ (คืน None ถ้าไม่เจอ).
+    วันที่/เวลาถูก serialize เป็น string."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -105,6 +107,8 @@ def get_by_uid(uid: str) -> dict[str, Any] | None:
 
 
 def _serialize_booking_row(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลงแถว booking ให้ JSON-serializable in-place: requested_date เป็น ISO,
+    requested_time เป็น 'HH:MM:SS' (รองรับทั้ง time และ timedelta ที่ driver คืนมา)."""
     requested_date = row.get("requested_date")
     requested_time = row.get("requested_time")
     if isinstance(requested_date, date):
@@ -131,6 +135,9 @@ def create_manual_booking(
     booking_source: str,
     created_by: str,
 ) -> str:
+    """สร้างการจองด้วยมือจาก Web Dashboard (channel='web_dashboard',
+    status='pending_approval' รอ CRO อนุมัติ). gen request_uid + external_user_id
+    เอง คืน request_uid."""
     request_uid = str(uuid.uuid4())
     external_user_id = f"web-{request_uid}"
     raw_summary = {
@@ -711,6 +718,9 @@ def _find_patient_for_booking(cur: Any, booking: dict[str, Any]) -> dict[str, An
 
 
 def _next_hn(cur: Any, year_yy: str) -> str:
+    """gen เลข HN ถัดไปของปี (format 'YY-NNNN') แบบ atomic ผ่าน
+    patient_hn_counters + SELECT ... FOR UPDATE กัน HN ชนตอน approve พร้อมกัน.
+    ใช้ cursor เดิมของ transaction ที่เรียกมา (ต้องอยู่ใน tx ที่ยังไม่ commit)."""
     cur.execute(
         """
         INSERT INTO patient_hn_counters (year_yy, last_seq)
@@ -827,6 +837,8 @@ def _insert_booking_audit(
     to_status: str,
     detail: dict[str, Any],
 ) -> None:
+    """เขียน audit log 1 แถวของการเปลี่ยนสถานะ booking (lookup booking id จาก uid
+    ใน INSERT...SELECT). ใช้ cursor เดิมของ transaction ที่เรียกมา — atomic กับการอัปเดต."""
     cur.execute(
         """
         INSERT INTO booking_audit_logs

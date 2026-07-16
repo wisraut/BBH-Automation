@@ -94,6 +94,8 @@ function ConflictPill() {
   )
 }
 
+// หน้า inbox รายการนัดของ CRO (และ admin) — แท็บ active/history, กรอง status,
+// กด approve (เลือกหมอ) / reject / reschedule คำขอจองที่มาจาก LINE bot
 export function Bookings() {
   const { t } = useTranslation()
   const [tab, setTab] = useState<BookingGroup>('active')

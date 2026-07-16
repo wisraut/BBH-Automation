@@ -12,6 +12,8 @@ interface TopbarProps {
   viewAs?: Role | null
 }
 
+// แถบหัวบนสุดของทุกหน้า — แสดงชื่อหน้า/แบรนด์ ปุ่มเปิดเมนูบนมือถือ สลับภาษา ชื่อผู้ใช้ และปุ่มออกจากระบบ
+// พร้อมปุ่มกลับสู่ admin เมื่อ admin กำลังดูแทน role อื่น
 export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
   const { user, logout } = useAuth()
   const { t } = useTranslation()

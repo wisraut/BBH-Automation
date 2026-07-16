@@ -9,6 +9,7 @@ from core.mysql import mysql_db
 # ─── Conditions ───────────────────────────────────────────────────────────
 
 def list_conditions(patient_id: int) -> list[dict[str, Any]]:
+    """โรคประจำตัวของคนไข้ เรียง active ก่อน แล้วปีที่วินิจฉัยล่าสุด."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -26,6 +27,7 @@ def insert_condition(
     diagnosed_year: int | None, status: str, notes: str | None,
     created_by: int | None,
 ) -> int:
+    """เพิ่มโรคประจำตัว 1 รายการให้คนไข้ คืน id ใหม่."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -42,6 +44,7 @@ def insert_condition(
 
 
 def delete_condition(condition_id: int) -> int:
+    """ลบโรคประจำตัว 1 รายการถาวรด้วย id. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute("DELETE FROM medical_conditions WHERE id = %s", (condition_id,))
@@ -52,6 +55,7 @@ def delete_condition(condition_id: int) -> int:
 # ─── Allergies ────────────────────────────────────────────────────────────
 
 def list_allergies(patient_id: int) -> list[dict[str, Any]]:
+    """ประวัติแพ้ของคนไข้ เรียงตามความรุนแรง (life_threatening ก่อน) — ให้ตัวร้ายแรงเด่นบนสุด."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -67,6 +71,7 @@ def insert_allergy(
     *, patient_id: int, allergen: str, reaction: str | None,
     severity: str | None, notes: str | None, created_by: int | None,
 ) -> int:
+    """เพิ่มประวัติแพ้ 1 รายการให้คนไข้ คืน id ใหม่."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -81,6 +86,7 @@ def insert_allergy(
 
 
 def delete_allergy(allergy_id: int) -> int:
+    """ลบประวัติแพ้ 1 รายการถาวรด้วย id. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute("DELETE FROM patient_allergies WHERE id = %s", (allergy_id,))
@@ -91,6 +97,7 @@ def delete_allergy(allergy_id: int) -> int:
 # ─── Medications ──────────────────────────────────────────────────────────
 
 def list_medications(patient_id: int) -> list[dict[str, Any]]:
+    """ยาที่คนไข้ใช้ เรียงยาที่ยัง active ก่อน แล้วปีที่เริ่มล่าสุด."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -108,6 +115,7 @@ def insert_medication(
     indication: str | None, started_year: int | None, is_active: bool,
     notes: str | None, created_by: int | None,
 ) -> int:
+    """เพิ่มยา 1 รายการให้คนไข้ (is_active bool → 1/0) คืน id ใหม่."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -126,6 +134,7 @@ def insert_medication(
 
 
 def update_medication_active(med_id: int, *, is_active: bool) -> int:
+    """สลับสถานะ active/หยุดใช้ของยา (ไม่ลบทิ้ง เก็บประวัติ). คืนจำนวนแถวที่แก้."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -137,6 +146,7 @@ def update_medication_active(med_id: int, *, is_active: bool) -> int:
 
 
 def delete_medication(med_id: int) -> int:
+    """ลบยา 1 รายการถาวรด้วย id. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute("DELETE FROM current_medications WHERE id = %s", (med_id,))
@@ -147,6 +157,7 @@ def delete_medication(med_id: int) -> int:
 # ─── Treatments ───────────────────────────────────────────────────────────
 
 def list_treatments(patient_id: int) -> list[dict[str, Any]]:
+    """ประวัติการรักษา/ผ่าตัดของคนไข้ เรียงวันที่รักษาล่าสุดก่อน."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -164,6 +175,7 @@ def insert_treatment(
     hospital: str | None, treated_date: str | None, outcome: str | None,
     notes: str | None, created_by: int | None,
 ) -> int:
+    """เพิ่มประวัติการรักษา 1 รายการให้คนไข้ คืน id ใหม่."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -182,6 +194,7 @@ def insert_treatment(
 
 
 def delete_treatment(treatment_id: int) -> int:
+    """ลบประวัติการรักษา 1 รายการถาวรด้วย id. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute("DELETE FROM treatment_history WHERE id = %s", (treatment_id,))

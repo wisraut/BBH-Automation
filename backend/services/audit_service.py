@@ -51,6 +51,8 @@ def list_audit(
     page: int,
     limit: int,
 ) -> dict[str, Any]:
+    """คืน audit log แบบแบ่งหน้า พร้อม filter ตาม actor/patient/action/ช่วงวันที่
+    clamp page>=1 และ limit เป็น 1-200 กันดึงทั้งตารางทีเดียว"""
     page = max(1, page)
     limit = max(1, min(200, limit))
     rows, total = audit_repo.list_access(

@@ -11,6 +11,8 @@ interface ModalProps {
   size?: 'md' | 'lg'
 }
 
+// กล่อง Modal กลางที่ทุกหน้าใช้ร่วมกัน (approve/reject/reschedule/patient picker)
+// มี overlay กดปิด + ปิดด้วยปุ่ม Escape + เลื่อนขึ้นจากล่างบนจอมือถือ
 export function Modal({ open, title, onClose, children, size = 'md' }: ModalProps) {
   const { t } = useTranslation()
   useEffect(() => {

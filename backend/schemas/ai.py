@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
+    """request body ของ staff AI chat (/ai) — ข้อความ + conversation_id (ต่อบทสนทนา)
+    + patient_id ที่ pin ไว้ (ถ้ามี backend จะ prepend context คนไข้)"""
     # Bounded like the customer RAG path (AnswerRequest.text). Staff paste longer
     # context than patients, so cap is higher (4000) — but never unbounded, else a
     # stolen/compromised staff token could drive arbitrary LLM cost. Empty -> 422.
@@ -14,5 +16,6 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """response ของ staff AI chat — คำตอบ + conversation_id ให้ client ใช้ต่อเทิร์นถัดไป"""
     answer: str
     conversation_id: str

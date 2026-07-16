@@ -60,6 +60,8 @@ interface SidebarProps {
   onToggleCollapsed?: () => void
 }
 
+// แถบเมนูซ้ายของ dashboard — กรองรายการเมนูตาม role ที่กำลังใช้ พับ/กางได้บน desktop
+// และเลื่อนออกเป็น drawer บนมือถือ; แสดงปุ่ม "กลับสู่ admin" เมื่อ admin สวมบทบาทดูแทน role อื่น
 export function Sidebar({ role, actualRole, viewAs, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
   const { t } = useTranslation()
   const items = NAV.filter((item) => item.roles.includes(role))

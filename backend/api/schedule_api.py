@@ -23,6 +23,8 @@ _doctor_like = require_user(["doctor", "nurse", "admin"])
 
 
 def _serialize_date_time(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลง date/time/timedelta/datetime ใน row ให้เป็น string (ISO / HH:MM:SS)
+    เพื่อให้ serialize เป็น JSON ส่งกลับ frontend ได้"""
     rd = row.get("requested_date")
     rt = row.get("requested_time")
     if isinstance(rd, date):

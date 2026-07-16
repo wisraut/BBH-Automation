@@ -15,10 +15,14 @@ _DRAINING = False
 
 
 def is_draining() -> bool:
+    """คืนสถานะว่ากำลัง shutdown อยู่ไหม — health probe อ่านค่านี้เพื่อตอบ 503
+    ให้ load balancer หยุดส่ง traffic ใหม่ระหว่างที่ request ค้างทำงานให้จบ"""
     return _DRAINING
 
 
 async def _cancel_and_wait(task: asyncio.Task, name: str, timeout: float = 10.0) -> None:
+    """ยกเลิก background task แล้วรอให้จบภายใน timeout — ใช้ตอน shutdown
+    กลืน exception ทุกแบบ (log ไว้) เพื่อไม่ให้ worker ตัวเดียวพังทำ shutdown ค้าง"""
     task.cancel()
     try:
         await asyncio.wait_for(task, timeout=timeout)
@@ -31,6 +35,9 @@ async def _cancel_and_wait(task: asyncio.Task, name: str, timeout: float = 10.0)
 
 
 def _startup_reset() -> None:
+    """ล้าง session/lock ค้างตอนบูต — เคลียร์ line_uid ทุก role, ปลด conversation
+    ที่ค้าง taken_over, ปลด report ที่ค้าง 'analyzing' เพราะ process ก่อนหน้าตายกลางคัน
+    (ระบบ single-instance รีสตาร์ท = ไม่มีใครถือ session พวกนี้อยู่จริง)"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE doctors SET line_uid = NULL")
@@ -46,6 +53,9 @@ def _startup_reset() -> None:
 
 @asynccontextmanager
 async def lifespan(app):
+    """FastAPI lifespan — startup: reset session ค้าง + spin background workers
+    (alert evaluator / webhook queue / reminder / no-show); shutdown: flip draining flag
+    ให้ probe ตอบ 503 แล้วค่อย cancel workers + ปิด httpx client อย่างนุ่มนวล"""
     try:
         _startup_reset()
         log.info(

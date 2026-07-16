@@ -15,6 +15,8 @@ type LoginFormProps = {
   onForgotPassword: () => void
 }
 
+// ฟอร์มเข้าสู่ระบบสำหรับเจ้าหน้าที่ — อีเมล/รหัสผ่าน + จำอุปกรณ์ + ลิงก์ลืมรหัส
+// เป็น controlled component (state + submit อยู่ที่หน้าแม่); disable ทุกช่องระหว่างกำลังส่ง
 export function LoginForm({
   email,
   password,

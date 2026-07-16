@@ -18,6 +18,7 @@ interface RejectModalProps {
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
+// Modal ปฏิเสธนัด (CRO) — ให้กรอกเหตุผลแล้วส่ง reject; เหตุผลใช้แจ้งกลับผู้ขอนัด
 export function RejectModal({ booking, open, onClose, onRejected }: RejectModalProps) {
   const { t } = useTranslation()
   const [reason, setReason] = useState('')

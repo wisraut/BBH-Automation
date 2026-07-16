@@ -130,6 +130,8 @@ def _expire_pending() -> int:
 
 
 async def start_worker(interval_seconds: int = 300) -> None:
+    """async loop ทุก interval — flag นัดที่เลยเวลาเป็น no_show + expire pending ที่เก่าเกิน
+    แยก try/except สองก้อนเพื่อให้ pass นึงพังไม่ทำอีก pass ไม่ได้ทำ; cancellable ตอน shutdown"""
     log.info("No-show flagger started (interval=%ds, grace=%d min, "
              "pending-expiry no-date window=%d days)",
              interval_seconds, GRACE_MIN, PENDING_EXPIRE_NODATE_DAYS)

@@ -25,6 +25,9 @@ _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 
 
 def _prep(text: str) -> str:
+    """ปรับข้อความก่อน redact ให้ regex จับไม่พลาด: normalize NFC, ลบ zero-width
+    char, และแปลงเลขไทย ๐-๙ เป็น 0-9 (1:1 คงความยาว) กันเทคนิคเลี่ยง PII regex
+    ด้วยการพิมพ์เบอร์/เลขบัตรเป็นเลขไทยหรือแทรกอักขระซ่อน"""
     t = unicodedata.normalize("NFC", text or "")
     t = t.translate(_ZERO_WIDTH)
     t = t.translate(_THAI_DIGITS)

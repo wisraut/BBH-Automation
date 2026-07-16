@@ -73,6 +73,8 @@ function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: s
   )
 }
 
+// หน้าแชท AI ผู้ช่วยสำหรับ staff (CRO/หมอ/admin) — คุยแบบ free-form, pin คนไข้เพื่อให้ AI
+// เห็น context, จัดการหลาย session แชท (เก็บใน localStorage ต่อผู้ใช้)
 export function AiAssistant() {
   const { t } = useTranslation()
   const { user } = useAuth()

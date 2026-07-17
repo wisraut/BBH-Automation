@@ -11,6 +11,7 @@ Returns {answer, route_prefix, sources} — n8n reads route_prefix and acts
 exactly like it does with Dify today.
 """
 import os
+import re
 import time
 from collections import defaultdict, deque
 from threading import Lock
@@ -68,6 +69,49 @@ def _answer_signals_emergency(answer: str) -> bool:
     return any(sig in answer for sig in _EMERGENCY_SIGNALS)
 
 
+# The medical-textbook corpus covers ONLY autoimmune / functional-medicine
+# topics. For a general symptom (headache, stomachache) search_books still
+# returns autoimmune chunks — the corpus has nothing else — and the LLM then
+# over-diagnoses (framing a plain headache as Lupus because Lupus is
+# multi-system). Gate book grounding to queries that actually name an in-domain
+# topic; general symptoms keep Pass 1's answer, which already carries the
+# not-a-diagnosis disclaimer. Prompt instructions alone couldn't hold this — a
+# topically-relevant Lupus chunk is too persuasive — so we gate at retrieval.
+# ASCII/short terms are matched on WORD BOUNDARIES — a bare substring lets "sle"
+# hit "sleep" and "ana" hit "manage"/"banana", which would spuriously ground a
+# general query and re-introduce the exact over-diagnosis this gate prevents.
+_BOOK_DOMAIN_EN = re.compile(
+    r"\b(lupus|sle|autoimmune|rheumatoid|psoriasis|hashimoto|sjogren|"
+    r"scleroderma|antibody|ana|functional medicine|leaky gut)\b",
+    re.IGNORECASE,
+)
+# Thai has no word boundaries → substring match, but on a copy with zero-width
+# chars + whitespace stripped (mirrors safety.is_emergency) so a spaced/zero-width
+# evasion like "แพ้ ภูมิ ตัวเอง" still gates in.
+_BOOK_DOMAIN_TH = (
+    "แพ้ภูมิ", "ภูมิแพ้ตัวเอง", "แพ้ภูมิตัวเอง", "ภูมิคุ้มกันทำลาย", "พุ่มพวง",
+    "ผื่นผีเสื้อ", "รูมาตอยด์", "สะเก็ดเงิน", "ไทรอยด์อักเสบ", "โจเกร็น",
+    "หนังแข็ง", "แอนติบอดี", "เวชศาสตร์เชิงหน้าที่", "ลำไส้รั่ว",
+)
+_ZERO_WIDTH = ("​", "‌", "‍", "﻿")
+
+
+def _is_book_domain(text: str) -> bool:
+    """คลังตำราครอบเฉพาะโรคภูมิแพ้ตัวเอง/เวชศาสตร์เชิงหน้าที่ — ให้ค้นตำรา (pass 2
+    grounding) เฉพาะเมื่อข้อความเอ่ยถึงหัวข้อในโดเมนนี้จริง กันเคสอาการทั่วไป
+    (ปวดหัว/ปวดท้อง) ที่ retrieval จะดึง autoimmune มาเสมอแล้ว LLM วินิจฉัยเกินจริง.
+    EN แมตช์แบบ word-boundary (กัน sle→sleep, ana→manage); ไทยแมตช์ substring บน
+    สำเนาที่ตัด zero-width + เว้นวรรค (กันเลี่ยงแบบเว้นวรรค)"""
+    low = (text or "").lower()
+    if _BOOK_DOMAIN_EN.search(low):
+        return True
+    compact = low
+    for zw in _ZERO_WIDTH:
+        compact = compact.replace(zw, "")
+    compact = re.sub(r"\s+", "", compact)
+    return any(term in compact for term in _BOOK_DOMAIN_TH)
+
+
 def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> dict:
     """RAG pipeline หลัก: safety gate → rate limit → embed → search FAQ → build
     prompt → LLM (pass 1 classify) → ถ้า route=CONSULT ค่อยค้นตำราแล้ว re-answer
@@ -105,7 +149,18 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
     #     Pass 1 — it already carried the mandatory not-a-diagnosis disclaimer —
     #     and leave book_hits empty so book_sources never over-claims grounding.
     book_hits: list[dict] = []
-    if route.upper().startswith("CONSULT") and not _rate_limited(external_user_id):
+    # A patient already in an autoimmune thread may follow up without repeating the
+    # disease name ("แล้วปวดข้อควรทำยังไง") — check recent history too so real
+    # in-domain threads keep grounding, while a first-touch general symptom (no
+    # domain term anywhere) still skips it.
+    in_domain = _is_book_domain(text) or any(
+        _is_book_domain(h.get("text", "")) for h in history[-3:]
+    )
+    if (
+        route.upper().startswith("CONSULT")
+        and in_domain
+        and not _rate_limited(external_user_id)
+    ):
         candidates = vector_store.search_books(query_vec)
         if candidates:
             messages = prompts.build(text, hits, history, book_hits=candidates)

@@ -471,4 +471,4 @@ Internal use only. Do not publish or use outside the BBH hospital project withou
 
 ## Maintainer
 
-Wisarut — wisrutyaemprayur@gmail.com
+BBH Hospital — internal project. Contact via hospital IT.

@@ -1,5 +1,9 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { MessageSquare, Send, User, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import {
+  Activity, FlaskConical, HeartPulse, MessageSquare, Pill,
+  Send, ShieldAlert, User, X,
+} from 'lucide-react'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
 import { PatientPickerModal } from '../components/ai/PatientPickerModal'
@@ -9,17 +13,35 @@ import { useAuth } from '../lib/auth'
 const ROLE_CONTEXT: Record<string, { label: string; hint: string }> = {
   doctor: {
     label: 'โหมดแพทย์',
-    hint: 'AI วิเคราะห์ผลแล็บและข้อมูลคนไข้จาก Knowledge Base ทางการแพทย์',
+    hint: 'ผู้ช่วยด้านสุขภาพ — วิเคราะห์ผลแล็บและข้อมูลคนไข้ทางการแพทย์',
   },
   cro: {
     label: 'โหมด CRO',
-    hint: 'AI ตอบคำถามเกี่ยวกับโรงพยาบาล บริการ และข้อมูลทั่วไปของ BBH',
+    hint: 'ผู้ช่วยด้านสุขภาพ — ตอบคำถามสุขภาพ การแพทย์ และข้อมูลคนไข้',
   },
   admin: {
     label: 'โหมดผู้ดูแล',
-    hint: 'AI ตอบคำถามเกี่ยวกับโรงพยาบาล บริการ และข้อมูลทั่วไปของ BBH',
+    hint: 'ผู้ช่วยด้านสุขภาพ — ตอบคำถามสุขภาพ การแพทย์ และข้อมูลคนไข้',
   },
 }
+
+type QuickPrompt = { icon: LucideIcon; text: string }
+
+// Shown when a patient is pinned — one tap asks about that patient's record.
+const PATIENT_PROMPTS: QuickPrompt[] = [
+  { icon: FlaskConical, text: 'สรุปผลแล็บล่าสุดของคนไข้คนนี้' },
+  { icon: Pill, text: 'ตอนนี้คนไข้ใช้ยาอะไรอยู่บ้าง' },
+  { icon: ShieldAlert, text: 'คนไข้มีประวัติแพ้ยาอะไรไหม' },
+  { icon: Activity, text: 'สรุปโรคประจำตัวและความเสี่ยงของคนไข้' },
+]
+
+// Shown when no patient is pinned — general health starters.
+const GENERAL_PROMPTS: QuickPrompt[] = [
+  { icon: Activity, text: 'ความดันโลหิตสูงควรปรับพฤติกรรมอย่างไร' },
+  { icon: FlaskConical, text: 'ค่า SGOT / SGPT สูง หมายความว่าอะไร' },
+  { icon: HeartPulse, text: 'แนวทางดูแลผู้ป่วยเบาหวานเบื้องต้น' },
+  { icon: Pill, text: 'ยาที่กินคู่กันแล้วควรระวังมีอะไรบ้าง' },
+]
 
 function TypingDots() {
   return (
@@ -88,6 +110,7 @@ export function AiAssistant() {
   const role = user?.role ?? 'cro'
   const ctx = ROLE_CONTEXT[role] ?? ROLE_CONTEXT.cro
   const pinned = current?.pinnedPatient ?? null
+  const quickPrompts = pinned ? PATIENT_PROMPTS : GENERAL_PROMPTS
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -97,6 +120,12 @@ export function AiAssistant() {
     if (!input.trim()) return
     void send(input)
     setInput('')
+    inputRef.current?.focus()
+  }
+
+  function handleQuick(text: string) {
+    if (isLoading) return
+    void send(text)
     inputRef.current?.focus()
   }
 
@@ -163,9 +192,15 @@ export function AiAssistant() {
           <div className="hidden h-9 w-9 place-items-center rounded-xl bg-bbh-green-soft sm:grid">
             <span className="font-serif text-base font-semibold text-bbh-green-dark">AI</span>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
-            <p className="truncate text-xs text-bbh-muted">{ctx.label} · Dify + Gemini Flash</p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bbh-green-soft px-2 py-0.5 text-[10px] font-semibold text-bbh-green-dark">
+                <HeartPulse size={11} />
+                เฉพาะสุขภาพ
+              </span>
+            </div>
+            <p className="truncate text-xs text-bbh-muted">{ctx.label} · ผู้ช่วยด้านสุขภาพ</p>
           </div>
         </div>
 
@@ -199,7 +234,7 @@ export function AiAssistant() {
       <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-5">
         {messages.length === 0 ? (
           /* Welcome state */
-          <div className="flex h-full flex-col items-center justify-center gap-6">
+          <div className="flex h-full flex-col items-center justify-center gap-6 py-6">
             <div className="text-center">
               <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-bbh-green-soft">
                 <span className="font-serif text-3xl font-semibold text-bbh-green-dark">AI</span>
@@ -208,9 +243,48 @@ export function AiAssistant() {
                 BBH AI Assistant
               </p>
               <p className="mt-1 text-sm text-bbh-muted">{ctx.hint}</p>
-              <p className="mt-4 text-xs text-bbh-muted">
-                พิมพ์คำถามด้านล่างเพื่อเริ่มสนทนา
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-bbh-green-soft px-3 py-1 text-xs font-medium text-bbh-green-dark">
+                <HeartPulse size={13} />
+                ตอบเฉพาะเรื่องสุขภาพ การแพทย์ และข้อมูลคนไข้
               </p>
+              {pinned ? (
+                <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-bbh-ink">
+                  <User size={13} className="text-bbh-green" />
+                  กำลังคุยเรื่องคนไข้:{' '}
+                  <span className="font-semibold">
+                    {pinned.hn ? `HN ${pinned.hn} · ` : ''}{pinned.display_name}
+                  </span>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-bbh-green transition hover:text-bbh-green-dark"
+                >
+                  <User size={13} />
+                  เลือกคนไข้เพื่อคุยเจาะข้อมูลรายบุคคล
+                </button>
+              )}
+            </div>
+
+            <div className="w-full max-w-md">
+              <p className="mb-2 px-1 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-bbh-muted">
+                {pinned ? 'ถามเรื่องคนไข้คนนี้' : 'เริ่มด้วยคำถามสุขภาพ'}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {quickPrompts.map((p) => (
+                  <button
+                    key={p.text}
+                    type="button"
+                    onClick={() => handleQuick(p.text)}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white px-3 py-2.5 text-left text-xs font-medium text-bbh-ink transition-all duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-50"
+                  >
+                    <p.icon size={15} className="shrink-0 text-bbh-green" />
+                    <span>{p.text}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -240,6 +314,26 @@ export function AiAssistant() {
           </div>
         )}
       </div>
+
+      {/* Contextual patient shortcuts during an ongoing chat */}
+      {pinned && messages.length > 0 && (
+        <div className="border-t border-bbh-line bg-bbh-surface/60 px-3 py-2 md:px-6">
+          <div className="mx-auto flex max-w-2xl gap-2 overflow-x-auto">
+            {PATIENT_PROMPTS.map((p) => (
+              <button
+                key={p.text}
+                type="button"
+                onClick={() => handleQuick(p.text)}
+                disabled={isLoading}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-bbh-line bg-white px-3 py-1.5 text-[11px] font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-50"
+              >
+                <p.icon size={12} className="text-bbh-green" />
+                {p.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Input bar */}
       <div className="border-t border-bbh-line bg-white px-3 py-3 md:px-6 md:py-4">

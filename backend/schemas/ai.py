@@ -15,7 +15,16 @@ class ChatRequest(BaseModel):
     patient_id: int | None = Field(default=None, ge=1)
 
 
+class BookSource(BaseModel):
+    """แหล่งอ้างอิงตำราแพทย์ที่ถูกดึงมา ground คำตอบ — โชว์เป็น footnote ใต้คำตอบ AI"""
+    title: str
+    page: int | None = None
+    score: float | None = None
+
+
 class ChatResponse(BaseModel):
-    """response ของ staff AI chat — คำตอบ + conversation_id ให้ client ใช้ต่อเทิร์นถัดไป"""
+    """response ของ staff AI chat — คำตอบ + conversation_id ให้ client ใช้ต่อเทิร์นถัดไป
+    + book_sources (ถ้าคำตอบ ground ด้วยตำราแพทย์)"""
     answer: str
     conversation_id: str
+    book_sources: list[BookSource] = []

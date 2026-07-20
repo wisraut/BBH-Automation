@@ -90,13 +90,13 @@ _BOOK_DOMAIN_EN = re.compile(
 # evasion like "แพ้ ภูมิ ตัวเอง" still gates in.
 _BOOK_DOMAIN_TH = (
     "แพ้ภูมิ", "ภูมิแพ้ตัวเอง", "แพ้ภูมิตัวเอง", "ภูมิคุ้มกันทำลาย", "พุ่มพวง",
-    "ผื่นผีเสื้อ", "รูมาตอยด์", "สะเก็ดเงิน", "ไทรอยด์อักเสบ", "โจเกร็น",
+    "ลูปัส", "ผื่นผีเสื้อ", "รูมาตอยด์", "สะเก็ดเงิน", "ไทรอยด์อักเสบ", "โจเกร็น",
     "หนังแข็ง", "แอนติบอดี", "เวชศาสตร์เชิงหน้าที่", "ลำไส้รั่ว",
 )
 _ZERO_WIDTH = ("​", "‌", "‍", "﻿")
 
 
-def _is_book_domain(text: str) -> bool:
+def is_book_domain(text: str) -> bool:
     """คลังตำราครอบเฉพาะโรคภูมิแพ้ตัวเอง/เวชศาสตร์เชิงหน้าที่ — ให้ค้นตำรา (pass 2
     grounding) เฉพาะเมื่อข้อความเอ่ยถึงหัวข้อในโดเมนนี้จริง กันเคสอาการทั่วไป
     (ปวดหัว/ปวดท้อง) ที่ retrieval จะดึง autoimmune มาเสมอแล้ว LLM วินิจฉัยเกินจริง.
@@ -153,8 +153,8 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
     # disease name ("แล้วปวดข้อควรทำยังไง") — check recent history too so real
     # in-domain threads keep grounding, while a first-touch general symptom (no
     # domain term anywhere) still skips it.
-    in_domain = _is_book_domain(text) or any(
-        _is_book_domain(h.get("text", "")) for h in history[-3:]
+    in_domain = is_book_domain(text) or any(
+        is_book_domain(h.get("text", "")) for h in history[-3:]
     )
     if (
         route.upper().startswith("CONSULT")

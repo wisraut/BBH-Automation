@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 def chat(
     body: ChatRequest,
     user: Annotated[dict[str, Any], Depends(require_user())],
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Proxy dashboard AI chat to the service layer (blocking — returns full answer)."""
     return ai_service.chat(
         message=body.message,

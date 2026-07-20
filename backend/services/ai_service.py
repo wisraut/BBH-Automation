@@ -8,7 +8,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from rag import llm
+from rag import embedder, llm, vector_store
+from rag.service import is_book_domain
 from services.pii_redactor import redact_text
 import integrations.calendar_client as cal
 from core.mysql import mysql_db
@@ -21,6 +22,8 @@ _TZ_BKK = timezone(timedelta(hours=7))
 _SYSTEM_PROMPT = (
     "คุณเป็นผู้ช่วย AI ภายในของโรงพยาบาล Better Being สำหรับเจ้าหน้าที่ (CRO/แพทย์/พยาบาล) "
     "ตอบเป็นภาษาไทย สุภาพ กระชับ ตรงประเด็น อ้างอิงเฉพาะข้อมูลใน context ที่ระบบให้มา "
+    "ถ้า context มีส่วน 'อ้างอิงตำราแพทย์' ให้ใช้เนื้อหานั้นประกอบคำตอบ และระบุที่มา "
+    "(ชื่อตำรา/หน้า) เมื่ออ้างถึงข้อมูลจากตำรา "
     "ถ้าไม่มีข้อมูลให้บอกตรงๆ ว่าไม่มีข้อมูล ห้ามแต่งตัวเลข/ชื่อ/เบอร์/วันเวลาขึ้นเอง "
     "ห้ามใส่ prefix จำแนกประเภทใดๆ นำหน้าคำตอบ ตอบเหมือนคุยกับเพื่อนร่วมงาน"
 )
@@ -31,6 +34,39 @@ _SYSTEM_PROMPT = (
 _SCHEDULE_CACHE: dict[str, tuple[float, str]] = {}
 _SCHEDULE_TTL_SEC = 60
 
+# All patient display names, cached, used as redact_text known_names so ANY
+# patient name is PDPA-masked wherever it lands in the prompt — a booking line, a
+# free-text symptom, a Google Calendar summary (which carries names we can't
+# structurally isolate), or even a textbook chunk that happens to match. Cached
+# so we don't hit the DB per chat turn. Scale note: redact_text masks name-by-name
+# (N passes); if the patient table grows to thousands, move to a single combined
+# regex or NER instead of this dictionary. Residual: a name in free text that is
+# NOT a registered patient (e.g. a relative mentioned in a symptom) can't be
+# caught by a dictionary and would still pass through.
+_PATIENT_NAMES_CACHE: dict[str, tuple[float, list[str]]] = {}
+_PATIENT_NAMES_TTL_SEC = 300
+
+
+def _all_patient_names() -> list[str]:
+    """ชื่อคนไข้ทั้งหมด (display_name) สำหรับใช้เป็น known_names ของ redact_text —
+    cache ไว้ตาม TTL กัน query ต่อทุกข้อความ; คืน [] ถ้า DB ล่ม (ยอมตอบต่อได้
+    มากกว่าพังทั้งเทิร์น แต่ pattern-based PII อื่นยังทำงาน)"""
+    cached = _PATIENT_NAMES_CACHE.get("all")
+    if cached and cached[0] > time.time():
+        return cached[1]
+    try:
+        with mysql_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT display_name FROM patients "
+                    "WHERE display_name IS NOT NULL AND display_name <> ''"
+                )
+                names = [r["display_name"] for r in cur.fetchall()]
+    except Exception:  # noqa: BLE001 — masking is best-effort; pattern PII still runs
+        names = []
+    _PATIENT_NAMES_CACHE["all"] = (time.time() + _PATIENT_NAMES_TTL_SEC, names)
+    return names
+
 
 def chat(
     *,
@@ -38,19 +74,24 @@ def chat(
     conversation_id: str,
     patient_id: int | None,
     user: dict[str, Any],
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """ตอบแชทเจ้าหน้าที่แบบครั้งเดียวจบ (non-stream) — โหลด/สร้าง conversation,
     inject context คนไข้+ตารางนัด, ยิง LLM แล้วบันทึกเทิร์นเป็น short-term memory
     ถ้า LLM ล้มโยน 502 AI_ERROR (ไม่ให้ error ภายในหลุดถึง client)"""
     conv_pk, conv_token = ai_message_repo.get_or_create(
         conversation_id, user_id=int(user["id"]), patient_id=patient_id
     )
-    final_message = _compose_message(message=message, patient_id=patient_id)
     # Prior turns (short-term memory) sit between the persona and the current,
-    # context-injected message. History is fetched before we save this turn.
+    # context-injected message. History is fetched before we save this turn, and
+    # also feeds the book-grounding gate so an in-domain thread keeps grounding
+    # when a follow-up omits the disease name.
+    history = ai_message_repo.load_history(conv_pk)
+    final_message, book_sources = _compose_message(
+        message=message, patient_id=patient_id, history=history
+    )
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
-        *ai_message_repo.load_history(conv_pk),
+        *history,
         {"role": "user", "content": final_message},
     ]
     try:
@@ -61,7 +102,7 @@ def chat(
             detail={"code": "AI_ERROR", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"},
         ) from exc
     _persist_turn(conv_pk, message, answer)
-    return {"answer": answer, "conversation_id": conv_token}
+    return {"answer": answer, "conversation_id": conv_token, "book_sources": book_sources}
 
 
 def chat_stream(
@@ -75,6 +116,7 @@ def chat_stream(
     Yield SSE lines — each line is `data: <json>\\n\\n`.
     Events:
       { "type": "delta", "text": "..." }
+      { "type": "book_sources", "sources": [{title, page, score}, ...] }  # optional, before conv_id
       { "type": "conv_id", "value": "..." }
       { "type": "done" }
       { "type": "error", "message": "..." }
@@ -82,10 +124,13 @@ def chat_stream(
     conv_pk, conv_token = ai_message_repo.get_or_create(
         conversation_id, user_id=int(user["id"]), patient_id=patient_id
     )
-    final_message = _compose_message(message=message, patient_id=patient_id)
+    history = ai_message_repo.load_history(conv_pk)
+    final_message, book_sources = _compose_message(
+        message=message, patient_id=patient_id, history=history
+    )
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
-        *ai_message_repo.load_history(conv_pk),
+        *history,
         {"role": "user", "content": final_message},
     ]
 
@@ -99,6 +144,10 @@ def chat_stream(
                 chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
         _persist_turn(conv_pk, message, "".join(chunks))
+        # Textbook citations (if any) ride alongside the answer metadata so the
+        # UI can footnote which sources grounded it — see search_books gate below.
+        if book_sources:
+            yield _sse({"type": "book_sources", "sources": book_sources})
         yield _sse({"type": "conv_id", "value": conv_token})
         yield _sse({"type": "done"})
     except Exception:  # noqa: BLE001
@@ -118,15 +167,23 @@ def _persist_turn(conversation_pk: int, message: str, answer: str) -> None:
     )
 
 
-def _compose_message(*, message: str, patient_id: int | None) -> str:
+def _compose_message(
+    *, message: str, patient_id: int | None, history: list[dict] | None = None
+) -> tuple[str, list[dict]]:
     """Assemble context blocks + user question into a single prompt string.
 
-    Output is PDPA-scrubbed: PII patterns + the pinned patient's name are
-    masked before the prompt leaves the bridge for OpenRouter/Gemini.
+    Returns (composed_prompt, book_sources). Output is PDPA-scrubbed: PII patterns
+    + the pinned patient's name are masked before the prompt leaves the bridge for
+    OpenRouter/Gemini. book_sources lists the textbook chunks (if any) that were
+    injected, so the caller can surface citations to the UI.
     """
     parts: list[str] = []
 
-    known_names: list[str] = []
+    # Seed the mask list with every registered patient name, so appointment names
+    # (bookings + calendar summaries) and any patient named in free text are all
+    # masked before the prompt leaves for OpenRouter. The pinned patient is added
+    # explicitly too, in case they were registered after the cache last refreshed.
+    known_names: list[str] = list(_all_patient_names())
     if patient_id is not None:
         patient_ctx = _build_patient_context(patient_id)
         if patient_ctx:
@@ -141,9 +198,65 @@ def _compose_message(*, message: str, patient_id: int | None) -> str:
     if schedule_ctx:
         parts.append(schedule_ctx)
 
+    book_ctx, book_sources = _book_context(message, history)
+    if book_ctx:
+        parts.append(book_ctx)
+
     parts.append(f"=== คำถาม ===\n{message}")
     composed = "\n\n".join(parts)
-    return redact_text(composed, known_names=known_names)
+    return redact_text(composed, known_names=known_names), book_sources
+
+
+# Book grounding for staff: same corpus + retrieval gate as the LINE bot's
+# CONSULT pass (rag.service). The corpus covers ONLY autoimmune / functional
+# medicine, so we gate on is_book_domain FIRST — a general staff question
+# ("ปวดหัวทำไง") would otherwise pull weakly-related autoimmune chunks (the books
+# have nothing else) and skew the answer. search_books' min_score is a second
+# guard. Single-pass here (no re-answer) — staff persona is free-form, so we just
+# hand the model the textbook context and let it cite.
+def _book_context(message: str, history: list[dict] | None = None) -> tuple[str, list[dict]]:
+    """ค้นตำราแพทย์มาเสริม context ให้ผู้ช่วยเจ้าหน้าที่ เฉพาะคำถามที่เข้าโดเมนตำรา
+    (โรคภูมิแพ้ตัวเอง/เวชศาสตร์เชิงหน้าที่) เท่านั้น; คืน (context_block, sources).
+    คืน ('', []) ถ้าไม่เข้าโดเมน ค้นไม่เจอ หรือ embedder/DB ล่ม — ให้ตอบต่อได้โดย
+    ไม่ทำทั้งเทิร์นพัง (book grounding เป็น best-effort ไม่ใช่ hard dependency).
+
+    เช็คโดเมนจากข้อความปัจจุบัน *หรือ* 3 เทิร์นล่าสุด (mirror เส้น LINE) เพื่อให้
+    เธรดที่กำลังคุยเรื่องในโดเมนอยู่ ยัง ground ต่อได้เมื่อ follow-up ไม่เอ่ยชื่อโรคซ้ำ
+    (เช่น 'แล้วเรื่องอาหารที่ควรเลี่ยงล่ะ')"""
+    in_domain = is_book_domain(message) or any(
+        is_book_domain(h.get("content", "")) for h in (history or [])[-3:]
+    )
+    if not in_domain:
+        return "", []
+    # No separate rate limit here (unlike the public LINE path): this endpoint is
+    # authenticated staff-only, the embed + book search hit LOCAL resources (no
+    # paid API), and the per-turn LLM call that follows is itself ungated — so a
+    # book-search-only cap would add cost without changing the real ceiling.
+    try:
+        query_vec = embedder.embed_one(message, kind="query")
+        hits = vector_store.search_books(query_vec)
+    except Exception:  # noqa: BLE001 — embedder/DB down must not break the chat
+        return "", []
+    if not hits:
+        return "", []
+
+    lines = ["=== อ้างอิงตำราแพทย์ (ใช้ประกอบคำตอบเมื่อเกี่ยวข้อง) ==="]
+    for i, h in enumerate(hits, 1):
+        cite = h.get("title") or h.get("source") or "-"
+        page = h.get("page")
+        if page:
+            cite += f" · หน้า {page}"
+        lines.append(f"[{i}] {cite}\n{(h.get('text') or '').strip()}")
+
+    sources = [
+        {
+            "title": h.get("title") or h.get("source") or "",
+            "page": h.get("page"),
+            "score": h.get("score"),
+        }
+        for h in hits
+    ]
+    return "\n\n".join(lines), sources
 
 
 _SCHEDULE_WINDOW_DAYS = 7  # past N days + next N days = 2N+1 days centered on today
@@ -151,7 +264,10 @@ _SCHEDULE_WINDOW_DAYS = 7  # past N days + next N days = 2N+1 days centered on t
 
 def _build_schedule_context() -> str:
     """Schedule for [today-7, today+7]: approved bookings + Google Calendar events
-    grouped per day so the assistant can answer 'what's on 19/6?' style questions."""
+    grouped per day so the assistant can answer 'what's on 19/6?' style questions.
+
+    Patient names rendered here are masked by the caller via redact_text's
+    known_names (seeded from _all_patient_names), so no real name reaches the LLM."""
     now = datetime.now(_TZ_BKK)
     today = now.date()
     range_start = today - timedelta(days=_SCHEDULE_WINDOW_DAYS)

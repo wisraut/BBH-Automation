@@ -68,12 +68,33 @@ def _all_patient_names() -> list[str]:
     return names
 
 
+# Default instruction when the staff attaches an image with no text of their own,
+# so the model has a clear directive instead of a bare image.
+_IMAGE_ONLY_PROMPT = "ช่วยดูรูปที่แนบมาแล้วอธิบาย/ให้ความเห็นหน่อย"
+
+
+def _user_content(text: str, image: dict[str, Any] | None):
+    """content ของ user message: string ปกติ หรือ array [text, image_url] ถ้ามีรูปแนบ
+    (multimodal สำหรับ vision — OpenRouter/Gemini อ่าน image_url แบบ data URI).
+    image = {'mime_type','data'(base64 ไม่รวม prefix)} ที่ schema validate ขนาด/ชนิดแล้ว"""
+    if not image:
+        return text
+    return [
+        {"type": "text", "text": text},
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:{image['mime_type']};base64,{image['data']}"},
+        },
+    ]
+
+
 def chat(
     *,
     message: str,
     conversation_id: str,
     patient_id: int | None,
     user: dict[str, Any],
+    image: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """ตอบแชทเจ้าหน้าที่แบบครั้งเดียวจบ (non-stream) — โหลด/สร้าง conversation,
     inject context คนไข้+ตารางนัด, ยิง LLM แล้วบันทึกเทิร์นเป็น short-term memory
@@ -81,18 +102,19 @@ def chat(
     conv_pk, conv_token = ai_message_repo.get_or_create(
         conversation_id, user_id=int(user["id"]), patient_id=patient_id
     )
+    effective_message = message.strip() or _IMAGE_ONLY_PROMPT
     # Prior turns (short-term memory) sit between the persona and the current,
     # context-injected message. History is fetched before we save this turn, and
     # also feeds the book-grounding gate so an in-domain thread keeps grounding
     # when a follow-up omits the disease name.
     history = ai_message_repo.load_history(conv_pk)
     final_message, book_sources = _compose_message(
-        message=message, patient_id=patient_id, history=history
+        message=effective_message, patient_id=patient_id, history=history
     )
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
-        *history,
-        {"role": "user", "content": final_message},
+        *_history_for_llm(history),
+        {"role": "user", "content": _user_content(final_message, image)},
     ]
     try:
         answer = llm.chat(messages)
@@ -101,7 +123,7 @@ def chat(
             status_code=502,
             detail={"code": "AI_ERROR", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"},
         ) from exc
-    _persist_turn(conv_pk, message, answer)
+    _persist_turn(conv_pk, message, answer, image_thumb=(image or {}).get("thumb"))
     return {"answer": answer, "conversation_id": conv_token, "book_sources": book_sources}
 
 
@@ -111,6 +133,7 @@ def chat_stream(
     conversation_id: str,
     patient_id: int | None,
     user: dict[str, Any],
+    image: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """
     Yield SSE lines — each line is `data: <json>\\n\\n`.
@@ -124,14 +147,15 @@ def chat_stream(
     conv_pk, conv_token = ai_message_repo.get_or_create(
         conversation_id, user_id=int(user["id"]), patient_id=patient_id
     )
+    effective_message = message.strip() or _IMAGE_ONLY_PROMPT
     history = ai_message_repo.load_history(conv_pk)
     final_message, book_sources = _compose_message(
-        message=message, patient_id=patient_id, history=history
+        message=effective_message, patient_id=patient_id, history=history
     )
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
-        *history,
-        {"role": "user", "content": final_message},
+        *_history_for_llm(history),
+        {"role": "user", "content": _user_content(final_message, image)},
     ]
 
     def _sse(payload: dict[str, Any]) -> str:
@@ -143,7 +167,7 @@ def chat_stream(
             if delta:
                 chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
-        _persist_turn(conv_pk, message, "".join(chunks))
+        _persist_turn(conv_pk, message, "".join(chunks), image_thumb=(image or {}).get("thumb"))
         # Textbook citations (if any) ride alongside the answer metadata so the
         # UI can footnote which sources grounded it — see search_books gate below.
         if book_sources:
@@ -155,16 +179,32 @@ def chat_stream(
         raise
 
 
-def _persist_turn(conversation_pk: int, message: str, answer: str) -> None:
-    """Save both sides of a turn as short-term memory. The user message is
-    PII-redacted before storage (same posture as what we send to OpenRouter);
-    the assistant answer is already phrased in general terms."""
-    ai_message_repo.save_turn(
-        conversation_pk=conversation_pk, role="user", content=redact_text(message),
+def _persist_turn(
+    conversation_pk: int, message: str, answer: str, image_thumb: str | None = None
+) -> None:
+    """Save both sides of a turn as short-term memory + display history. The ORIGINAL
+    user text is stored (our MySQL is auth-gated — redaction happens only when text
+    leaves for the external LLM, in load-for-send), together with any attached image
+    thumbnail. The first user message seeds the conversation title for the sidebar."""
+    title = " ".join(message.split())[:80] if message.strip() else None
+    ai_message_repo.save_exchange(
+        conversation_pk=conversation_pk,
+        user_content=message,
+        assistant_content=answer,
+        image_thumb=image_thumb,
+        title=title,
     )
-    ai_message_repo.save_turn(
-        conversation_pk=conversation_pk, role="assistant", content=answer,
-    )
+
+
+def _history_for_llm(history: list[dict]) -> list[dict]:
+    """PDPA-mask stored (original) history turns before they go back to the external
+    LLM — same known_names dictionary as the current turn, so patient names never
+    leave the bridge even though we store them verbatim for display."""
+    names = _all_patient_names()
+    return [
+        {"role": h["role"], "content": redact_text(h["content"], known_names=names)}
+        for h in history
+    ]
 
 
 def _compose_message(

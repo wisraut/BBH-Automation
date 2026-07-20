@@ -14,10 +14,12 @@ export function useAiSessions() {
     sessions:      snap.sessions,
     current,
     currentId:     snap.currentId,
+    ready:         snap.ready,
     createNew:     aiActions.createNew,
     switchTo:      aiActions.switchTo,
     remove:        aiActions.remove,
     patchById:     aiActions.patchById,
+    setPinned:     aiActions.setPinned,
     ensureCurrent: aiActions.ensureCurrent,
   }
 }

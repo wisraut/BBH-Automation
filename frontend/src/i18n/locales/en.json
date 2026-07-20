@@ -103,7 +103,15 @@
     "selectPatient": "Select patient",
     "startHint": "Type a question below to start the conversation",
     "inputPlaceholder": "Type a question... (Enter to send, Shift+Enter for a new line)",
-    "sendMessage": "Send message"
+    "sendMessage": "Send message",
+    "image": {
+      "attach": "Attach image",
+      "expanded": "Expanded image",
+      "warning": "The image is sent to an external AI (Gemini) and its contents cannot be masked — avoid attaching images that show a patient's name, HN, or identifying details unless necessary.",
+      "badType": "Only images are supported (JPG, PNG, WebP, GIF)",
+      "tooLarge": "Image must be 5MB or smaller",
+      "readError": "Could not read the image file, please try again"
+    }
   },
   "aiChat": {
     "noResponse": "AI did not respond — please retry",

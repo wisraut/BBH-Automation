@@ -381,7 +381,7 @@ def update_approved(
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT request_uid, status, patient_id, patient_name, phone, email
+                    SELECT request_uid, status, patient_id, patient_name, phone, email, nationality
                     FROM booking_requests
                     WHERE request_uid = %s
                     FOR UPDATE
@@ -423,9 +423,9 @@ def update_approved(
                         cur.execute(
                             """
                             INSERT INTO patients
-                                (hn, display_name, phone, phone_normalized, email, notes, created_by)
+                                (hn, display_name, phone, phone_normalized, email, nationality, notes, created_by)
                             VALUES
-                                (%s, %s, %s, %s, %s, %s, %s)
+                                (%s, %s, %s, %s, %s, %s, %s, %s)
                             """,
                             (
                                 hn,
@@ -433,6 +433,7 @@ def update_approved(
                                 booking.get("phone") or None,
                                 normalize_phone(booking.get("phone")) or None,
                                 booking.get("email") or None,
+                                booking.get("nationality") or None,
                                 f"Created from booking {uid}",
                                 approved_by_user_id,
                             ),

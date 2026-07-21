@@ -751,6 +751,10 @@
     "sexFemale": "Female",
     "sexMale": "Male",
     "sexOther": "Other",
+    "nationality": "Nationality",
+    "nationalityUnset": "Not specified",
+    "nationalityOther": "Other (specify)",
+    "nationalitySpecify": "Specify nationality",
     "notes": "Notes"
   },
   "patientMedicalRecords": {

@@ -27,6 +27,10 @@ class BookingCreate(BaseModel):
     time: str = Field(max_length=40)
     symptom: str = Field(max_length=2000)
     email: Optional[str] = Field(default=None, max_length=191)
+    # Optional patient nationality collected during the LINE booking chat. n8n
+    # forwards the full BOOKING_DONE JSON as raw_summary, so nationality rides
+    # along even if not sent as a top-level field (see extraction below).
+    nationality: Optional[str] = Field(default=None, max_length=60)
     raw_summary: Optional[dict] = None
 
 
@@ -47,20 +51,26 @@ def create_booking(body: BookingCreate, x_internal_token: str | None = Header(No
     booking_requests สถานะ pending_approval รอ CRO อนุมัติ. ชื่อ/เบอร์มาจาก free-text คนไข้"""
     _require_internal_token(x_internal_token)
     request_uid = str(uuid.uuid4())
+    # Prefer the explicit field; fall back to the nationality inside raw_summary
+    # (the full BOOKING_DONE JSON n8n forwards) so we capture it without an n8n
+    # change. Empty/whitespace or a too-long value -> NULL (optional field).
+    raw = body.raw_summary or {}
+    nationality = body.nationality or (raw.get("nationality") if isinstance(raw, dict) else None)
+    nationality = (nationality or "").strip()[:60] or None
     with _db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO booking_requests
                     (request_uid, channel, external_user_id, status,
-                     patient_name, phone, email, requested_datetime_text,
+                     patient_name, phone, email, nationality, requested_datetime_text,
                      symptom, raw_summary)
                 VALUES (%s, 'line_main', %s, 'pending_approval',
-                        %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     request_uid, body.user_id, body.name, body.phone,
-                    (body.email or None),
+                    (body.email or None), nationality,
                     f"{body.date} {body.time}", body.symptom,
                     json.dumps(body.raw_summary or {}, ensure_ascii=False),
                 ),

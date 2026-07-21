@@ -9,12 +9,22 @@ import type { PatientUpdateRequest } from '../../hooks/useUpdatePatient'
 
 type Gender = NonNullable<PatientCreateRequest['gender']>
 
+// Canonical nationality options — kept in sync with the LINE bot's normalize
+// target (rag/prompts.py) so both channels store the same values. "อื่นๆ" reveals
+// a free-text field for the long tail.
+const NATIONALITIES = [
+  'ไทย', 'เมียนมา', 'กัมพูชา', 'ลาว', 'เวียดนาม', 'มาเลเซีย', 'จีน',
+  'อินเดีย', 'ญี่ปุ่น', 'เกาหลีใต้', 'ฟิลิปปินส์', 'สหรัฐอเมริกา', 'สหราชอาณาจักร',
+]
+const OTHER = '__other__'
+
 type FormState = {
   display_name: string
   phone: string
   email: string
   dob: string
   gender: Gender
+  nationality: string
   notes: string
 }
 
@@ -33,6 +43,7 @@ const EMPTY: FormState = {
   email: '',
   dob: '',
   gender: 'unknown',
+  nationality: '',
   notes: '',
 }
 
@@ -46,17 +57,22 @@ function clean(value: string): string | null {
 export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmit }: PatientFormModalProps) {
   const { t } = useTranslation()
   const [form, setForm] = useState<FormState>(EMPTY)
+  // Whether the nationality picker is in free-text mode (value not in the list).
+  const [natOther, setNatOther] = useState(false)
 
   useEffect(() => {
     if (!open) return
+    const nat = patient?.nationality ?? ''
     setForm({
       display_name: patient?.display_name ?? '',
       phone: patient?.phone ?? '',
       email: patient?.email ?? '',
       dob: patient?.dob ?? '',
       gender: patient?.gender ?? 'unknown',
+      nationality: nat,
       notes: patient?.notes ?? '',
     })
+    setNatOther(!!nat && !NATIONALITIES.includes(nat))
   }, [open, patient])
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -71,6 +87,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
       email: clean(form.email),
       dob: clean(form.dob),
       gender: form.gender,
+      nationality: clean(form.nationality),
       notes: clean(form.notes),
     }
     onSubmit(body)
@@ -132,6 +149,38 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
               <option value="other">{t('patientFormModal.sexOther')}</option>
             </select>
           </label>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-bbh-ink">
+            {t('patientFormModal.nationality')}
+            <select
+              value={natOther ? OTHER : form.nationality}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === OTHER) { setNatOther(true); update('nationality', '') }
+                else { setNatOther(false); update('nationality', v) }
+              }}
+              className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
+            >
+              <option value="">{t('patientFormModal.nationalityUnset')}</option>
+              {NATIONALITIES.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+              <option value={OTHER}>{t('patientFormModal.nationalityOther')}</option>
+            </select>
+          </label>
+          {natOther && (
+            <label className="block text-sm font-medium text-bbh-ink">
+              {t('patientFormModal.nationalitySpecify')}
+              <input
+                value={form.nationality}
+                maxLength={60}
+                onChange={(e) => update('nationality', e.target.value)}
+                className="mt-1 h-12 w-full rounded-xl border border-bbh-line px-3 text-sm focus:border-bbh-green focus:outline-none"
+              />
+            </label>
+          )}
         </div>
 
         <label className="block text-sm font-medium text-bbh-ink">

@@ -29,6 +29,7 @@ class PatientOut(BaseModel):
     email: str | None = None
     dob: date | None = None
     gender: Gender | None = None
+    nationality: str | None = None
     notes: str | None = None
     created_by: int | None = None
     created_at: datetime
@@ -56,6 +57,7 @@ class PatientCreateRequest(BaseModel):
     email: str | None = Field(default=None, max_length=191)
     dob: date | None = None
     gender: Gender | None = None
+    nationality: str | None = Field(default=None, max_length=60)
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -66,4 +68,5 @@ class PatientUpdateRequest(BaseModel):
     email: str | None = Field(default=None, max_length=191)
     dob: date | None = None
     gender: Gender | None = None
+    nationality: str | None = Field(default=None, max_length=60)
     notes: str | None = Field(default=None, max_length=2000)

@@ -7,7 +7,7 @@ from utils.phone import normalize_phone
 
 
 _BASE_COLUMNS = (
-    "id, hn, display_name, phone, email, dob, gender, notes, "
+    "id, hn, display_name, phone, email, dob, gender, nationality, notes, "
     "created_by, created_at, updated_at"
 )
 
@@ -131,6 +131,7 @@ def create(
     email: str | None,
     dob: _date | None,
     gender: str | None,
+    nationality: str | None,
     notes: str | None,
     created_by: int | None,
 ) -> int:
@@ -141,12 +142,12 @@ def create(
             cur.execute(
                 """
                 INSERT INTO patients
-                    (hn, display_name, phone, phone_normalized, email, dob, gender, notes, created_by)
+                    (hn, display_name, phone, phone_normalized, email, dob, gender, nationality, notes, created_by)
                 VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (hn, display_name, phone, normalize_phone(phone) or None,
-                 email, dob, gender, notes, created_by),
+                 email, dob, gender, nationality, notes, created_by),
             )
             new_id = cur.lastrowid
         conn.commit()

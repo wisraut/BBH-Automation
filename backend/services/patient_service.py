@@ -57,6 +57,7 @@ def create_patient(*, body: Any, user: dict[str, Any]) -> dict[str, Any]:
         email=body.email.strip() if body.email else None,
         dob=body.dob,
         gender=body.gender,
+        nationality=body.nationality.strip() if body.nationality else None,
         notes=body.notes.strip() if body.notes else None,
         created_by=user.get("id"),
     )
@@ -80,6 +81,8 @@ def update_patient(
         fields["dob"] = body.dob
     if body.gender is not None:
         fields["gender"] = body.gender
+    if body.nationality is not None:
+        fields["nationality"] = body.nationality.strip() or None
     if body.notes is not None:
         fields["notes"] = body.notes.strip() or None
 

@@ -743,6 +743,10 @@
     "sexFemale": "หญิง",
     "sexMale": "ชาย",
     "sexOther": "อื่น ๆ",
+    "nationality": "สัญชาติ",
+    "nationalityUnset": "ไม่ระบุ",
+    "nationalityOther": "อื่น ๆ (ระบุ)",
+    "nationalitySpecify": "ระบุสัญชาติ",
     "notes": "หมายเหตุ"
   },
   "patientMedicalRecords": {

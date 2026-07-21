@@ -433,6 +433,7 @@ export function Patients() {
                 </div>
                 <p className="mt-2 text-sm text-bbh-muted">
                   <span className="font-mono tabular-nums">{selectedPatient.phone ?? t('patients.noPhone')}</span> · {selectedPatient.email ?? t('patients.noEmail')} · {t('patients.born')} <span className="font-mono tabular-nums">{formatDate(selectedPatient.dob)}</span>
+                  {selectedPatient.nationality ? <> · {selectedPatient.nationality}</> : null}
                 </p>
               </div>
               <div className="flex w-full flex-wrap gap-2 sm:w-auto">

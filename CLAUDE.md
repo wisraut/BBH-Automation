@@ -340,6 +340,20 @@ PostgreSQL (hospital_db):
 
 ---
 
+## Deploy (VM) — อ่านก่อน deploy หรือก่อนคิดว่า "ต้อง deploy"
+
+**ของจริง served จาก VM ARM (aarch64) `149.118.61.110`** — ไม่ใช่ PC. `ssh -i ~/.ssh/bbh_gcp ubuntu@149.118.61.110`
+
+- `~/bbh` บน VM = **สำเนาไฟล์ ไม่ใช่ git repo** (ไม่มี remote/branch); backend code **baked เข้า image `bbh-bridge`** (mount แค่ `credentials/` + `data/reports/`)
+- **Deploy backend** = sync `backend/` → VM `~/bbh/backend` → `cd ~/bbh && docker compose build <bridge-service> && docker compose up -d <bridge-service>` (ดู service name ใน `~/bbh/docker-compose.yml`)
+- **Migration = apply มือ** (ไม่มี auto-runner ใน code): `docker exec -i bbh-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" bbh_bot_ops' < 00xx.sql`. **patients/booking อยู่ MySQL `bbh_bot_ops`** (migrate จาก postgres แล้ว; postgres = legacy hospital_db เฉยๆ)
+- **Frontend deploy แยกขั้น** = `cd frontend && npm run build && npx wrangler pages deploy dist --project-name=bbh-hospital --branch=main` → bbh-hospital.com (Cloudflare Pages, prod = branch `main`; wrangler auth มีอยู่แล้ว)
+- **VM ใช้ `~/bbh/docker-compose.yml`** (build `./embedder` = **BGE-M3 ARM ทำเอง**). ⚠️ `docker-compose.bridge.yaml` ใน repo (embedder = `michaelf34/infinity` **x86**) = **red herring ห้ามเอาไปรันบน VM** (จะพัง embedder ARM)
+
+**⚠️ VM อาจ "นำหน้า" git** — ฟีเจอร์ที่ deploy บน VM แล้วบางทียัง **uncommitted ใน git**; **อย่าเชื่อว่า `git HEAD` = ของที่ deploy จริง**. verify reality ด้วย SSH (`docker inspect bbh-bridge` build time / `SHOW COLUMNS FROM patients`) หรือ live `bridge.bbh-hospital.com/openapi.json` ก่อนสรุปว่าต้อง deploy อะไร
+
+---
+
 ## Status (ระบบปัจจุบัน — BBH n8n Bot)
 
 ### ✅ ทำงานได้แล้ว
@@ -366,6 +380,8 @@ PostgreSQL (hospital_db):
 - [x] **Field สัญชาติ (nationality) คนไข้ + ถามตอนจอง (2026-07-20)** — `nationality VARCHAR(60) NULL` ที่ patients+booking_requests (migration 0056, default NULL); เว็บ `PatientFormModal` dropdown 13 สัญชาติ + "อื่นๆ" free-text + โชว์ในหน้าคนไข้; LINE RAG prompt ถาม optional + normalize เป็น canonical (พม่า→เมียนมา verified), `/internal/booking` ดึงจาก raw_summary (ไม่ต้อง patch n8n), approve → copy ไป patient. code-review clean; deploy VM backend + verified (frontend Pages แยกขั้น)
 - [x] **Staff AI chat: แนบรูป vision + lightbox + layout + ประวัติย้ายไป server (2026-07-20)** — หน้า `/ai`: (1) แนบรูป/วางคลิปบอร์ด → Gemini vision เห็นภาพจริง (validate ≤5MB client+server, รูปเต็ม transient ไม่เก็บ, เตือน PDPA) + lightbox กดขยาย; (2) โซนสนทนาชิดซ้าย+ขยาย `max-w-3xl`; (3) **ประวัติย้าย localStorage→server** (endpoint `/api/ai/conversations*` owner-scoped, `aiStore` rewrite, thumbnail เก็บ DB migration 0055, redact-on-send: DB ต้นฉบับ/LLM masked) → ข้ามเครื่อง/ล้าง browser ไม่หาย. 2 code-review+security แก้ครบ+verified live
 - [x] **Book RAG เข้า staff AI assistant (web `/ai`) + PDPA mask ชื่อคนไข้ (2026-07-20)** — staff AI ต่อ Book RAG (ตำรา 5 เล่ม): `is_book_domain` gate (โดเมน autoimmune/FM, เช็ค history 3 เทิร์น) → `search_books` → inject + `book_sources` ผ่าน SSE/`ChatResponse`; "โหมดแพทย์" อ้างตำราจริงพร้อม cite เล่ม/หน้า. + PDPA: `_all_patient_names()` seed `redact_text` known_names → mask ชื่อคนไข้ในบล็อก schedule (booking+Google Calendar summary) ก่อนส่ง OpenRouter (เดิมหลุด). code-review 6 แก้ครบ + security 0; deploy VM + verified live. **เหลือ Track 2 = frontend render footnote `book_sources` + UI polish**
+
+- [x] **Patient intake fields (migration 0056 nationality + 0057 intake) — deployed live บน VM แล้ว (~2026-07-21)** — CRO กรอกข้อมูล (national_id / blood_type / phone2-4 / address / intake_by) ก่อน confirm booking; MySQL columns + backend API (`PatientIntakeFields` schema ใน live OpenAPI) + frontend ApproveModal ครบทั้ง stack. **หมายเหตุ:** code ค้าง uncommitted จน commit `ae73a22` (2026-07-22, พ่วงกับ design pass); ตอน design session เข้าใจผิดคิดว่า "ยังไม่ deploy" — verify แล้วพบว่า **live อยู่ก่อนแล้ว** (git ตามหลัง VM) → ไม่ต้อง deploy ซ้ำ
 
 ### ⚠️ รอ Test / ปัญหาค้าง
 

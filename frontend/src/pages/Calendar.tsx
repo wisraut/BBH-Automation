@@ -402,14 +402,8 @@ export function Calendar() {
   }
 
   return (
-    <div className="relative flex h-full min-w-0 overflow-hidden bg-bbh-canvas lg:static">
-      <section className="relative isolate min-w-0 flex-1 overflow-y-auto bg-bbh-canvas p-6 md:p-8 lg:p-10">
-        {/* Soft-light wash behind the masthead — same depth cue as Bookings so
-            the CRO flow reads as one surface system. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-48 bg-gradient-to-b from-bbh-green-soft/60 to-transparent"
-        />
+    <div className="relative flex h-full min-w-0 overflow-hidden bg-white lg:static">
+      <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
         {/* Masthead — instrument label + month readout with inline navigation */}
         <div className="animate-rise mb-8">
           <Eyebrow>
@@ -491,7 +485,9 @@ export function Calendar() {
                 rules) so each day reads as a cell in an instrument, not a card */}
             <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line shadow-bbh-sm">
               {cells.map((day, i) => {
-                if (day === null) return <div key={`e-${i}`} className="h-16 bg-white" />
+                // Leading/trailing blanks (days outside this month) get a grey fill
+                // so they read as "not part of this month" and don't look like real days.
+                if (day === null) return <div key={`e-${i}`} className="h-16 bg-bbh-canvas" />
 
                 const dk = toDateKey(year, month, day)
                 const isToday = dk === todayKey

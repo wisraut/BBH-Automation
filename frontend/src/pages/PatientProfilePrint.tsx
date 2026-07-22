@@ -5,6 +5,7 @@ import { Printer } from 'lucide-react'
 import { dateLocale } from '../i18n/datetime'
 import { usePatient } from '../hooks/usePatient'
 import { LanguageToggle } from '../components/LanguageToggle'
+import bbhLogo from '../assets/bbh-logo-dashboard.png'
 
 function ageFrom(dob?: string | null): number | null {
   if (!dob) return null
@@ -70,7 +71,8 @@ export function PatientProfilePrint() {
       <div className="mx-auto max-w-[210mm] bg-white p-10 text-black shadow-sm print:max-w-none print:p-0 print:shadow-none">
         {/* Facility header */}
         <div className="flex items-start justify-between border-b-2 border-black pb-3">
-          <div>
+          <div className="flex flex-col items-start gap-2">
+            <img src={bbhLogo} alt="Better Being Hospital" className="h-14 w-14 object-contain" />
             <p className="text-lg font-bold">{t('profilePrint.hospital')}</p>
           </div>
           <div className="text-right text-xs leading-5">

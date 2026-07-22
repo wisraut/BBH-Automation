@@ -331,8 +331,12 @@ export function Bookings() {
         </div>
       </section>
 
+      {/* Detail pane = a solid WHITE surface (the focused record) lifted off the
+          tinted canvas of the list. This master–detail split reads clearly whatever
+          the canvas tint is; without it the two panes share one flat colour and the
+          divider alone has to carry the separation. */}
       <aside
-        className={`${selectedUid ? 'block' : 'hidden lg:block'} animate-rise w-full overflow-y-auto bg-bbh-canvas p-6 md:p-8 lg:w-[420px] lg:border-l lg:border-bbh-line`}
+        className={`${selectedUid ? 'block' : 'hidden lg:block'} animate-rise w-full overflow-y-auto bg-white p-6 md:p-8 lg:w-[420px] lg:border-l lg:border-bbh-line`}
         style={{ animationDelay: '120ms' }}
       >
         {selectedUid ? (
@@ -374,10 +378,10 @@ export function Bookings() {
             </div>
 
             {/* One "request details" zone (Proximity): time + symptom + notes belong
-                together, so they share ONE hairline container with internal dividers
-                instead of three equal-weight boxes stacked (data-ink: 1 border, not 3).
-                Requested time leads as the decision anchor (larger, ink). */}
-            <dl className="space-y-4 rounded-2xl border border-bbh-line bg-white p-5 shadow-bbh-sm">
+                together — bare on the white pane, split by hairline rules, so it reads
+                as the record's fields (no white-card-on-white box). Requested time
+                leads as the decision anchor (larger, ink). */}
+            <dl className="space-y-4 border-t border-bbh-line pt-5">
               <div>
                 <Eyebrow as="dt">{t('bookings.requestedTime')}</Eyebrow>
                 <dd className="mt-1 font-mono text-base font-semibold tabular-nums text-bbh-ink">

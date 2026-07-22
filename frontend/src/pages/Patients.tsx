@@ -50,8 +50,11 @@ function formatDate(iso?: string | null): string {
 
 // Shared grid template so the browse-table header and rows stay column-aligned.
 // Mobile shows HN · name · reports; ≥sm adds gender/age, phone, last-visit.
+// Name is capped (minmax 10–22rem) instead of eating all free width, and a
+// trailing 1fr spacer soaks up the leftover — so gender/phone/last-visit/reports
+// stay grouped to the left rather than being flung to the far right on a wide card.
 const LIST_COLS =
-  'grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] sm:grid-cols-[6.5rem_minmax(0,1fr)_5rem_8rem_7rem_3rem]'
+  'grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] sm:grid-cols-[6.5rem_minmax(10rem,22rem)_5rem_8rem_7rem_3rem_1fr]'
 
 function computeAge(dob?: string | null): number | null {
   if (!dob) return null
@@ -136,8 +139,11 @@ export function Patients() {
   const [mine, setMine] = useState(false)
   const [sortKey, setSortKey] = useState<PatientSortKey>('hn')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
-  const [selectedId, setSelectedId] = useState<number | null>(queryPatientId)
-  const [showPatientDetail, setShowPatientDetail] = useState(Boolean(queryPatientId))
+  // Selected patient is driven by the URL (?patient=<id>), not local state, so the
+  // browser Back button returns to the list and a record is shareable / survives a
+  // refresh. openPatient/backToList (below) push+clear that param.
+  const selectedId = queryPatientId
+  const showPatientDetail = queryPatientId != null
   const [selectedReportId, setSelectedReportId] = useState<number | null>(queryReportId)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [viewMode, setViewMode] = useState<'detail' | 'chat'>('detail')
@@ -148,17 +154,17 @@ export function Patients() {
   // fewer competing choices per screen).
   const [showReportExtras, setShowReportExtras] = useState(false)
 
-  // Strip ?patient&?report from URL once we've consumed them so the user's
-  // back-button history doesn't keep re-opening the same record.
-  useEffect(() => {
-    if (queryPatientId || queryReportId) {
-      const next = new URLSearchParams(searchParams)
-      next.delete('patient')
-      next.delete('report')
-      setSearchParams(next, { replace: true })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Open a patient's record = push ?patient=<id> (a real history entry, so the
+  // browser Back button pops it and returns to the list); clearing the param goes
+  // back to the list. The report picker stays local — opening a patient resets it.
+  function openPatient(id: number) {
+    setSelectedReportId(null)
+    setViewMode('detail')
+    setSearchParams({ patient: String(id) })
+  }
+  function backToList() {
+    setSearchParams({})
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -223,14 +229,6 @@ export function Patients() {
   )
 
   useEffect(() => {
-    // Wait until the patient list query has resolved so we don't clobber
-    // an id passed in via ?patient= deep link before the list arrives.
-    if (patientsQ.isLoading) return
-    if (selectedId != null) return  // keep user/deep-link selection; detail query loads it
-    setSelectedId(patients[0]?.id ?? null)
-  }, [patients, selectedId, patientsQ.isLoading])
-
-  useEffect(() => {
     // Don't auto-pick the first report while a specific one is being requested via deep link.
     if (reportsQ.isLoading) return
     if (selectedReportId != null && reports.some((report) => report.id === selectedReportId)) return
@@ -247,8 +245,7 @@ export function Patients() {
     if (patientModal === 'create') {
       createPatient.mutate(body as PatientCreateRequest, {
         onSuccess: (patient) => {
-          setSelectedId(patient.id)
-          setShowPatientDetail(true)
+          openPatient(patient.id)
           toast.show('success', t('patients.toast.createSuccess'))
           setPatientModal(null)
         },
@@ -310,7 +307,7 @@ export function Patients() {
   return (
     <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-bbh-canvas">
       <section
-        className={`${showPatientDetail ? 'hidden' : 'flex'} mx-auto my-6 w-full max-w-4xl shrink-0 flex-col overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-bbh-md`}
+        className={`${showPatientDetail ? 'hidden' : 'flex'} m-6 min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-bbh-md`}
       >
         <div className="space-y-3 border-b border-bbh-line p-4">
           <div className="flex items-center gap-2">
@@ -386,12 +383,7 @@ export function Patients() {
                     <button
                       key={patient.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedId(patient.id)
-                        setShowPatientDetail(true)
-                        setSelectedReportId(null)
-                        setViewMode('detail')
-                      }}
+                      onClick={() => openPatient(patient.id)}
                       className={`grid ${LIST_COLS} w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors duration-150 ${FOCUS_RING} ${
                         active ? 'bg-bbh-green-soft' : 'bg-white hover:bg-bbh-surface'
                       }`}
@@ -421,7 +413,7 @@ export function Patients() {
         </div>
       </section>
 
-      <main className={`${showPatientDetail ? 'flex' : 'hidden'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
+      <main className={`${showPatientDetail ? 'flex' : 'hidden'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]'}`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
             {t('patients.selectPatient')}
@@ -451,13 +443,13 @@ export function Patients() {
             </div>
           </div>
         ) : (
-          <div className="relative isolate mx-auto w-full max-w-5xl space-y-5">
-            {/* Soft-light wash behind the record header — same depth cue as the
-                Bookings masthead so the CRO flow reads as one surface system. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-gradient-to-b from-bbh-green-soft/50 to-transparent"
-            />
+          <>
+            {/* Full-width WHITE header band — the record masthead sits on solid
+                white, edge to edge, so the name reads clearly instead of sinking
+                into the tinted canvas. Content stays width-capped + centered inside
+                the band; the record body below keeps the tinted canvas. */}
+            <div className="border-b border-bbh-line bg-white px-6 py-6 md:px-8 lg:px-10">
+              <div className="flex w-full flex-col gap-4">
             {/* w-full is REQUIRED: <main> is a flex-col container, so a flex child
                 with mx-auto but no explicit width shrinks to its content's
                 max-content instead of filling. That made the record width vary per
@@ -467,13 +459,13 @@ export function Patients() {
                 so this is the single way back on every breakpoint. */}
             <button
               type="button"
-              onClick={() => setShowPatientDetail(false)}
+              onClick={backToList}
               className={`inline-flex items-center gap-1.5 self-start rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               <ChevronLeft size={16} />
               {t('patients.backToList')}
             </button>
-            <section className="animate-rise flex flex-wrap items-start justify-between gap-4 border-b border-bbh-line pb-4">
+            <section className="animate-rise flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Eyebrow>Patient Record</Eyebrow>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -502,7 +494,11 @@ export function Patients() {
                 </button>
               </div>
             </section>
+              </div>
+            </div>
 
+            {/* Record body — on the tinted canvas below the white masthead. */}
+            <div className="w-full space-y-5 px-6 py-6 md:px-8 lg:px-10">
             {/* Drug allergies are the single highest-priority safety signal for a
                 doctor opening a record, so they lead the record full-width (clinical-
                 priority hierarchy) instead of sitting compact in the right aside.
@@ -750,6 +746,7 @@ export function Patients() {
               </aside>
             </div>
           </div>
+          </>
         )}
       </main>
 

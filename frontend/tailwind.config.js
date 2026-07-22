@@ -14,10 +14,9 @@ export default {
           surface: '#f7fbf9',
           // Work-surface a shade deeper than card white, so white panels read as
           // elevated instead of blending into the page (depth via value, not colour).
-          // A fresh, low-saturation mint (~5% sat) — same brand green family as the
-          // rest of the palette, kept light so it reads clean, not the murky grey-green
-          // of the earlier #eef3f1. Temperature matches the white cards floating on it.
-          canvas: '#eff6f2',
+          // A soft cool grey — neutral/clinical, reads clean and lets the white cards
+          // sit clearly on top (iterated from an earlier greener tint).
+          canvas: '#f2f5f7',
         },
       },
       boxShadow: {

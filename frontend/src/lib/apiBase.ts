@@ -26,4 +26,10 @@ function deriveFromWindow(): string {
 const fromEnv = import.meta.env.VITE_API_BASE
 export const API_BASE: string = fromEnv && fromEnv.trim() !== ''
   ? fromEnv
-  : deriveFromWindow()
+  // Dev: no local backend on this machine — talk to ourselves (same-origin,
+  // empty base -> `/auth/login` etc.) and let the Vite server.proxy forward
+  // /api + /auth to the VM backend. Keeps the auth cookie same-origin so it
+  // actually sticks. (See vite.config.ts.)
+  : import.meta.env.DEV
+    ? ''
+    : deriveFromWindow()

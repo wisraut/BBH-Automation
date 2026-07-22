@@ -13,6 +13,7 @@ import { useAccountSettings } from '../../hooks/useAccountSettings'
 import { useToast } from '../../hooks/useToast'
 import { openReportFile, downloadReportFile } from '../../lib/reportFile'
 import type { WorkspaceReport } from '../../hooks/useReportsWorkspace'
+import { Eyebrow } from '../ui/Eyebrow'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-1'
@@ -89,7 +90,7 @@ export function ReportDetailDrawer({ report, onClose }: { report: WorkspaceRepor
       >
         <div className="flex items-start justify-between gap-3 border-b border-bbh-line px-5 py-4">
           <div className="min-w-0">
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('reportDetailDrawer.eyebrow')}</p>
+            <Eyebrow>{t('reportDetailDrawer.eyebrow')}</Eyebrow>
             <h2 className="mt-1 truncate font-serif text-xl font-semibold text-bbh-ink">{report.title}</h2>
           </div>
           <button
@@ -154,7 +155,7 @@ export function ReportDetailDrawer({ report, onClose }: { report: WorkspaceRepor
           ) : null}
 
           <div>
-            <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('reportDetailDrawer.content')}</p>
+            <Eyebrow className="mb-1.5">{t('reportDetailDrawer.content')}</Eyebrow>
             {q.isLoading ? (
               <div className="flex items-center gap-2 rounded-xl border border-bbh-line p-4 text-sm text-bbh-muted"><Loader2 size={15} className="animate-spin" /> {t('common.loading')}</div>
             ) : detail?.extracted_text ? (
@@ -166,7 +167,7 @@ export function ReportDetailDrawer({ report, onClose }: { report: WorkspaceRepor
 
           {detail?.notes ? (
             <div>
-              <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('reportDetailDrawer.notes')}</p>
+              <Eyebrow className="mb-1.5">{t('reportDetailDrawer.notes')}</Eyebrow>
               <p className="rounded-xl border border-bbh-line bg-bbh-surface p-3 text-sm text-bbh-ink">{detail.notes}</p>
             </div>
           ) : null}

@@ -64,7 +64,7 @@ export function AllergyBanner({ patientId, scanText, compact = false }: Props) {
               ? t('allergyBanner.matchWarning')
               : t('allergyBanner.allergyCount', { count: allergies.length })}
           </p>
-          <ul className={`mt-1 flex flex-wrap gap-1 ${compact ? 'text-[10px]' : 'text-xs'}`}>
+          <ul className={`mt-1 flex flex-wrap gap-1 ${compact ? 'text-xs' : 'text-xs'}`}>
             {(matches.length > 0 ? matches : allergies).map((a) => (
               <li
                 key={a.id}

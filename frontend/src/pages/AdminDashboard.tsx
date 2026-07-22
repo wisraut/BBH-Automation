@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAcknowledgeAlert } from '../hooks/useAcknowledgeAlert'
 import { useAdminAlertRules } from '../hooks/useAdminAlertRules'
 import { useAdminAlertSummary } from '../hooks/useAdminAlertSummary'
@@ -125,9 +126,7 @@ function MetricCard({ label, value, helper, icon: Icon, tone, onClick, active, l
         }`}
       />
       <div className="flex items-center justify-between gap-3">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-          {label}
-        </span>
+        <Eyebrow as="span">{label}</Eyebrow>
         <span className="flex items-center gap-2">
           {live ? (
             <span className="relative flex h-2 w-2" aria-hidden>
@@ -192,7 +191,7 @@ export function AdminDashboard() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-bbh-green opacity-30" />
                 <span className="relative inline-flex h-2 w-2 animate-beacon rounded-full bg-bbh-green" />
               </span>
-              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.28em] text-bbh-green">
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.28em] text-bbh-green">
                 Admin Control Room
               </span>
             </p>
@@ -325,7 +324,7 @@ export function AdminDashboard() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
-              <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-bbh-line bg-bbh-surface px-6 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid-cols-[140px_1.3fr_140px_120px]">
+              <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-bbh-line bg-bbh-surface px-6 py-4 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid-cols-[140px_1.3fr_140px_120px]">
                 <span>Area</span>
                 <span>{t('adminDashboard.colTitle')}</span>
                 <span className="hidden lg:block">Last seen</span>
@@ -378,7 +377,7 @@ export function AdminDashboard() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className={`rounded-lg border px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] ${SEVERITY_STYLES[severityFilter]}`}>
+              <div className={`rounded-lg border px-4 py-3 font-mono text-xs font-medium uppercase tracking-[0.22em] ${SEVERITY_STYLES[severityFilter]}`}>
                 <span className="tabular-nums">{alerts.length}</span> {severityFilter} alert{alerts.length > 1 ? 's' : ''} · {t('adminDashboard.scrollToSeeAll')}
               </div>
               {alerts.map((a, i) => (
@@ -431,9 +430,9 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
   return (
     <div className="space-y-5">
       <div>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-bbh-muted">
+        <Eyebrow>
           #{alert.alert_id} · {alert.subject_type}:{alert.subject_id}
-        </p>
+        </Eyebrow>
         <h2 className={`${compact ? 'text-xl' : 'text-2xl'} mt-1 font-serif font-semibold text-bbh-ink`}>{alert.title}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusPill status={alert.status} />
@@ -448,7 +447,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
 
       {ruleDescription ? (
         <div className="rounded-xl border border-bbh-line bg-white p-6">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Rule</p>
+          <Eyebrow>Rule</Eyebrow>
           <p className="mt-2 text-sm font-semibold text-bbh-ink">{alert.rule_display_name}</p>
           <p className="mt-1 text-xs leading-relaxed text-bbh-muted">{ruleDescription}</p>
         </div>
@@ -456,7 +455,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
 
       {detailEntries.length > 0 ? (
         <div className="rounded-xl border border-bbh-line bg-white p-6">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Context</p>
+          <Eyebrow>Context</Eyebrow>
           <dl className="mt-2 grid grid-cols-1 gap-1 text-xs">
             {detailEntries.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3 border-b border-bbh-line/60 py-1 last:border-0">
@@ -468,20 +467,20 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
         </div>
       ) : null}
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="rounded-xl border border-bbh-line bg-white p-6">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">First seen</p>
+      <div className="grid grid-cols-1 divide-y divide-bbh-line overflow-hidden rounded-xl border border-bbh-line bg-white sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+        <div className="p-6">
+          <Eyebrow>First seen</Eyebrow>
           <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatRelative(alert.first_seen_at, t)}</p>
         </div>
-        <div className="rounded-xl border border-bbh-line bg-white p-6">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Last seen</p>
+        <div className="p-6">
+          <Eyebrow>Last seen</Eyebrow>
           <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatRelative(alert.last_seen_at, t)}</p>
         </div>
       </div>
 
       {alert.status === 'open' ? (
         <div className="rounded-xl border border-bbh-line bg-white p-6">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Acknowledge</p>
+          <Eyebrow>Acknowledge</Eyebrow>
           <textarea
             value={ackNote}
             onChange={(e) => setAckNote(e.target.value)}
@@ -524,7 +523,7 @@ function AlertDetail({ alert, ruleDescription, compact = false }: {
 
       {alert.status !== 'resolved' ? (
         <div className="rounded-xl border border-bbh-line bg-white p-6">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Resolve</p>
+          <Eyebrow>Resolve</Eyebrow>
           <select
             value={resolveReason}
             onChange={(e) => setResolveReason(e.target.value)}

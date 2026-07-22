@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../lib/auth'
 import { useReportsWorkspace, type ReportDecision, type WorkspaceReport } from '../hooks/useReportsWorkspace'
 import { ReportDetailDrawer } from '../components/reports/ReportDetailDrawer'
+import { Eyebrow } from '../components/ui/Eyebrow'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -127,9 +128,7 @@ export function Reports() {
         {/* Masthead — instrument label + serif heading, refresh action on the right */}
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-              Patient Reports
-            </p>
+            <Eyebrow>Patient Reports</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('reports.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('reports.subtitle')}
@@ -238,7 +237,7 @@ export function Reports() {
           ) : (
             <>
               <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
-                <div className="hidden grid-cols-[180px_1fr_110px_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
+                <div className="hidden grid-cols-[180px_1fr_110px_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
                   <span>{t('reports.colPatient')}</span>
                   <span>{t('reports.colTitle')}</span>
                   <span>{t('reports.colType')}</span>

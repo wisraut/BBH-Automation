@@ -28,6 +28,7 @@ import {
   type ScheduleBlock,
 } from '../hooks/useScheduleBlocks'
 import { useAuth } from '../lib/auth'
+import { Eyebrow } from '../components/ui/Eyebrow'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
@@ -150,7 +151,7 @@ function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
   return (
     <div className="flex min-h-[112px] flex-col justify-between bg-white p-5">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</span>
+        <Eyebrow as="span">{label}</Eyebrow>
         <Icon size={15} className={color} />
       </div>
       <span className="font-mono text-3xl font-semibold leading-none tabular-nums text-bbh-ink">{value}</span>
@@ -204,18 +205,18 @@ function CreateBlockModal({
     <Modal open={open} title={t('doctorCalendar.addTimeOff')} onClose={onClose} size="md">
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.type')}</label>
+          <label className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.type')}</label>
           <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={`mt-2 ${fieldClass}`}>
             {BLOCK_TYPES.map((item) => <option key={item.value} value={item.value}>{t(`doctorCalendar.${item.labelKey}`)}</option>)}
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.start')}</label>
+            <label className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.start')}</label>
             <input required type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
           </div>
           <div>
-            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.end')}</label>
+            <label className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.end')}</label>
             <input required type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
           </div>
         </div>
@@ -264,9 +265,9 @@ function MonthGrid({
       <div className="min-w-[640px] md:min-w-0">
         <div className="mb-2 grid grid-cols-7 gap-px">
           {MONTH_DAY_CELLS.map((_day, index) => (
-            <div key={index} className="py-2 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">
+            <Eyebrow as="div" key={index} className="py-2 text-center">
               {t(`doctorCalendar.monthDayShort.${index}`)}
-            </div>
+            </Eyebrow>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line">
@@ -292,12 +293,12 @@ function MonthGrid({
                 </span>
                 <div className="mt-auto flex w-full flex-col gap-0.5">
                   {dayAppointments.length > 0 ? (
-                    <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark">
+                    <span className="truncate rounded bg-bbh-green-soft px-1 text-xs font-medium leading-tight text-bbh-green-dark">
                       <span className="font-mono tabular-nums">{dayAppointments.length}</span> {t('doctorCalendar.appointmentsUnit')}
                     </span>
                   ) : null}
                   {dayBlocks.length > 0 ? (
-                    <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted">
+                    <span className="truncate rounded bg-bbh-surface px-1 text-xs font-medium leading-tight text-bbh-muted">
                       <span className="font-mono tabular-nums">{dayBlocks.length}</span> {t('doctorCalendar.awayUnit')}
                     </span>
                   ) : null}
@@ -394,7 +395,7 @@ export function DoctorCalendar() {
       <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
         <div className="animate-rise mb-8 flex flex-col gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Doctor Calendar</p>
+            <Eyebrow>Doctor Calendar</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('doctorCalendar.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('doctorCalendar.subtitle')}
@@ -434,7 +435,7 @@ export function DoctorCalendar() {
           <div className="animate-rise min-w-0 overflow-hidden rounded-xl border border-bbh-line bg-white" style={{ animationDelay: '100ms' }}>
             <div className="flex items-center justify-between gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4">
               <div>
-                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{mode === 'week' ? t('doctorCalendar.weekView') : t('doctorCalendar.monthView')}</p>
+                <Eyebrow>{mode === 'week' ? t('doctorCalendar.weekView') : t('doctorCalendar.monthView')}</Eyebrow>
                 <p className="mt-1 font-serif text-xl font-semibold text-bbh-ink">
                   {periodTitle}
                 </p>
@@ -464,7 +465,7 @@ export function DoctorCalendar() {
               <div ref={weekScrollRef} className="overflow-x-auto">
                 <div className="min-w-[980px]">
                   <div className="grid grid-cols-[72px_repeat(7,minmax(116px,1fr))] border-b border-bbh-line bg-white">
-                    <div className="border-r border-bbh-line px-3 py-3 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">{t('doctorCalendar.timeColumn')}</div>
+                    <Eyebrow as="div" className="border-r border-bbh-line px-3 py-3">{t('doctorCalendar.timeColumn')}</Eyebrow>
                     {weekDays.map((day, index) => {
                       const key = toDateKey(day)
                       const active = key === todayKey
@@ -475,7 +476,7 @@ export function DoctorCalendar() {
                           onClick={() => openBlock(key, 9)}
                           className={`border-r border-bbh-line px-3 py-3 text-left transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
                         >
-                          <p className={`font-mono text-[10px] font-medium uppercase tracking-[0.18em] ${active ? 'text-bbh-green-dark' : 'text-bbh-muted'}`}>{t(`doctorCalendar.dayLabel.${index}`)}</p>
+                          <p className={`font-mono text-xs font-medium uppercase tracking-[0.18em] ${active ? 'text-bbh-green-dark' : 'text-bbh-muted'}`}>{t(`doctorCalendar.dayLabel.${index}`)}</p>
                           <p className="mt-1 font-serif text-lg font-semibold text-bbh-ink">{formatDate(day)}</p>
                         </button>
                       )
@@ -484,7 +485,7 @@ export function DoctorCalendar() {
                   <div className="grid grid-cols-[72px_repeat(7,minmax(116px,1fr))]">
                     <div className="border-r border-bbh-line bg-bbh-surface">
                       {HOURS.map((hour) => (
-                        <div key={hour} className="h-[72px] border-b border-bbh-line px-3 py-2 text-right font-mono text-[11px] tabular-nums text-bbh-muted">
+                        <div key={hour} className="h-[72px] border-b border-bbh-line px-3 py-2 text-right font-mono text-xs tabular-nums text-bbh-muted">
                           {String(hour).padStart(2, '0')}:00
                         </div>
                       ))}
@@ -516,7 +517,7 @@ export function DoctorCalendar() {
                                 style={{ top: pos.top, height: pos.height }}
                               >
                                 <p className="truncate font-semibold">{blockTypeLabel(block.block_type, t)}</p>
-                                <p className="truncate font-mono text-[10px] tabular-nums">{formatBlockRange(block)}</p>
+                                <p className="truncate font-mono text-xs tabular-nums">{formatBlockRange(block)}</p>
                               </button>
                             )
                           })}
@@ -530,9 +531,9 @@ export function DoctorCalendar() {
                                 className={`absolute left-2 right-2 overflow-hidden rounded-lg border border-bbh-green/40 bg-white px-2 py-1 text-left text-xs shadow-sm shadow-bbh-green/10 ring-1 ring-bbh-green/10 transition-colors duration-200 hover:bg-bbh-green-soft/80 ${FOCUS_RING}`}
                                 style={{ top: pos.top, height: pos.height }}
                               >
-                                <p className="truncate font-mono text-[10px] tabular-nums text-bbh-green-dark">{formatTime(apt.requested_time)}</p>
+                                <p className="truncate font-mono text-xs tabular-nums text-bbh-green-dark">{formatTime(apt.requested_time)}</p>
                                 <p className="truncate font-semibold text-bbh-ink">{apt.patient_name || t('doctorCalendar.unnamedPatient')}</p>
-                                <p className="truncate text-[11px] text-bbh-muted">{apt.symptom || apt.appointment_type || t('doctorCalendar.consultation')}</p>
+                                <p className="truncate text-xs text-bbh-muted">{apt.symptom || apt.appointment_type || t('doctorCalendar.consultation')}</p>
                               </button>
                             )
                           })}
@@ -547,7 +548,7 @@ export function DoctorCalendar() {
 
           <aside className="animate-rise space-y-4" style={{ animationDelay: '140ms' }}>
             <div className="rounded-xl border border-bbh-line bg-white p-5">
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Inspector</p>
+              <Eyebrow>Inspector</Eyebrow>
               {!selection && !selectedDate ? (
                 <div className="mt-6 text-sm leading-relaxed text-bbh-muted">
                   <p>{t('doctorCalendar.inspectorEmpty')}</p>
@@ -561,34 +562,39 @@ export function DoctorCalendar() {
                     <p className="font-serif text-2xl font-semibold text-bbh-ink">{selectedDate}</p>
                     <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{t('doctorCalendar.appointmentsCount', { count: selectedAppointments.length })} · {t('doctorCalendar.blocksCount', { count: selectedBlocks.length })}</p>
                   </div>
-                  <div className="space-y-2">
-                    {selectedAppointments.map((apt) => (
-                      <button
-                        key={apt.request_uid}
-                        type="button"
-                        onClick={() => setSelection({ kind: 'appointment', item: apt })}
-                        className={`w-full rounded-lg border border-bbh-line bg-white p-3 text-left transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
-                      >
-                        <p className="font-mono text-[11px] tabular-nums text-bbh-green-dark">{formatTime(apt.requested_time)}</p>
-                        <p className="mt-1 text-sm font-semibold text-bbh-ink">{apt.patient_name || t('doctorCalendar.unnamedPatient')}</p>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-bbh-muted">{apt.symptom || apt.appointment_type || t('doctorCalendar.consultation')}</p>
-                      </button>
-                    ))}
-                    {selectedBlocks.map((block) => (
-                      <button
-                        key={block.id}
-                        type="button"
-                        onClick={() => setSelection({ kind: 'block', item: block })}
-                        className={`w-full rounded-lg border border-bbh-line bg-bbh-surface p-3 text-left text-bbh-ink transition-colors duration-200 hover:border-bbh-green/40 ${FOCUS_RING}`}
-                      >
-                        <p className="text-sm font-semibold">{blockTypeLabel(block.block_type, t)}</p>
-                        <p className="mt-1 font-mono text-[11px] tabular-nums">{formatBlockRange(block)}</p>
-                      </button>
-                    ))}
-                    {selectedAppointments.length === 0 && selectedBlocks.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-bbh-line bg-bbh-surface p-4 text-sm text-bbh-muted">{t('doctorCalendar.noItemsToday')}</p>
-                    ) : null}
-                  </div>
+                  {selectedAppointments.length === 0 && selectedBlocks.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-bbh-line bg-bbh-surface p-4 text-sm text-bbh-muted">{t('doctorCalendar.noItemsToday')}</p>
+                  ) : (
+                    /* One list zone (Proximity + Data-ink): hairline-divided rows in a
+                       single container instead of N separate bordered cards — same list
+                       language as the CRO inbox (Repetition). Block rows keep the surface
+                       fill so away/time-off still reads distinct from appointments. */
+                    <div className="divide-y divide-bbh-line overflow-hidden rounded-xl border border-bbh-line">
+                      {selectedAppointments.map((apt) => (
+                        <button
+                          key={apt.request_uid}
+                          type="button"
+                          onClick={() => setSelection({ kind: 'appointment', item: apt })}
+                          className={`block w-full bg-white px-3 py-2.5 text-left transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
+                        >
+                          <p className="font-mono text-xs tabular-nums text-bbh-green-dark">{formatTime(apt.requested_time)}</p>
+                          <p className="mt-1 text-sm font-semibold text-bbh-ink">{apt.patient_name || t('doctorCalendar.unnamedPatient')}</p>
+                          <p className="mt-0.5 line-clamp-1 text-xs text-bbh-muted">{apt.symptom || apt.appointment_type || t('doctorCalendar.consultation')}</p>
+                        </button>
+                      ))}
+                      {selectedBlocks.map((block) => (
+                        <button
+                          key={block.id}
+                          type="button"
+                          onClick={() => setSelection({ kind: 'block', item: block })}
+                          className={`block w-full bg-bbh-surface px-3 py-2.5 text-left text-bbh-ink transition-colors duration-200 hover:bg-bbh-green-soft ${FOCUS_RING}`}
+                        >
+                          <p className="text-sm font-semibold">{blockTypeLabel(block.block_type, t)}</p>
+                          <p className="mt-1 font-mono text-xs tabular-nums">{formatBlockRange(block)}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <button type="button" onClick={() => openBlock(selectedDate, 9)} className={`inline-flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>
                     <Plus size={15} /> {t('doctorCalendar.addBlockToday')}
                   </button>
@@ -600,7 +606,7 @@ export function DoctorCalendar() {
                     <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{selection.item.requested_date} · {formatTime(selection.item.requested_time)}</p>
                   </div>
                   <div className="rounded-lg border border-bbh-line bg-bbh-surface p-3">
-                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">Reason</p>
+                    <Eyebrow>Reason</Eyebrow>
                     <p className="mt-1 text-sm text-bbh-ink">{selection.item.symptom || '-'}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -628,7 +634,7 @@ export function DoctorCalendar() {
                     <p className="mt-1 font-mono text-sm tabular-nums text-bbh-muted">{formatBlockRange(selection.item)}</p>
                   </div>
                   <div className="rounded-lg border border-bbh-line bg-bbh-surface p-3">
-                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">Reason</p>
+                    <Eyebrow>Reason</Eyebrow>
                     <p className="mt-1 text-sm text-bbh-ink">{selection.item.reason || '-'}</p>
                   </div>
                   {selection.item.video_link ? (
@@ -657,7 +663,7 @@ export function DoctorCalendar() {
             </div>
 
             <div className="rounded-xl border border-bbh-line bg-white p-5">
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Availability rule</p>
+              <Eyebrow>Availability rule</Eyebrow>
               <div className="mt-4 space-y-3 text-sm text-bbh-muted">
                 <p className="flex items-start gap-2"><CheckCircle2 size={15} className="mt-0.5 shrink-0 text-bbh-green" /> {t('doctorCalendar.availabilityRule1')}</p>
                 <p className="flex items-start gap-2"><CalendarOff size={15} className="mt-0.5 shrink-0 text-bbh-muted" /> {t('doctorCalendar.availabilityRule2')}</p>

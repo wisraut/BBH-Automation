@@ -7,7 +7,7 @@ export function SourceBadge({ source }: { source: string }) {
   const { t } = useTranslation()
   const label = SOURCE_KEYS.has(source) ? t(`sourceBadge.${source}`) : source
   return (
-    <span className="inline-flex items-center rounded-md border border-bbh-line bg-bbh-surface px-2 py-0.5 font-mono text-[11px] font-medium tracking-wide text-bbh-muted">
+    <span className="inline-flex items-center rounded-md border border-bbh-line bg-bbh-surface px-2 py-0.5 font-mono text-xs font-medium tracking-wide text-bbh-muted">
       {label}
     </span>
   )

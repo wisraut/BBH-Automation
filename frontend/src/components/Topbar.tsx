@@ -32,7 +32,7 @@ export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
             <Menu size={20} />
           </button>
           <div className="min-w-0">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.28em] text-bbh-green">
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.28em] text-bbh-green">
             {t('topbar.brand')}
           </p>
           <h1 className="truncate font-serif text-lg font-semibold leading-tight text-bbh-ink md:text-xl lg:text-2xl">{title}</h1>
@@ -49,7 +49,7 @@ export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
               >
                 <ArrowLeft size={15} />
                 <span className="hidden sm:inline">{t('topbar.backToAdmin')}</span>
-                <span className="hidden rounded-full bg-bbh-green-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark md:inline">
+                <span className="hidden rounded-full bg-bbh-green-soft px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-bbh-green-dark md:inline">
                   {t('topbar.viewingAs', { role: t(`roleShort.${viewAs}`) })}
                 </span>
               </Link>

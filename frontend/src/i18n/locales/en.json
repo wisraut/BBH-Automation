@@ -168,6 +168,7 @@
     "title": "Confirm booking",
     "patient": "Patient",
     "requestedByCustomer": "Requested:",
+    "scheduleSection": "Schedule",
     "appointmentDateTime": "Appointment date/time",
     "durationMinutes": "Duration (minutes)",
     "patientDoctor": "Patient's doctor",
@@ -757,6 +758,47 @@
     "nationalitySpecify": "Specify nationality",
     "notes": "Notes"
   },
+  "intake": {
+    "title": "Patient details",
+    "sectionIdentity": "Identity",
+    "sectionContact": "Contact & medical",
+    "sectionIntakeBy": "Filled by",
+    "addMore": "Add phone / email",
+    "missingPrefix": "Still missing",
+    "name": "Full name",
+    "gender": "Gender",
+    "dob": "Date of birth",
+    "nationalId": "National ID / Passport",
+    "bloodType": "Blood type",
+    "bloodUnknown": "Unknown",
+    "phone1": "Phone 1",
+    "phone2": "Phone 2",
+    "phone3": "Phone 3",
+    "phone4": "Phone 4",
+    "email": "Email",
+    "address": "Address",
+    "intakeBy": "Filled by (staff)",
+    "intakeByPlaceholder": "Type the staff name",
+    "selectPlaceholder": "Select",
+    "incompleteError": "Please fill all required (*) fields before confirming",
+    "fillFirst": "Fill patient details first"
+  },
+  "patientProfile": {
+    "edit": "Edit",
+    "print": "Print profile",
+    "saved": "Profile saved",
+    "saveFailed": "Save failed, please try again"
+  },
+  "profilePrint": {
+    "hospital": "Better Being Hospital",
+    "title": "Patient Profile",
+    "printedOn": "Printed",
+    "ageYears": "{{age}} yrs",
+    "patientSign": "Patient signature",
+    "staffSign": "Staff signature",
+    "dateLine": "Date ______________",
+    "print": "Print"
+  },
   "patientMedicalRecords": {
     "edit": "Edit",
     "doneEditing": "Done",
@@ -818,6 +860,12 @@
   },
   "patients": {
     "searchPlaceholder": "Search name, HN, or phone",
+    "colHn": "HN",
+    "colName": "Name",
+    "colGenderAge": "Sex/Age",
+    "colPhone": "Phone",
+    "colLastVisit": "Last visit",
+    "colReports": "Rpt",
     "myPatients": "My patients",
     "myPatientsTooltip": "Show only patients under my care",
     "addPatient": "Add patient",
@@ -842,7 +890,8 @@
     "tabs": {
       "overview": "Overview",
       "labs": "Lab results",
-      "activity": "Activity"
+      "activity": "Activity",
+      "profile": "Profile"
     },
     "openReportTooltip": "Open report in a new tab",
     "openFile": "Open file",

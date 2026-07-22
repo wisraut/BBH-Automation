@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
 import { Sparkline } from './Sparkline'
+import { Eyebrow } from '../ui/Eyebrow'
 import {
   useMeasurementCatalog,
   usePatientMeasurements,
@@ -52,18 +53,18 @@ function MarkerCard({ cat, series }: { cat: MeasurementCatalogItem; series: Meas
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-bbh-ink">{cat.label_th}</p>
-          <p className="font-mono text-[10px] text-bbh-muted">{t('biomarkerSection.optimalRange', { low: fmt(cat.optimal_low), high: fmt(cat.optimal_high), unit: cat.unit })}</p>
+          <p className="font-mono text-xs text-bbh-muted">{t('biomarkerSection.optimalRange', { low: fmt(cat.optimal_low), high: fmt(cat.optimal_high), unit: cat.unit })}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[status]}`}>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[status]}`}>
           {t(`biomarkerSection.${STATUS_LABEL_KEY[status]}`)}
         </span>
       </div>
       <div className="mt-2 flex items-end justify-between gap-2">
         <div>
           <p className={`font-mono text-xl font-semibold tabular-nums ${latestColor}`}>
-            {fmt(latest)}<span className="ml-1 text-[11px] font-normal text-bbh-muted">{cat.unit}</span>
+            {fmt(latest)}<span className="ml-1 text-xs font-normal text-bbh-muted">{cat.unit}</span>
           </p>
-          <p className="flex items-center gap-1 font-mono text-[11px] text-bbh-muted">
+          <p className="flex items-center gap-1 font-mono text-xs text-bbh-muted">
             {delta == null ? (
               t('biomarkerSection.singleValue')
             ) : (
@@ -108,9 +109,9 @@ export function BiomarkerSection({ patientId }: { patientId: number }) {
 
   return (
     <section>
-      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+      <Eyebrow as="h2" className="mb-3">
         {t('biomarkerSection.title')}
-      </h2>
+      </Eyebrow>
       {loading ? (
         <div className="rounded-xl border border-bbh-line bg-white p-6 text-center text-sm text-bbh-muted">{t('biomarkerSection.loading')}</div>
       ) : cards.length === 0 ? (

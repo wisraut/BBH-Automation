@@ -214,6 +214,7 @@ def approve_booking(
     assigned_doctor_id: int | None = None,
     link_patient_id: int | None = None,
     create_new_patient: bool = False,
+    patient_intake: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """อนุมัตินัดที่ยัง pending — หัวใจของ flow ฝั่ง CRO ทำตามลำดับนี้:
     ตรวจ state/เวลา/แพทย์ว่าง -> เช็คคิวชนใน Google Calendar -> ระบุตัวคนไข้
@@ -333,6 +334,22 @@ def approve_booking(
                 "message": "รายการถูกอัปเดตโดยผู้อื่นแล้ว",
             },
         )
+
+    # Persist the CRO's patient intake onto the created/linked chart. Best-effort:
+    # the approval + calendar event are already committed, so an intake write
+    # hiccup must not error the whole approve (the CRO UI gates required fields
+    # before submit, so the data is present — this only stores it).
+    if patient_intake and approved.get("patient_id"):
+        fields = {
+            k: (v.strip() if isinstance(v, str) else v)
+            for k, v in patient_intake.items()
+            if v is not None and (not isinstance(v, str) or v.strip())
+        }
+        if fields:
+            try:
+                patient_repo.update(patient_id=int(approved["patient_id"]), fields=fields)
+            except Exception as exc:  # noqa: BLE001 — intake save is best-effort
+                logger.warning("Patient intake save failed for booking %s: %s", uid, exc)
 
     # Seed the patient's care team from the assigned doctor (best-effort — a
     # care-team hiccup must not fail an otherwise-successful approval).

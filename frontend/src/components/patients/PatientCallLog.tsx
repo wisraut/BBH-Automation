@@ -44,7 +44,7 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h3 className="font-serif text-base font-semibold text-bbh-ink">{t('patientCallLog.title')}</h3>
-          <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-[11px] text-bbh-muted">{calls.length}</span>
+          <span className="rounded-full bg-bbh-surface px-2 py-0.5 text-xs text-bbh-muted">{calls.length}</span>
         </div>
         <button
           type="button"
@@ -72,7 +72,7 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
                     ) : (
                       <ArrowDownLeft size={12} className="text-bbh-muted" />
                     )}
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.tone}`}>
+                    <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.tone}`}>
                       {t(`patientCallLog.outcome.${c.outcome}`)}
                     </span>
                     {c.duration_min != null ? (
@@ -89,7 +89,7 @@ export function PatientCallLog({ patientId }: { patientId: number }) {
                   ) : null}
                   {c.note ? <p className="mt-1 text-sm text-bbh-ink whitespace-pre-wrap">{c.note}</p> : null}
                   {c.called_by_name ? (
-                    <p className="mt-1 text-[10px] text-bbh-muted">{t('patientCallLog.by', { name: c.called_by_name })}</p>
+                    <p className="mt-1 text-xs text-bbh-muted">{t('patientCallLog.by', { name: c.called_by_name })}</p>
                   ) : null}
                 </div>
                 <button

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
 import type { AiSession } from '../../hooks/useAiSessions'
+import { Eyebrow } from '../ui/Eyebrow'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -42,9 +43,9 @@ export function AiSessionsList({
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-bbh-line bg-white">
       <div className="shrink-0 border-b border-bbh-line px-4 py-4">
-        <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+        <Eyebrow className="mb-3">
           {t('aiSessionsList.history')}
-        </p>
+        </Eyebrow>
         <button
           type="button"
           onClick={onNew}
@@ -88,7 +89,7 @@ export function AiSessionsList({
                         <p className={`truncate font-medium ${active ? 'text-bbh-green-dark' : 'text-bbh-ink'}`}>
                           {s.title || t('aiSessionsList.newChat')}
                         </p>
-                        <p className="mt-0.5 font-mono text-[11px] tabular-nums text-bbh-muted">
+                        <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">
                           {formatRelative(s.updatedAt, t)} · {t('aiSessionsList.messageCount', { count: s.messages.length })}
                         </p>
                       </div>

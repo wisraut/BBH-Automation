@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, CheckCircle, Clock, Copy, KeyRound, Link2, LogOut, ShieldCheck, XCircle } from 'lucide-react'
 
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAccountSettings, useSaveAccountSettings } from '../hooks/useAccountSettings'
 import { useChangePassword } from '../hooks/useChangePassword'
 import { useMyAuditLogs } from '../hooks/useMyAuditLogs'
@@ -105,9 +106,7 @@ export function Account() {
       <section className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
         {/* Masthead — instrument label + serif heading */}
         <div className="animate-rise mb-10">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-            Account
-          </p>
+          <Eyebrow>Account</Eyebrow>
           <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('account.title')}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
             {t('account.subtitle')}

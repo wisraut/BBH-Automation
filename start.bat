@@ -52,6 +52,17 @@ goto wait_docker
 :docker_ready
 echo   Docker ready.
 
+REM ------------------------------------------------------------
+REM Ensure the shared docker network exists. It was originally created by the
+REM (now-removed) Dify stack as "docker_default"; the compose files below attach
+REM to it as external, so create it if missing — otherwise compose up fails with
+REM "network docker_default not found" after the Dify stack is fully removed.
+REM ------------------------------------------------------------
+docker network inspect docker_default >nul 2>&1 || (
+    echo   Shared network missing - creating docker_default...
+    docker network create docker_default >nul 2>&1
+)
+
 REM ============================================================
 REM [2/5] Bot Ops MySQL
 REM ============================================================
@@ -83,10 +94,10 @@ goto wait_bot_ops_db
 echo   Bot Ops DB ready.
 
 REM ============================================================
-REM [3/5] Bridge (FastAPI backend)
+REM [3/5] Bridge (FastAPI backend) + Embedder (RAG BGE-M3)
 REM ============================================================
 echo.
-echo [3/5] Starting Bridge...
+echo [3/5] Starting Bridge + Embedder...
 docker image inspect hospital-bridge:dev >nul 2>&1
 if errorlevel 1 (
     echo   Image not found - building on first run...
@@ -118,6 +129,29 @@ goto wait_bridge
 
 :bridge_ready
 echo   Bridge ready. HTTP: !BRIDGE_CODE!
+
+REM ------------------------------------------------------------
+REM Embedder readiness — the RAG lane can't embed until BGE-M3 finishes loading.
+REM It starts as part of the bridge compose above; wait for its /health.
+REM ------------------------------------------------------------
+echo   Waiting for Embedder (RAG model load)...
+set /a elapsed=0
+:wait_embedder
+curl -s -o nul -w "%%{http_code}" http://127.0.0.1:8085/health > "%TEMP%\bbh_embed.txt" 2>nul
+set /p EMBED_CODE=<"%TEMP%\bbh_embed.txt"
+del "%TEMP%\bbh_embed.txt" >nul 2>&1
+if "!EMBED_CODE!"=="200" goto embedder_ready
+if !elapsed! geq 150 (
+    echo   [WARN] Embedder not ready after 150s. HTTP: !EMBED_CODE!. RAG/AI unavailable until it loads.
+    goto embedder_ready
+)
+echo   Waiting for Embedder... HTTP !EMBED_CODE! / !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
+goto wait_embedder
+
+:embedder_ready
+echo   Embedder ready. HTTP: !EMBED_CODE!
 
 REM ============================================================
 REM [4/5] n8n (LINE Main Bot workflow runner)

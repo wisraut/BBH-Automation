@@ -8,6 +8,7 @@ import { PatientPickerModal } from '../components/ai/PatientPickerModal'
 import { useAiChat } from '../hooks/useAiChat'
 import { useAuth } from '../lib/auth'
 import { prepareImage, validateImage, type PreparedImage } from '../lib/image'
+import { Eyebrow } from '../components/ui/Eyebrow'
 
 // Human-readable file size for the staged-image chip.
 function formatSize(bytes: number): string {
@@ -88,7 +89,7 @@ function MessageBubble(
             ))}
           </div>
         )}
-        <p className="px-1 font-mono text-[11px] tabular-nums text-bbh-muted">
+        <p className="px-1 font-mono text-xs tabular-nums text-bbh-muted">
           {ts.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
@@ -248,9 +249,9 @@ export function AiAssistant() {
           </div>
           <div className="min-w-0">
             <p className="font-serif text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
-            <p className="truncate font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">
+            <Eyebrow className="truncate">
               {ctx.label} · Gemini Flash
-            </p>
+            </Eyebrow>
           </div>
         </div>
 
@@ -294,9 +295,9 @@ export function AiAssistant() {
                 BBH AI Assistant
               </p>
               <p className="mt-1 text-sm leading-relaxed text-bbh-muted">{ctx.hint}</p>
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">
+              <Eyebrow className="mt-4">
                 {t('aiAssistant.startHint')}
-              </p>
+              </Eyebrow>
             </div>
           </div>
         ) : (
@@ -343,7 +344,7 @@ export function AiAssistant() {
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-bbh-ink">{staged.name}</p>
-                  <p className="font-mono text-[11px] tabular-nums text-bbh-muted">{formatSize(staged.size)}</p>
+                  <p className="font-mono text-xs tabular-nums text-bbh-muted">{formatSize(staged.size)}</p>
                 </div>
                 <button
                   type="button"

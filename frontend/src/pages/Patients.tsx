@@ -2,33 +2,30 @@
 import { dateLocale } from '../i18n/datetime'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronLeft, Download, Edit3, ExternalLink, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronUp, Download, Edit3, ExternalLink, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
 
 import { openReportFile, downloadReportFile } from '../lib/reportFile'
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
 import { PatientMedicalRecords } from '../components/patients/PatientMedicalRecords'
+import { PatientProfileSection } from '../components/patients/PatientProfileSection'
 import { CareTeamSection } from '../components/patients/CareTeamSection'
 import { LabResultsSection } from '../components/patients/LabResultsSection'
 import { BiomarkerSection } from '../components/patients/BiomarkerSection'
-import { MeasurementReviewPanel } from '../components/reports/MeasurementReviewPanel'
 import { ReportFilterBar } from '../components/reports/ReportFilterBar'
 import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
-import { AnalysisPanel } from '../components/reports/AnalysisPanel'
 import { ReportUploadModal } from '../components/reports/ReportUploadModal'
 import { useAllBookings } from '../hooks/useAllBookings'
-import { useAnalyzeReport } from '../hooks/useAnalyzeReport'
 import { useCreatePatient } from '../hooks/useCreatePatient'
-import { useDecideTriage } from '../hooks/useDecideTriage'
 import { useDeleteReport } from '../hooks/useDeleteReport'
 import { useSetNotebookLmUrl } from '../hooks/useSetNotebookLmUrl'
 import { usePatient } from '../hooks/usePatient'
 import { usePatientReports } from '../hooks/usePatientReports'
-import { usePatients } from '../hooks/usePatients'
+import { usePatients, type PatientSortKey, type SortDirection } from '../hooks/usePatients'
 import { useReport } from '../hooks/useReport'
-import { useReportAnalyses } from '../hooks/useReportAnalyses'
 import { useUpdatePatient } from '../hooks/useUpdatePatient'
 import { useUploadReport } from '../hooks/useUploadReport'
 import { useToast } from '../hooks/useToast'
@@ -51,6 +48,48 @@ function formatDate(iso?: string | null): string {
   })
 }
 
+// Shared grid template so the browse-table header and rows stay column-aligned.
+// Mobile shows HN · name · reports; ≥sm adds gender/age, phone, last-visit.
+const LIST_COLS =
+  'grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] sm:grid-cols-[6.5rem_minmax(0,1fr)_5rem_8rem_7rem_3rem]'
+
+function computeAge(dob?: string | null): number | null {
+  if (!dob) return null
+  const d = new Date(dob)
+  if (Number.isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1
+  return age >= 0 && age < 150 ? age : null
+}
+function genderShort(g?: string | null): string {
+  return g === 'male' ? 'ช' : g === 'female' ? 'ญ' : g === 'other' ? 'อ' : '—'
+}
+
+// Clickable column header — sorts by its key, flips direction on re-click, and
+// shows an arrow for the active column (spreadsheet convention; no guessing).
+function SortHead({ k, label, sortKey, sortDir, onSort, className = 'flex' }: {
+  k: PatientSortKey
+  label: string
+  sortKey: PatientSortKey
+  sortDir: SortDirection
+  onSort: (k: PatientSortKey) => void
+  className?: string
+}) {
+  const active = sortKey === k
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(k)}
+      className={`${className} items-center gap-1 uppercase tracking-wider transition-colors ${active ? 'text-bbh-green-dark' : 'hover:text-bbh-ink'}`}
+    >
+      {label}
+      {active ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null}
+    </button>
+  )
+}
+
 // Patient detail is split into tabs so a doctor isn't scrolling one long column
 // of clinical modules (collapsible/tab organization — clinical-dashboard density
 // guidance). The report workspace stays persistent in the right aside.
@@ -58,6 +97,7 @@ const PATIENT_TABS = [
   { key: 'overview' },
   { key: 'labs' },
   { key: 'activity' },
+  { key: 'profile' },
 ] as const
 type PatientTab = (typeof PATIENT_TABS)[number]['key']
 
@@ -94,11 +134,10 @@ export function Patients() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [mine, setMine] = useState(false)
+  const [sortKey, setSortKey] = useState<PatientSortKey>('hn')
+  const [sortDir, setSortDir] = useState<SortDirection>('desc')
   const [selectedId, setSelectedId] = useState<number | null>(queryPatientId)
   const [showPatientDetail, setShowPatientDetail] = useState(Boolean(queryPatientId))
-  // Desktop: collapse the patient list once a patient is open so the record gets
-  // the full width; a "รายชื่อ" button reopens it to switch patients.
-  const [listCollapsed, setListCollapsed] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<number | null>(queryReportId)
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [viewMode, setViewMode] = useState<'detail' | 'chat'>('detail')
@@ -133,19 +172,25 @@ export function Patients() {
     setNotebookUrlDraft('')
   }, [selectedReportId])
 
-  const patientsQ = usePatients({ search: debouncedSearch, mine, page, limit: 20 })
+  const patientsQ = usePatients({ search: debouncedSearch, mine, page, limit: 20, sort: sortKey, direction: sortDir })
+
+  // Click a column header to sort by it; clicking the active column flips
+  // direction. New columns start on their most useful direction (names A→Z,
+  // HN / last-visit newest first).
+  function toggleSort(key: PatientSortKey) {
+    if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir(key === 'name' ? 'asc' : 'desc') }
+    setPage(1)
+  }
   const patientQ = usePatient(selectedId)
   const reportsQ = usePatientReports(selectedId)
   const reportQ = useReport(selectedReportId)
-  const analysesQ = useReportAnalyses(selectedReportId)
 
   const createPatient = useCreatePatient()
   const updatePatient = useUpdatePatient()
   const uploadReport = useUploadReport()
   const deleteReport = useDeleteReport()
   const setNotebookLmUrl = useSetNotebookLmUrl()
-  const analyzeReport = useAnalyzeReport()
-  const decideTriage = useDecideTriage()
 
   const approvedQ = useAllBookings('approved')
   const pendingQ = useAllBookings('pending_approval')
@@ -168,7 +213,6 @@ export function Patients() {
       (s === '' || r.title.toLowerCase().includes(s) || r.report_type.toLowerCase().includes(s)),
     )
   }, [reports, reportTypeFilter, reportUnreadOnly, reportSearch])
-  const analyses = analysesQ.data?.data ?? []
   const allBookings = useMemo(
     () => [...approvedQ.data, ...pendingQ.data, ...rejectedQ.data, ...cancelledQ.data],
     [approvedQ.data, pendingQ.data, rejectedQ.data, cancelledQ.data]
@@ -264,9 +308,9 @@ export function Patients() {
   const totalPages = pagination?.total_pages ?? 1
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-white">
+    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-bbh-canvas">
       <section
-        className={`${showPatientDetail ? 'hidden' : 'flex'} ${listCollapsed ? 'lg:hidden' : 'lg:flex'} relative w-full shrink-0 flex-col border-bbh-line bg-white lg:w-80 lg:border-r`}
+        className={`${showPatientDetail ? 'hidden' : 'flex'} mx-auto my-6 w-full max-w-4xl shrink-0 flex-col overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-bbh-md`}
       >
         <div className="space-y-3 border-b border-bbh-line p-4">
           <div className="flex items-center gap-2">
@@ -311,50 +355,58 @@ export function Patients() {
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {patientsQ.isLoading ? (
-            <div className="space-y-2">
-              {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-bbh-surface" />)}
+            <div className="space-y-2 p-3">
+              {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-11 animate-pulse rounded-lg bg-bbh-surface" />)}
             </div>
           ) : patients.length === 0 ? (
-            <div className="mt-8 rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
+            <div className="m-3 mt-8 rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
               {t('patients.notFound')}
             </div>
           ) : (
-            <div className="space-y-1.5">
-              {patients.map((patient, i) => {
-                const active = patient.id === selectedId
-                return (
-                  <button
-                    key={patient.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(patient.id)
-                      setShowPatientDetail(true)
-                      setListCollapsed(true)
-                      setSelectedReportId(null)
-                      setViewMode('detail')
-                    }}
-                    style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
-                    className={`animate-rise w-full rounded-lg border px-3 py-2.5 text-left transition-colors duration-200 ${FOCUS_RING} ${
-                      active ? 'border-bbh-green bg-bbh-green-soft' : 'border-bbh-line bg-white hover:border-bbh-green hover:bg-bbh-surface'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-bbh-ink">{patient.display_name}</p>
-                        <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-bbh-muted">
-                          {patient.hn ?? t('patients.noHn')} · {patient.phone ?? t('patients.noPhone')}
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 font-mono text-[11px] tabular-nums text-bbh-muted">
-                        {patient.total_reports} reports
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              {/* Sortable header — click a column to sort; arrow shows direction */}
+              <div className={`sticky top-0 z-10 grid ${LIST_COLS} items-center gap-3 border-b border-bbh-line bg-white px-3 py-2 text-xs font-medium uppercase tracking-wider text-bbh-muted`}>
+                <SortHead k="hn" label={t('patients.colHn')} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortHead k="name" label={t('patients.colName')} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <span className="hidden sm:block">{t('patients.colGenderAge')}</span>
+                <span className="hidden sm:block">{t('patients.colPhone')}</span>
+                <SortHead k="latest_visit" label={t('patients.colLastVisit')} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden sm:flex" />
+                <span className="text-right">{t('patients.colReports')}</span>
+              </div>
+              {/* Hairline-divided rows, no zebra: with row separators already
+                  present, alternating fills are redundant ink (Tufte). White rows +
+                  divide-y + green-soft selection = the same list language as Bookings. */}
+              <div className="divide-y divide-bbh-line/60">
+                {patients.map((patient) => {
+                  const active = patient.id === selectedId
+                  const age = computeAge(patient.dob)
+                  return (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(patient.id)
+                        setShowPatientDetail(true)
+                        setSelectedReportId(null)
+                        setViewMode('detail')
+                      }}
+                      className={`grid ${LIST_COLS} w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors duration-150 ${FOCUS_RING} ${
+                        active ? 'bg-bbh-green-soft' : 'bg-white hover:bg-bbh-surface'
+                      }`}
+                    >
+                      <span className="font-mono text-xs tabular-nums text-bbh-muted">{patient.hn ?? '—'}</span>
+                      <span className={`min-w-0 truncate font-medium ${active ? 'text-bbh-green-dark' : 'text-bbh-ink'}`}>{patient.display_name}</span>
+                      <span className="hidden text-xs text-bbh-muted sm:block">{genderShort(patient.gender)}{age != null ? ` · ${age}` : ''}</span>
+                      <span className="hidden truncate font-mono text-xs tabular-nums text-bbh-muted sm:block">{patient.phone ?? '—'}</span>
+                      <span className="hidden font-mono text-xs tabular-nums text-bbh-muted sm:block">{patient.latest_visit_at ? formatDate(patient.latest_visit_at) : '—'}</span>
+                      <span className="text-right font-mono text-xs tabular-nums text-bbh-muted">{patient.total_reports}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
 
@@ -369,7 +421,7 @@ export function Patients() {
         </div>
       </section>
 
-      <main className={`${showPatientDetail ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
+      <main className={`${showPatientDetail ? 'flex' : 'hidden'} min-w-0 flex-1 flex-col overflow-hidden ${viewMode === 'chat' ? '' : 'overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-6 md:p-8 lg:p-10'}`}>
         {!selectedPatient ? (
           <div className="flex h-full items-center justify-center text-center text-bbh-muted">
             {t('patients.selectPatient')}
@@ -399,34 +451,31 @@ export function Patients() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-5xl space-y-5">
+          <div className="relative isolate mx-auto w-full max-w-5xl space-y-5">
+            {/* Soft-light wash behind the record header — same depth cue as the
+                Bookings masthead so the CRO flow reads as one surface system. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-gradient-to-b from-bbh-green-soft/50 to-transparent"
+            />
             {/* w-full is REQUIRED: <main> is a flex-col container, so a flex child
                 with mx-auto but no explicit width shrinks to its content's
                 max-content instead of filling. That made the record width vary per
                 patient AND per tab. w-full pins it to 100% (capped at max-w-5xl),
                 so the width is constant regardless of what content is inside.
-                Prominent, top-left list toggle (desktop) — one button for both
-                collapse and expand so it never blends with the record actions. */}
-            <button
-              type="button"
-              onClick={() => setListCollapsed((v) => !v)}
-              className={`hidden items-center gap-2 self-start rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200 lg:inline-flex ${FOCUS_RING} ${listCollapsed ? 'border-bbh-green bg-bbh-green-soft text-bbh-green-dark hover:bg-bbh-green hover:text-white' : 'border-bbh-line bg-white text-bbh-ink hover:border-bbh-green hover:text-bbh-green-dark'}`}
-              title={listCollapsed ? t('patients.openListTooltip') : t('patients.collapseListTooltip')}
-            >
-              {listCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-              {listCollapsed ? t('patients.patientList') : t('patients.collapseList')}
-            </button>
+                Back to the patient list — the page is list-first (list → detail),
+                so this is the single way back on every breakpoint. */}
             <button
               type="button"
               onClick={() => setShowPatientDetail(false)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
+              className={`inline-flex items-center gap-1.5 self-start rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
             >
               <ChevronLeft size={16} />
               {t('patients.backToList')}
             </button>
             <section className="animate-rise flex flex-wrap items-start justify-between gap-4 border-b border-bbh-line pb-4">
               <div>
-                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Patient Record</p>
+                <Eyebrow>Patient Record</Eyebrow>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <h1 className="font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{selectedPatient.display_name}</h1>
                   <span className="rounded-full border border-bbh-line bg-bbh-surface px-2.5 py-1 font-mono text-xs tabular-nums text-bbh-muted">{selectedPatient.hn ?? t('patients.noHnShort')}</span>
@@ -467,22 +516,22 @@ export function Patients() {
                 flexed per tab and made labs widest). */}
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <section className="min-w-0 space-y-4">
-                <div className="grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-3">
+                <div className="grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line shadow-bbh-sm sm:grid-cols-3">
                   <div className="bg-white p-4">
-                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Reports</p>
+                    <Eyebrow>Reports</Eyebrow>
                     <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-bbh-ink">{reports.length}</p>
                   </div>
                   <div className="bg-white p-4">
-                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Bookings</p>
+                    <Eyebrow>Bookings</Eyebrow>
                     <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-bbh-ink">{patientBookings.length}</p>
                   </div>
                   <div className="bg-white p-4">
-                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Latest visit</p>
+                    <Eyebrow>Latest visit</Eyebrow>
                     <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-bbh-ink">{formatDate(patients.find((p) => p.id === selectedId)?.latest_visit_at)}</p>
                   </div>
                 </div>
 
-                <div className="inline-flex rounded-xl border border-bbh-line bg-white p-1 text-sm font-medium">
+                <div className="inline-flex rounded-xl border border-bbh-line bg-white p-1 text-sm font-medium shadow-bbh-sm">
                   {PATIENT_TABS.map((tab) => (
                     <button
                       key={tab.key}
@@ -500,12 +549,12 @@ export function Patients() {
                     construction (not three separate divs sized independently).
                     min-w-0 stops any wide child (Biomarker grid / sparkline) from
                     expanding it; sub-sections are bare to avoid a double border. */}
-                <div className="min-w-0 space-y-6 rounded-xl border border-bbh-line bg-white p-4">
+                <div className="min-w-0 space-y-6 rounded-xl border border-bbh-line bg-white p-4 shadow-bbh-sm">
                   {mainTab === 'overview' ? (
                     <>
                       <CareTeamSection patientId={selectedPatient.id} />
                       <section>
-                        <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('patients.medicalHistory')}</h2>
+                        <Eyebrow as="h2" className="mb-3">{t('patients.medicalHistory')}</Eyebrow>
                         <PatientMedicalRecords patientId={selectedPatient.id} />
                       </section>
                     </>
@@ -522,18 +571,22 @@ export function Patients() {
                     <>
                       <PatientCallLog patientId={selectedPatient.id} />
                       <section>
-                        <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Timeline</h2>
+                        <Eyebrow as="h2" className="mb-3">Timeline</Eyebrow>
                         <PatientTimeline reports={reports} bookings={patientBookings} onSelectReport={setSelectedReportId} />
                       </section>
                     </>
+                  ) : null}
+
+                  {mainTab === 'profile' ? (
+                    <PatientProfileSection patientId={selectedPatient.id} />
                   ) : null}
                 </div>
               </section>
 
               <aside className="space-y-4">
-                <section className="rounded-xl border border-bbh-line bg-white p-4">
+                <section className="rounded-xl border border-bbh-line bg-white p-4 shadow-bbh-sm">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Selected report</h2>
+                    <Eyebrow as="h2">Selected report</Eyebrow>
                     {selectedReportId ? (
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button
@@ -601,31 +654,41 @@ export function Patients() {
                       {reports.length === 0 ? t('patients.noReports') : t('patients.noReportsMatchFilter')}
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {filteredReports.map((report) => (
-                        <div
-                          key={report.id}
-                          className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors duration-200 ${
-                            report.id === selectedReportId ? 'border-bbh-green bg-bbh-green-soft' : 'border-bbh-line bg-white hover:border-bbh-green'
-                          }`}
-                        >
-                          <button type="button" onClick={() => setSelectedReportId(report.id)} className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left ${FOCUS_RING}`}>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-bbh-ink">{report.title}</p>
-                              <p className="text-xs text-bbh-muted">{report.report_type} · <span className="font-mono tabular-nums">{formatDate(report.uploaded_at)}</span></p>
-                            </div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteReportById(report.id)}
-                            disabled={deleteReport.isPending}
-                            title={t('patients.deleteReportTooltip')}
-                            className={`shrink-0 rounded-lg p-1.5 text-bbh-muted transition-colors duration-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                    /* One list zone (Proximity + Data-ink): hairline-divided rows in
+                       a single container instead of N separate bordered cards.
+                       Selected row = green-soft fill + a left rail — the same list
+                       language as the Bookings inbox (Repetition/consistency). */
+                    <div className="divide-y divide-bbh-line overflow-hidden rounded-xl border border-bbh-line">
+                      {filteredReports.map((report) => {
+                        const active = report.id === selectedReportId
+                        return (
+                          <div
+                            key={report.id}
+                            className={`relative flex w-full items-center transition-colors duration-200 ${
+                              active ? 'bg-bbh-green-soft' : 'bg-white hover:bg-bbh-surface'
+                            }`}
                           >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      ))}
+                            {active ? (
+                              <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-bbh-green" />
+                            ) : null}
+                            <button type="button" onClick={() => setSelectedReportId(report.id)} className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left ${FOCUS_RING}`}>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-bbh-ink">{report.title}</p>
+                                <p className="text-xs text-bbh-muted">{report.report_type} · <span className="font-mono tabular-nums">{formatDate(report.uploaded_at)}</span></p>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteReportById(report.id)}
+                              disabled={deleteReport.isPending}
+                              title={t('patients.deleteReportTooltip')}
+                              className={`mr-2 shrink-0 rounded-lg p-1.5 text-bbh-muted transition-colors duration-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
 
@@ -684,27 +747,6 @@ export function Patients() {
                   ) : null}
                 </section>
 
-                <section className="rounded-xl border border-bbh-line bg-white p-4">
-                  <AnalysisPanel
-                    analyses={analyses}
-                    loading={analysesQ.isLoading}
-                    canDecide={canAnalyze}
-                    analyzing={analyzeReport.isPending}
-                    decidingId={decideTriage.isPending ? decideTriage.variables?.analysisId ?? null : null}
-                    onAnalyze={selectedReportId && canAnalyze ? () => analyzeReport.mutate({ reportId: selectedReportId }, { onSuccess: () => toast.show('success', t('patients.toast.analyzeSuccess')), onError: () => toast.show('error', t('patients.toast.analyzeFailed')) }) : undefined}
-                    onDecide={canAnalyze ? (analysisId, decision) => decideTriage.mutate({ analysisId, decision, note: null }, { onSuccess: () => toast.show('success', t('patients.toast.triageSuccess')), onError: () => toast.show('error', t('patients.toast.triageFailed')) }) : undefined}
-                  />
-                </section>
-
-                {canAnalyze ? (
-                  selectedReportId ? (
-                    <MeasurementReviewPanel reportId={selectedReportId} patientId={selectedPatient.id} />
-                  ) : (
-                    <section className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-center text-xs text-bbh-muted">
-                      {t('patients.selectReportForExtraction')}
-                    </section>
-                  )
-                ) : null}
               </aside>
             </div>
           </div>

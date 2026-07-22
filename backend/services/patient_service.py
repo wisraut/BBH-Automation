@@ -12,11 +12,13 @@ TZ_BANGKOK = timezone(timedelta(hours=7))
 
 def list_patients(
     *, search: str | None, page: int, limit: int, panel_doctor_id: int | None = None,
+    sort_key: str = "hn", direction: str = "desc",
 ) -> dict[str, Any]:
     """คืนรายชื่อคนไข้แบบแบ่งหน้า ค้นด้วย search ได้; panel_doctor_id จำกัดเฉพาะ
     คนไข้ในความดูแลของแพทย์คนนั้น (ใช้ในมุมมองของหมอ)"""
     rows, total = patient_repo.list_patients(
         search=search, page=page, limit=limit, panel_doctor_id=panel_doctor_id,
+        sort_key=sort_key, direction=direction,
     )
     return paginate(rows=rows, total=total, page=page, limit=limit)
 
@@ -83,6 +85,20 @@ def update_patient(
         fields["gender"] = body.gender
     if body.nationality is not None:
         fields["nationality"] = body.nationality.strip() or None
+    if body.national_id is not None:
+        fields["national_id"] = body.national_id.strip() or None
+    if body.blood_type is not None:
+        fields["blood_type"] = body.blood_type.strip() or None
+    if body.phone2 is not None:
+        fields["phone2"] = body.phone2.strip() or None
+    if body.phone3 is not None:
+        fields["phone3"] = body.phone3.strip() or None
+    if body.phone4 is not None:
+        fields["phone4"] = body.phone4.strip() or None
+    if body.address is not None:
+        fields["address"] = body.address.strip() or None
+    if body.intake_by is not None:
+        fields["intake_by"] = body.intake_by.strip() or None
     if body.notes is not None:
         fields["notes"] = body.notes.strip() or None
 

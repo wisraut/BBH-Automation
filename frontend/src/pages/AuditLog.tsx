@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAuditLog, type AuditEntry } from '../hooks/useAuditLog'
 import { useUsers } from '../hooks/useUsers'
 
@@ -99,9 +100,7 @@ export function AuditLog() {
         {/* Masthead — instrument label + serif heading, quick-range actions on the right */}
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-              Audit Trail
-            </p>
+            <Eyebrow>Audit Trail</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('auditLog.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('auditLog.subtitle')}
@@ -190,7 +189,7 @@ export function AuditLog() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
-              <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
+              <div className="hidden grid-cols-[160px_160px_140px_180px_1fr_100px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
                 <span>{t('auditLog.colTime')}</span>
                 <span>Actor</span>
                 <span>Action</span>
@@ -229,24 +228,24 @@ function AuditRow({ r, index }: { r: AuditEntry; index: number }) {
       <span className="font-mono text-xs tabular-nums text-bbh-muted">{fmtDateTime(r.created_at)}</span>
       <div className="min-w-0">
         <p className="truncate text-bbh-ink">{r.actor_email ?? '(system)'}</p>
-        {r.actor_role ? <p className="text-[10px] text-bbh-muted">{r.actor_role}</p> : null}
+        {r.actor_role ? <p className="text-xs text-bbh-muted">{r.actor_role}</p> : null}
       </div>
       <span className="hidden lg:flex">
-        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${actionStyle}`}>{r.action}</span>
+        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${actionStyle}`}>{r.action}</span>
       </span>
       <div className="hidden min-w-0 lg:block">
         {r.patient_id ? (
           <>
             <p className="truncate text-bbh-ink">{r.patient_display_name ?? `#${r.patient_id}`}</p>
-            <p className="truncate font-mono text-[10px] tabular-nums text-bbh-muted">{r.patient_hn ?? `id=${r.patient_id}`}</p>
+            <p className="truncate font-mono text-xs tabular-nums text-bbh-muted">{r.patient_hn ?? `id=${r.patient_id}`}</p>
           </>
         ) : <span className="text-bbh-muted">—</span>}
       </div>
       <div className="hidden min-w-0 lg:block">
-        <p className="truncate font-mono text-[11px] tabular-nums text-bbh-muted">{r.subject_type}:{r.subject_id}</p>
-        <p className="truncate font-mono text-[10px] text-bbh-muted">{r.request_method} {r.request_path}</p>
+        <p className="truncate font-mono text-xs tabular-nums text-bbh-muted">{r.subject_type}:{r.subject_id}</p>
+        <p className="truncate font-mono text-xs text-bbh-muted">{r.request_method} {r.request_path}</p>
       </div>
-      <span className="text-right font-mono text-[11px] tabular-nums text-bbh-muted">{r.ip_address ?? '—'}</span>
+      <span className="text-right font-mono text-xs tabular-nums text-bbh-muted">{r.ip_address ?? '—'}</span>
     </div>
   )
 }

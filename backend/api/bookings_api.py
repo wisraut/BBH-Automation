@@ -100,6 +100,7 @@ def approve_booking(request_uid: str, body: ApproveRequest, user: _CroOrAdmin) -
         assigned_doctor_id=body.assigned_doctor_id,
         link_patient_id=body.link_patient_id,
         create_new_patient=body.create_new_patient,
+        patient_intake=body.patient_intake.model_dump() if body.patient_intake else None,
     )
     return {"ok": True, **result}
 

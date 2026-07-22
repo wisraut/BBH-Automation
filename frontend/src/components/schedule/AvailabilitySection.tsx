@@ -124,7 +124,7 @@ export function AvailabilitySection() {
                 <button
                   type="button"
                   onClick={() => addRange(day)}
-                  className={`inline-flex items-center gap-1 rounded-md border border-bbh-line px-2 py-1 text-[11px] font-medium text-bbh-muted transition-colors hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+                  className={`inline-flex items-center gap-1 rounded-md border border-bbh-line px-2 py-1 text-xs font-medium text-bbh-muted transition-colors hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
                 >
                   <Plus size={11} /> {t('availabilitySection.addRange')}
                 </button>

@@ -21,6 +21,7 @@ import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
 import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
+import { PatientProfilePrint } from './pages/PatientProfilePrint'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
 import { SystemHealth } from './pages/SystemHealth'
@@ -186,6 +187,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
+        <Route path="print/patient/:id" element={<PatientProfilePrint />} />
         <Route element={<DashboardLayout />}>
           <Route index element={<RoleHome />} />
           <Route path="admin" element={<ProtectedRoute allow={['admin']}><AdminDashboard /></ProtectedRoute>} />

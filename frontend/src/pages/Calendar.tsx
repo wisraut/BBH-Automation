@@ -20,6 +20,7 @@ import { useRescheduledMarks } from '../hooks/useRescheduledMarks'
 import { useToast } from '../hooks/useToast'
 import { useSetVideoLink } from '../hooks/useSetVideoLink'
 import type { components } from '../lib/api-types'
+import { Eyebrow } from '../components/ui/Eyebrow'
 
 type BookingItem = components['schemas']['BookingListItem']
 type BookingStatus = BookingItem['status']
@@ -66,7 +67,7 @@ function VideoLinkEditor({ uid, current }: { uid: string; current: string | null
   const changed = value.trim() !== (current ?? '')
   return (
     <div className="mt-3 border-t border-bbh-line pt-3">
-      <label className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('calendar.onlineMeetingLink')}</label>
+      <label className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-bbh-muted">{t('calendar.onlineMeetingLink')}</label>
       <div className="mt-1.5 flex gap-1.5">
         <input
           value={value}
@@ -83,7 +84,7 @@ function VideoLinkEditor({ uid, current }: { uid: string; current: string | null
           {t('common.save')}
         </button>
       </div>
-      {setLink.isError ? <p className="mt-1 text-[11px] text-red-600">{t('calendar.videoLinkSaveFailed')}</p> : null}
+      {setLink.isError ? <p className="mt-1 text-xs text-red-600">{t('calendar.videoLinkSaveFailed')}</p> : null}
     </div>
   )
 }
@@ -196,7 +197,7 @@ const FOCUS_RING =
 function SummaryCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-col gap-3 bg-white p-4 md:p-5">
-      <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</span>
+      <Eyebrow as="span">{label}</Eyebrow>
       <span className="font-mono text-2xl font-semibold leading-none tracking-tight tabular-nums text-bbh-ink md:text-3xl">{value}</span>
     </div>
   )
@@ -401,18 +402,24 @@ export function Calendar() {
   }
 
   return (
-    <div className="relative flex h-full min-w-0 overflow-hidden bg-white lg:static">
-      <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
+    <div className="relative flex h-full min-w-0 overflow-hidden bg-bbh-canvas lg:static">
+      <section className="relative isolate min-w-0 flex-1 overflow-y-auto bg-bbh-canvas p-6 md:p-8 lg:p-10">
+        {/* Soft-light wash behind the masthead — same depth cue as Bookings so
+            the CRO flow reads as one surface system. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-48 bg-gradient-to-b from-bbh-green-soft/60 to-transparent"
+        />
         {/* Masthead — instrument label + month readout with inline navigation */}
         <div className="animate-rise mb-8">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+          <Eyebrow>
             CRO Calendar
-          </p>
+          </Eyebrow>
         </div>
 
         {/* Month-summary strip — instrument metric cluster (hairline gap-px) so the
             page opens with a confident readout of the month's load, not empty space */}
-        <div className="animate-rise mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-5" style={{ animationDelay: '40ms' }}>
+        <div className="animate-rise mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line shadow-bbh-sm md:grid-cols-5" style={{ animationDelay: '40ms' }}>
           <SummaryCell label={t('calendar.summaryTotal')} value={monthSummary.total} />
           <SummaryCell label={t('calendar.summaryApproved')} value={monthSummary.approved} />
           <SummaryCell label={t('calendar.summaryPending')} value={monthSummary.pending} />
@@ -474,15 +481,15 @@ export function Calendar() {
             {/* Weekday rail — instrument column labels */}
             <div className="mb-2 grid grid-cols-7 gap-px">
               {weekdayShortLabels().map((d) => (
-                <div key={d} className="py-2 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">
+                <Eyebrow as="div" key={d} className="py-2 text-center">
                   {d}
-                </div>
+                </Eyebrow>
               ))}
             </div>
 
             {/* Month grid — one hairline-ruled cluster (gap-px reveals bbh-line as
                 rules) so each day reads as a cell in an instrument, not a card */}
-            <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line">
+            <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line shadow-bbh-sm">
               {cells.map((day, i) => {
                 if (day === null) return <div key={`e-${i}`} className="h-16 bg-white" />
 
@@ -514,12 +521,12 @@ export function Calendar() {
                       {day}
                     </span>
                     <div className="mt-auto flex w-full flex-col gap-0.5">
-                      {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-[10px] font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> {t('calendar.badgeApproved')}</span>}
-                      {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-[10px] font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> {t('calendar.badgePending')}</span>}
-                      {rescheduledCnt > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{rescheduledCnt}</span> {t('calendar.badgeRescheduled')}</span>}
-                      {blockCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-[10px] font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{blockCnt}</span> {t('calendar.badgeDoctorOff')}</span>}
-                      {cancelledCnt > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{cancelledCnt}</span> {t('common.cancel')}</span>}
-                      {googleItems.length > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-[10px] font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{googleItems.length}</span> {t('calendar.badgeAppointment')}</span>}
+                      {approvedCnt > 0 && <span className="truncate rounded bg-bbh-green-soft px-1 text-xs font-medium leading-tight text-bbh-green-dark"><span className="font-mono tabular-nums">{approvedCnt}</span> {t('calendar.badgeApproved')}</span>}
+                      {pendingCnt > 0 && <span className="truncate rounded bg-amber-50 px-1 text-xs font-medium leading-tight text-amber-700"><span className="font-mono tabular-nums">{pendingCnt}</span> {t('calendar.badgePending')}</span>}
+                      {rescheduledCnt > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-xs font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{rescheduledCnt}</span> {t('calendar.badgeRescheduled')}</span>}
+                      {blockCnt > 0 && <span className="truncate rounded bg-slate-200 px-1 text-xs font-medium leading-tight text-slate-700"><span className="font-mono tabular-nums">{blockCnt}</span> {t('calendar.badgeDoctorOff')}</span>}
+                      {cancelledCnt > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-xs font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{cancelledCnt}</span> {t('common.cancel')}</span>}
+                      {googleItems.length > 0 && <span className="truncate rounded bg-bbh-surface px-1 text-xs font-medium leading-tight text-bbh-muted"><span className="font-mono tabular-nums">{googleItems.length}</span> {t('calendar.badgeAppointment')}</span>}
                     </div>
                   </button>
                 )
@@ -564,7 +571,7 @@ export function Calendar() {
         ) : (
           <>
             <div className="mb-6">
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('calendar.appointmentsLabel')}</p>
+              <Eyebrow>{t('calendar.appointmentsLabel')}</Eyebrow>
               <p className="mt-2 font-serif text-xl font-semibold text-bbh-ink">
                 {formatThaiDate(selectedDate)}
               </p>
@@ -623,10 +630,10 @@ export function Calendar() {
                         <p className="font-semibold text-bbh-ink">{block.doctor_name ?? t('calendar.doctorNumber', { id: block.doctor_id })}</p>
                         <p className="mt-1 font-mono text-xs tabular-nums text-bbh-muted">{formatBlockRange(block)}</p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[11px] font-semibold text-bbh-muted">{blockTypeLabel(block.block_type, t)}</span>
+                      <span className="shrink-0 rounded-full border border-bbh-line bg-white px-2 py-0.5 text-xs font-semibold text-bbh-muted">{blockTypeLabel(block.block_type, t)}</span>
                     </div>
                     {block.reason ? <p className="mt-2 line-clamp-2 text-xs text-bbh-muted">{block.reason}</p> : null}
-                    <p className="mt-3 rounded-lg border border-bbh-line bg-white px-3 py-2 text-xs text-bbh-muted">{t('calendar.doctorStatedLabel')} <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type, t)}</span></p>
+                    <p className="mt-3 border-t border-bbh-line pt-3 text-xs text-bbh-muted">{t('calendar.doctorStatedLabel')} <span className="font-semibold text-bbh-ink">{blockTypeLabel(block.block_type, t)}</span></p>
                   </div>
                 ))}
                 {tbdBookings.map((b) => (
@@ -636,7 +643,7 @@ export function Calendar() {
                         <p className="truncate text-sm font-semibold text-bbh-ink">{b.patient_name ?? '-'}</p>
                         <p className="mt-0.5 font-mono text-xs tabular-nums text-bbh-muted">{b.phone ?? '-'}</p>
                       </div>
-                      <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[11px] font-semibold text-bbh-muted">{t('calendar.rescheduleAwaitingTime')}</span>
+                      <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-xs font-semibold text-bbh-muted">{t('calendar.rescheduleAwaitingTime')}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="rounded-full bg-white px-2 py-0.5 text-bbh-muted">{t('calendar.patientNotConfirmedTime')}</span>
@@ -709,12 +716,12 @@ export function Calendar() {
                           <p className="truncate text-sm font-semibold text-bbh-ink">{info.patientName}</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-bbh-ink">{t('calendar.timeSuffix', { time: eventTimeLabel(event, t) })}</p>
                         </div>
-                        <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-[11px] font-semibold text-bbh-muted">{t('calendar.calendarBadge')}</span>
+                        <span className="rounded-full border border-bbh-line bg-white px-2 py-0.5 text-xs font-semibold text-bbh-muted">{t('calendar.calendarBadge')}</span>
                       </div>
                       <div className="mt-3 space-y-1.5 text-xs text-bbh-muted">
                         {info.phone ? <p><span className="font-semibold text-bbh-ink">{t('calendar.phoneLabel')}</span> <span className="font-mono tabular-nums">{info.phone}</span></p> : null}
                         {info.symptom ? <p><span className="font-semibold text-bbh-ink">{t('calendar.symptomLabel')}</span> {info.symptom}</p> : null}
-                        {info.requestUid ? <p className="truncate font-mono text-[11px] text-bbh-muted/80">{t('calendar.requestIdLabel', { uid: info.requestUid })}</p> : null}
+                        {info.requestUid ? <p className="truncate font-mono text-xs text-bbh-muted/80">{t('calendar.requestIdLabel', { uid: info.requestUid })}</p> : null}
                       </div>
                       {event.video_link ? (
                         <a

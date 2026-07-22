@@ -2161,6 +2161,7 @@ export interface components {
              * @description ISO 8601 datetime (Asia/Bangkok). Slot start.
              */
             start_at: string;
+            patient_intake?: components["schemas"]["PatientIntake"] | null;
             /**
              * Duration Min
              * @default 60
@@ -3059,8 +3060,53 @@ export interface components {
             gender?: ("male" | "female" | "other" | "unknown") | null;
             /** Nationality */
             nationality?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /**
+         * PatientIntake
+         * @description ประวัติคนไข้ที่ CRO กรอกตอน approve — บันทึกลง patient record ที่ link/สร้างใหม่
+         *     (บังคับ required ฝั่ง UI; API รับทุก field แบบ optional เก็บเท่าที่ส่งมา)
+         */
+        PatientIntake: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Gender */
+            gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Dob */
+            dob?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
         };
         /**
          * PatientListItem
@@ -3077,6 +3123,8 @@ export interface components {
             phone?: string | null;
             /** Gender */
             gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Dob */
+            dob?: string | null;
             /** Latest Visit At */
             latest_visit_at?: string | null;
             /**
@@ -3125,6 +3173,20 @@ export interface components {
             gender?: ("male" | "female" | "other" | "unknown") | null;
             /** Nationality */
             nationality?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
             /** Notes */
             notes?: string | null;
             /** Created By */
@@ -3157,6 +3219,20 @@ export interface components {
             gender?: ("male" | "female" | "other" | "unknown") | null;
             /** Nationality */
             nationality?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
             /** Notes */
             notes?: string | null;
         };
@@ -4852,6 +4928,8 @@ export interface operations {
                 mine?: boolean;
                 page?: number;
                 limit?: number;
+                sort?: string;
+                direction?: string;
             };
             header?: never;
             path?: never;

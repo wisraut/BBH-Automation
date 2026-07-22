@@ -33,6 +33,7 @@ import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
 import { useAuth } from '../lib/auth'
 import { AvailabilitySection } from '../components/schedule/AvailabilitySection'
+import { Eyebrow } from '../components/ui/Eyebrow'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -80,7 +81,7 @@ function MetricCell({ label, value, icon: Icon, tone = 'green' }: {
   return (
     <div className="flex min-h-[128px] flex-col justify-between bg-white p-5 md:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{label}</p>
+        <Eyebrow>{label}</Eyebrow>
         <Icon size={16} className={iconClass} />
       </div>
       <p className="font-mono text-3xl font-semibold leading-none tabular-nums text-bbh-ink md:text-4xl">{value}</p>
@@ -101,7 +102,7 @@ function AiBriefPanel({ patientId }: { patientId: number }) {
   return (
     <div className="rounded-xl border border-bbh-green/30 bg-bbh-green-soft/45 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="inline-flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-green-dark">
+        <p className="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-green-dark">
           <Sparkles size={13} /> Pre-visit AI brief
         </p>
         <button
@@ -136,7 +137,7 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
   if (!apt) {
     return (
       <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6 md:p-8">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Next patient</p>
+        <Eyebrow>Next patient</Eyebrow>
         <div className="mt-8 flex items-center gap-3 text-bbh-muted">
           <CheckCircle2 size={18} className="text-bbh-green" />
           <p className="text-sm">{t('schedule.noNextPatient')}</p>
@@ -153,7 +154,7 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
     <section className="animate-rise rounded-xl border border-bbh-line bg-white p-6 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Next patient</p>
+          <Eyebrow>Next patient</Eyebrow>
           <h2 className="mt-3 font-serif text-3xl font-semibold leading-tight text-bbh-ink">
             {apt.patient_name || t('schedule.unnamedPatient')}
           </h2>
@@ -201,15 +202,15 @@ function NextPatientPanel({ apt, pendingReports }: { apt: ScheduleAppointment | 
 
       <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-3">
         <div className="bg-white p-4">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Reason</p>
+          <Eyebrow>Reason</Eyebrow>
           <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-bbh-ink">{apt.symptom || '-'}</p>
         </div>
         <div className="bg-white p-4">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Visit type</p>
+          <Eyebrow>Visit type</Eyebrow>
           <p className="mt-2 text-sm text-bbh-ink">{apt.appointment_type || 'consultation'}</p>
         </div>
         <div className="bg-white p-4">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Reports</p>
+          <Eyebrow>Reports</Eyebrow>
           <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-bbh-ink">{patientReports.length}</p>
         </div>
       </div>
@@ -250,18 +251,18 @@ function SignalRail({ todayAppointments, pendingReports }: {
   return (
     <aside className="animate-rise space-y-3" style={{ animationDelay: '100ms' }}>
       <div className="rounded-xl border border-bbh-line bg-white p-5">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Medical signals</p>
-        <div className="mt-4 space-y-3">
+        <Eyebrow>Medical signals</Eyebrow>
+        <div className="mt-4 divide-y divide-bbh-line/60">
           {signals.map((signal) => {
             const Icon = signal.icon
             const toneClass = signal.tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark'
             return (
-              <div key={signal.label} className="flex items-start gap-3 rounded-lg border border-bbh-line bg-white p-3">
+              <div key={signal.label} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                 <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${toneClass}`}>
                   <Icon size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-bbh-muted">{signal.label}</p>
+                  <Eyebrow>{signal.label}</Eyebrow>
                   <p className="mt-1 text-sm font-medium text-bbh-ink">{signal.value}</p>
                 </div>
               </div>
@@ -286,7 +287,7 @@ function AppointmentCard({ apt }: { apt: ScheduleAppointment }) {
             <span aria-hidden>·</span>
             <span className="font-mono tabular-nums">{formatThaiDate(apt.requested_date)}</span>
             {isToday ? (
-              <span className="rounded-full border border-bbh-green/30 bg-bbh-green-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-bbh-green-dark">
+              <span className="rounded-full border border-bbh-green/30 bg-bbh-green-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-bbh-green-dark">
                 {t('common.today')}
               </span>
             ) : null}
@@ -408,7 +409,7 @@ export function Schedule() {
       <section className="min-w-0 flex-1 overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">Doctor Today</p>
+            <Eyebrow>Doctor Today</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('schedule.pageTitle')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('schedule.pageSubtitle')}
@@ -487,10 +488,10 @@ export function Schedule() {
                 <div className="space-y-6">
                   {apptsByDate.map(([date_, items]) => (
                     <div key={date_}>
-                      <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+                      <Eyebrow className="mb-3">
                         {formatThaiDate(date_)}
                         {date_ === todayIso() ? <span className="ml-2 text-bbh-green-dark">· {t('common.today')}</span> : null}
-                      </p>
+                      </Eyebrow>
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {items.map((apt) => <AppointmentCard key={apt.request_uid} apt={apt} />)}
                       </div>
@@ -512,7 +513,7 @@ export function Schedule() {
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
-                  <div className="hidden grid-cols-[160px_1fr_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
+                  <div className="hidden grid-cols-[160px_1fr_140px_120px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-4 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
                     <span>{t('schedule.tableHead.patient')}</span>
                     <span>{t('schedule.tableHead.subject')}</span>
                     <span className="text-right">{t('schedule.tableHead.uploadedDate')}</span>
@@ -597,7 +598,7 @@ function ScheduleBlocksSection() {
             <div key={b.id} className="flex items-start justify-between gap-3 rounded-xl border border-bbh-line bg-white p-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 font-mono text-[10px] text-bbh-muted">{b.block_type}</span>
+                  <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 font-mono text-xs text-bbh-muted">{b.block_type}</span>
                 </div>
                 <p className="mt-2 font-mono text-xs tabular-nums text-bbh-ink">
                   {b.start_at.replace('T', ' ').slice(0, 16)}
@@ -632,7 +633,7 @@ function ScheduleBlocksSection() {
       <Modal open={open} title={t('schedule.timeOff.addBlock')} onClose={() => setOpen(false)}>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.type')}</label>
+            <label className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.type')}</label>
             <select value={blockType} onChange={(e) => setBlockType(e.target.value)} className={`mt-2 ${fieldClass}`}>
               <option value="vacation">vacation</option>
               <option value="off_hours">off_hours</option>
@@ -643,11 +644,11 @@ function ScheduleBlocksSection() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.start')}</label>
+              <label className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.start')}</label>
               <input required type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
             </div>
             <div>
-              <label className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.end')}</label>
+              <label className="font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('schedule.timeOff.end')}</label>
               <input required type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={`mt-2 font-mono tabular-nums ${fieldClass}`} />
             </div>
           </div>
@@ -660,7 +661,7 @@ function ScheduleBlocksSection() {
               onChange={(e) => setVideoLink(e.target.value)}
               className={fieldClass}
             />
-            <p className="mt-1 text-[11px] text-bbh-muted">{t('schedule.timeOff.videoLinkHint')}</p>
+            <p className="mt-1 text-xs text-bbh-muted">{t('schedule.timeOff.videoLinkHint')}</p>
           </div>
           {create.error ? <p className="text-xs text-red-600">{t('schedule.timeOff.saveFailed')}</p> : null}
           <div className="flex justify-end gap-2">

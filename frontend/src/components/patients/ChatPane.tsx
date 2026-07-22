@@ -83,7 +83,7 @@ function MessageBubble({ direction, text, at, prefix }: {
   if (direction === 'system') {
     return (
       <div className="flex justify-center">
-        <div className="max-w-[80%] rounded-full bg-bbh-surface px-3 py-1 text-[11px] text-bbh-muted">
+        <div className="max-w-[80%] rounded-full bg-bbh-surface px-3 py-1 text-xs text-bbh-muted">
           {text}
         </div>
       </div>
@@ -110,7 +110,7 @@ function MessageBubble({ direction, text, at, prefix }: {
   return (
     <div className={`flex ${align}`}>
       <div className="flex max-w-[78%] flex-col gap-1">
-        <div className={`flex items-center gap-1 text-[10px] text-bbh-muted ${isOut ? 'justify-end' : 'justify-start'}`}>
+        <div className={`flex items-center gap-1 text-xs text-bbh-muted ${isOut ? 'justify-end' : 'justify-start'}`}>
           {author.icon}
           <span>{author.name}</span>
           {prefix && !isCroReply && !isCopilotDraft ? <span className="rounded bg-bbh-surface px-1 text-[9px]">{prefix}</span> : null}
@@ -118,7 +118,7 @@ function MessageBubble({ direction, text, at, prefix }: {
         <div className={`rounded-2xl px-3 py-2 text-sm leading-6 whitespace-pre-wrap ${bubbleColor}`}>
           {text || ''}
         </div>
-        <div className={`text-[10px] text-bbh-muted ${isOut ? 'text-right' : 'text-left'}`}>
+        <div className={`text-xs text-bbh-muted ${isOut ? 'text-right' : 'text-left'}`}>
           {formatTime(at)}
         </div>
       </div>
@@ -221,7 +221,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
                 )
               })}
             </div>
-            <p className="text-[11px] text-bbh-muted">
+            <p className="text-xs text-bbh-muted">
               {t('chatPane.effective')} <span className="font-semibold">{mode.effective_mode}</span>
             </p>
           </div>
@@ -243,7 +243,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
           groupedByDay.map(({ day, items }) => (
             <div key={day} className="space-y-3">
               <div className="flex justify-center">
-                <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] text-bbh-muted shadow-sm">
+                <span className="rounded-full bg-white px-2.5 py-0.5 text-xs text-bbh-muted shadow-sm">
                   {day}
                 </span>
               </div>
@@ -286,7 +286,7 @@ export function ChatPane({ patientId, patientName, showHeader = true }: Props) {
             {t('chatPane.send')}
           </button>
         </div>
-        <p className="mt-1 text-[11px] text-bbh-muted">
+        <p className="mt-1 text-xs text-bbh-muted">
           {t('chatPane.charCountHint', { count: text.length })}
         </p>
       </form>

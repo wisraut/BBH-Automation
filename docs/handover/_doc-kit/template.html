@@ -1,0 +1,185 @@
+<title>[[ ชื่อเอกสาร ]]</title>
+<style>/*FONTS*/{{FONTS}}</style>
+<style>
+  /* ============================================================
+     BBH document design system — proven skeleton.
+     Copy this file, keep the CSS, replace the body content.
+     Fonts (Trirong/Anuphan/IBM Plex Mono) get inlined where the FONTS marker is
+     (the /*FONTS*/ line just below) by build.js.
+     ============================================================ */
+  :root{
+    --paper:#ffffff; --paper-deep:#F4F5F1; --ink:#1D2B28; --ink-soft:#48534E;
+    --ink-faint:#7C857F; --pine:#1B6157; --pine-deep:#103E38; --ochre:#B07D2B;
+    --rule:#D8DAD0; --callout:#E7ECE2; --warn:#F5EEDF; --warn-ink:#6A4E16;
+    --danger:#F7E4DF; --danger-ink:#7A2E1C; --danger-line:#B4472F;
+    --measure:37rem;   /* reading column ~65ch — do not widen past ~39rem */
+    --body:"Anuphan","Leelawadee UI","Segoe UI",system-ui,sans-serif;
+    --display:"Trirong","Leelawadee UI","Segoe UI",serif;
+    --mono:"IBM Plex Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+    font-size:1.15rem;line-height:1.9;-webkit-font-smoothing:antialiased;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* cover */
+  .cover{max-width:44rem;margin:0 auto;padding:5rem 1.5rem 2.6rem;border-bottom:1px solid var(--rule)}
+  .kicker{font-size:.82rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ochre);font-weight:600;margin:0 0 1.5rem}
+  .cover h1{font-family:var(--display);font-size:clamp(2.2rem,5.5vw,3.3rem);line-height:1.16;font-weight:700;
+    letter-spacing:-.01em;margin:0 0 1.1rem;text-wrap:balance;color:var(--pine-deep)}
+  .cover .sub{font-size:1.2rem;color:var(--ink-soft);margin:0;max-width:34rem}
+  .cover .vol{display:inline-flex;align-items:baseline;gap:.7rem;margin-top:2.2rem;
+    padding:.55rem 1.1rem;border:1px solid var(--pine);border-radius:2px;color:var(--pine);font-size:.92rem}
+  .cover .vol b{font-weight:700}
+
+  /* intro + gold-rule callout */
+  .intro{max-width:var(--measure);margin:2.8rem auto 0;padding:0 1.5rem}
+  .intro h2{font-family:var(--display);font-size:1.45rem;color:var(--pine-deep);font-weight:700;margin:0 0 .9rem}
+  .intro p{margin:1rem 0 0;color:var(--ink-soft)}
+  .intro p .em{color:var(--pine);font-weight:600}
+  .goldrule{max-width:var(--measure);margin:2rem auto 0;background:var(--callout);border-left:3px solid var(--pine);padding:1.2rem 1.5rem;border-radius:2px}
+  .goldrule .label{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--pine);font-weight:600;margin:0 0 .5rem}
+  .goldrule p{margin:0;color:var(--pine-deep);font-size:1.04rem;line-height:1.65}
+  .goldrule code{font-family:var(--mono);font-size:.85em;color:var(--pine-deep);background:#fff;padding:.05em .35em;border-radius:4px;border:1px solid var(--rule)}
+
+  /* part divider (optional) — a flowing band, NOT a forced page break */
+  .partsep{max-width:44rem;margin:4.5rem auto 0;padding:2.4rem 1rem;border-top:2px solid var(--pine);border-bottom:2px solid var(--pine);text-align:center}
+  .partsep .pnum{font-family:var(--mono);font-size:.82rem;letter-spacing:.3em;text-transform:uppercase;color:var(--ochre);font-weight:700;margin:0 0 .6rem}
+  .partsep h2{font-family:var(--display);font-size:clamp(1.8rem,5vw,2.6rem);color:var(--pine-deep);margin:0;font-weight:700;line-height:1.2}
+  .partsep p{color:var(--ink-soft);margin:.8rem auto 0;max-width:30rem;font-size:1.08rem}
+
+  /* chapter / item */
+  .item{padding:3.6rem 0 0}   /* NB: no break-inside:avoid here — see print section */
+  .ch-mark,.item .lead,.item p,.callout,.where,.steps,.item .subh{max-width:var(--measure);margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}
+  .ch-mark{margin-bottom:1.4rem}
+  .ch-eyebrow{font-size:.78rem;letter-spacing:.26em;text-transform:uppercase;color:var(--ochre);font-weight:600;margin:0 0 .3rem}
+  /* hollow outlined number — BOTH color and -webkit-text-fill-color are required,
+     otherwise a `.item p{color}` type rule can win the cascade and fill it solid */
+  .ch-num{font-family:var(--display);font-size:clamp(3.6rem,9.5vw,5rem);line-height:.92;font-weight:700;
+    color:var(--paper);-webkit-text-fill-color:var(--paper);-webkit-text-stroke:1.7px var(--pine);margin:0 0 .6rem}
+  .ch-title{font-family:var(--display);font-size:clamp(1.55rem,4vw,2.1rem);line-height:1.22;font-weight:700;
+    color:var(--pine-deep);margin:0;text-wrap:balance}
+  .item .lead{font-size:1.24rem;line-height:1.65;color:var(--ink-soft);font-weight:500;margin-top:0}
+  /* IMPORTANT: use `.item>p` (direct child) NOT `.item p` — the latter also
+     matches .ch-eyebrow / .ch-num which are <p> inside .ch-mark and clobbers them */
+  .item>p{margin-top:1.2rem;color:var(--ink)}
+  .item p .em{color:var(--pine);font-weight:600}
+  code{font-family:var(--mono);font-size:.85em;color:var(--ochre)}
+  .item .subh{margin-top:2rem;font-family:var(--mono);font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
+  /* where-to-change reference panel (key/value rows) */
+  .where{margin-top:.7rem;border:1px solid var(--rule);border-radius:8px;overflow:hidden;padding:0}
+  .wrow{display:flex;gap:1rem;padding:.8rem 1.1rem;background:var(--paper-deep);font-size:1rem;line-height:1.55}
+  .wrow + .wrow{border-top:1px solid var(--rule)}
+  .wk{flex:none;width:7rem;font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);padding-top:.2rem}
+  .wv{flex:1;color:var(--ink);min-width:0}
+  .wv code{color:var(--pine-deep);background:#fff;padding:.05em .35em;border-radius:4px;border:1px solid var(--rule);word-break:break-word}
+  .wv .now{color:var(--danger-ink)}
+
+  /* numbered steps */
+  .steps{margin-top:1.4rem;list-style:none;counter-reset:st}
+  .steps li{position:relative;padding:0 0 .95rem 2.7rem;counter-increment:st;color:var(--ink)}
+  .steps li::before{content:counter(st);position:absolute;left:0;top:-.05rem;width:1.65rem;height:1.65rem;border-radius:50%;
+    background:var(--pine);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;font-family:var(--mono)}
+  .steps li:last-child{padding-bottom:0}
+
+  /* callouts — default (pine) / warn (ochre) / danger (red) */
+  .callout{margin-top:1.8rem;background:var(--callout);border-left:3px solid var(--pine);padding:1.15rem 1.5rem;border-radius:2px}
+  .callout .label{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--pine);font-weight:600;margin:0 0 .45rem}
+  .callout p{margin:0;max-width:none;padding:0;font-size:1.02rem;line-height:1.65;color:var(--pine-deep)}
+  .callout.warn{background:var(--warn);border-left-color:var(--ochre)}
+  .callout.warn .label{color:var(--ochre)} .callout.warn p{color:var(--warn-ink)}
+  .callout.danger{background:var(--danger);border-left-color:var(--danger-line)}
+  .callout.danger .label{color:var(--danger-line)} .callout.danger p{color:var(--danger-ink)}
+
+  /* figure for embedded diagrams (Mermaid SVG). Use for flowchart docs. */
+  .figure{max-width:52rem;margin:2.4rem auto 0;padding:0 1.2rem}
+  .frame{background:#fff;border:1px solid var(--rule);border-radius:8px;box-shadow:0 24px 60px -44px rgba(16,62,56,.5);padding:1.8rem 1.4rem;overflow-x:auto}
+  .frame svg{display:block;margin:0 auto;height:auto;max-width:100%}
+  .figcap{margin:.9rem .3rem 0;font-family:var(--mono);font-size:.76rem;color:var(--ink-faint);line-height:1.6}
+  .figcap b{color:var(--pine);font-weight:600}
+
+  .book-end{max-width:var(--measure);margin:4.5rem auto 0;padding:2.2rem 1.5rem 5rem;border-top:1px solid var(--rule);text-align:center}
+  .book-end .mark{color:var(--ochre);letter-spacing:.5em;font-size:1rem;margin:0 0 1rem}
+  .book-end p{margin:.3rem 0 0;color:var(--ink-faint);font-size:.98rem;line-height:1.6}
+
+  @media (max-width:520px){body{font-size:1.06rem}.wk{width:5.5rem}}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+  /* ---- PRINT: natural-flow model (verified). DO NOT put break-before:page on
+       every item or break-inside:avoid on whole sections — that leaves blank
+       pages and orphaned callouts. Let content flow; guard only small blocks. */
+  @page{ size:A4; margin:17mm 15mm 18mm;
+    @bottom-right{ content:counter(page); font-family:"IBM Plex Mono",monospace; font-size:9pt; color:#9aa39c; }
+    @bottom-left{ content:"[[ ชื่อสั้นเอกสาร ]]"; font-family:"IBM Plex Mono",monospace; font-size:8pt; color:#c2c7bd; }
+  }
+  @page:first{ @bottom-right{content:""} @bottom-left{content:""} }
+  @media print{
+    body{font-size:10.5pt}
+    .cover{padding:0 0 1.4rem}
+    .intro{padding-left:0;padding-right:0}
+    .item{padding-top:1.8rem}
+    .partsep{margin-top:2.2rem;padding:1.5rem 1rem}
+    .ch-mark{break-inside:avoid;break-after:avoid}
+    .item .lead{break-after:avoid}
+    .partsep,.where,.goldrule,.callout,.steps li,.frame{break-inside:avoid}
+    .figure svg{max-height:225mm}   /* keep a tall diagram to one page */
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+
+<article>
+  <header class="cover">
+    <p class="kicker">[[ eyebrow · หมวด ]]</p>
+    <h1>[[ ชื่อเอกสาร ]]</h1>
+    <p class="sub">[[ คำโปรย 1–2 ประโยค บอกว่าเล่มนี้ทำอะไร ]]</p>
+    <span class="vol"><b>[[ ตัวเลข ]]</b><span>[[ meta · วันที่ ]]</span></span>
+  </header>
+
+  <section class="intro">
+    <h2>[[ หัวข้อเกริ่น ]]</h2>
+    <p>[[ ย่อหน้าเกริ่น เขียนเป็น prose ไม่ใช่ bullet ]]</p>
+    <div class="goldrule">
+      <p class="label">[[ ป้าย callout ]]</p>
+      <p>[[ กติกา/สรุปสำคัญ ]]</p>
+    </div>
+  </section>
+
+  <!-- optional part divider -->
+  <div class="partsep">
+    <p class="pnum">ภาค 1</p>
+    <h2>[[ ชื่อภาค ]]</h2>
+    <p>[[ คำอธิบายภาค ]]</p>
+  </div>
+
+  <section class="item">
+    <div class="ch-mark">
+      <p class="ch-eyebrow">[[ eyebrow · หมวดของบท ]]</p>
+      <p class="ch-num">1</p>
+      <h2 class="ch-title">[[ ชื่อบท ]]</h2>
+    </div>
+    <p class="lead">[[ ประโยคเปิดที่ดึงเข้าเรื่อง — 1 ประโยค ]]</p>
+    <p>[[ ย่อหน้าเนื้อหา อธิบายว่ามันคืออะไร ทำไมสำคัญ — <span class="em">เน้นคำ</span> ได้ ]]</p>
+
+    <p class="subh">[[ หัวข้อย่อย เช่น อยู่ตรงไหน ]]</p>
+    <div class="where">
+      <div class="wrow"><span class="wk">ไฟล์</span><span class="wv"><code>path/to/file</code></span></div>
+      <div class="wrow"><span class="wk">ตัวแปร</span><span class="wv"><code>ENV_VAR</code></span></div>
+      <div class="wrow"><span class="wk">ตอนนี้</span><span class="wv"><span class="now">[[ สถานะปัจจุบัน ]]</span></span></div>
+    </div>
+
+    <p class="subh">[[ หัวข้อย่อย เช่น ทำอย่างไร ]]</p>
+    <ol class="steps">
+      <li>[[ ขั้นตอน 1 ]]</li>
+      <li>[[ ขั้นตอน 2 ]]</li>
+    </ol>
+
+    <div class="callout warn"><p class="label">ระวัง</p><p>[[ ข้อควรระวัง / gotcha ]]</p></div>
+  </section>
+
+  <footer class="book-end">
+    <p class="mark">§</p>
+    <p>[[ บรรทัดปิดเล่ม · ที่มาข้อมูล ]]</p>
+  </footer>
+</article>

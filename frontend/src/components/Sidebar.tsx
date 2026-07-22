@@ -23,6 +23,7 @@ import type { LucideIcon } from 'lucide-react'
 
 import type { Role } from '../lib/auth'
 import bbhDashboardLogo from '../assets/bbh-logo-dashboard.png'
+import { Eyebrow } from './ui/Eyebrow'
 
 interface NavItem {
   to: string
@@ -94,7 +95,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
               />
               <div className="min-w-0 flex-1">
                 <p className="font-serif text-base font-semibold leading-none text-bbh-ink">BBH</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-bbh-muted">Portal</p>
+                <Eyebrow className="mt-1">Portal</Eyebrow>
               </div>
             </>
           ) : (
@@ -177,7 +178,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
 
         {/* footer */}
         <div className={`border-t border-bbh-line py-3 ${collapsed ? 'lg:px-2' : 'px-4'}`}>
-          <div className={`flex items-center gap-2 text-[11px] text-bbh-muted ${collapsed ? 'lg:justify-center' : ''}`}>
+          <div className={`flex items-center gap-2 text-xs text-bbh-muted ${collapsed ? 'lg:justify-center' : ''}`}>
             <Stethoscope size={14} className="text-bbh-green shrink-0" />
             <span className={collapsed ? 'sr-only lg:hidden' : ''}>
               Better Being Hospital

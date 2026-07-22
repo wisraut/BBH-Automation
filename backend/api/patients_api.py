@@ -29,6 +29,8 @@ def list_patients(
     mine: bool = Query(default=False, description="Only patients in the caller's care-team panel."),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
+    sort: str = Query(default="hn", pattern="^(hn|name|latest_visit)$"),
+    direction: str = Query(default="desc", pattern="^(asc|desc)$"),
 ) -> dict:
     """List patients with optional search (name/HN/phone) + pagination.
 
@@ -37,6 +39,7 @@ def list_patients(
     panel_doctor_id = int(user["id"]) if mine else None
     result = patient_service.list_patients(
         search=search, page=page, limit=limit, panel_doctor_id=panel_doctor_id,
+        sort_key=sort, direction=direction,
     )
     audit_service.record_access(
         request, user,

@@ -8,8 +8,19 @@ import { useToast } from '../../hooks/useToast'
 import { useApproveBooking } from '../../hooks/useApproveBooking'
 import type { BookingOut } from '../../hooks/useBooking'
 import { useDoctors } from '../../hooks/useDoctors'
+import { usePatient } from '../../hooks/usePatient'
 import { useScheduleBlocks, type ScheduleBlock } from '../../hooks/useScheduleBlocks'
 import { ApiError } from '../../lib/api'
+import type { ApproveRequest } from '../../hooks/useApproveBooking'
+import {
+  PatientIntakeFields,
+  EMPTY_INTAKE,
+  isIntakeComplete,
+  missingIntakeKeys,
+  INTAKE_LABEL_KEY,
+  type IntakeForm,
+} from './PatientIntakeFields'
+import { Eyebrow } from '../ui/Eyebrow'
 
 interface ApproveModalProps {
   booking: BookingOut | null
@@ -85,7 +96,15 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
   const [doctorId, setDoctorId] = useState<number | ''>('')
   // Patient identity: number = link to that existing chart, 'new' = fresh chart.
   const [patientChoice, setPatientChoice] = useState<number | 'new' | null>(null)
+  // Patient intake the CRO must complete before confirming.
+  const [intake, setIntake] = useState<IntakeForm>(EMPTY_INTAKE)
+  // Turns empty required fields red once the CRO tries to confirm early.
+  const [showErrors, setShowErrors] = useState(false)
   const approve = useApproveBooking()
+  // When linking an existing chart, pull its saved details so the CRO reviews
+  // rather than re-types (returning patients).
+  const linkedId = typeof patientChoice === 'number' ? patientChoice : null
+  const linkedQ = usePatient(linkedId)
   const doctorsQ = useDoctors()
   const blockDate = startAt.slice(0, 10)
   const blocksQ = useScheduleBlocks({
@@ -108,8 +127,34 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
       setDuration(booking?.duration_min ?? 60)
       setDoctorId(booking?.assigned_doctor_id ?? defaultDoctorId ?? '')
       setPatientChoice(null)
+      setShowErrors(false)
+      // Seed the intake with what the booking already carries; the CRO fills the rest.
+      setIntake({ ...EMPTY_INTAKE, display_name: booking?.patient_name ?? '', phone: booking?.phone ?? '' })
     }
   }, [open, booking, defaultDoctorId])
+
+  // Prefill the intake from the linked chart (review-and-edit, not re-entry).
+  const linked = linkedQ.data
+  useEffect(() => {
+    if (!linked) return
+    setIntake((prev) => ({
+      ...prev,
+      display_name: linked.display_name ?? prev.display_name,
+      gender: linked.gender ?? prev.gender,
+      dob: linked.dob ?? prev.dob,
+      national_id: linked.national_id ?? prev.national_id,
+      blood_type: linked.blood_type ?? prev.blood_type,
+      phone: linked.phone ?? prev.phone,
+      phone2: linked.phone2 ?? prev.phone2,
+      phone3: linked.phone3 ?? prev.phone3,
+      phone4: linked.phone4 ?? prev.phone4,
+      email: linked.email ?? prev.email,
+      address: linked.address ?? prev.address,
+    }))
+  }, [linked])
+
+  const intakeComplete = isIntakeComplete(intake)
+  const missingKeys = missingIntakeKeys(intake)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -126,6 +171,16 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
       toast.show('error', t('approveModal.confirmPatientIdentityRequired'))
       return
     }
+    if (!intakeComplete) {
+      setShowErrors(true)
+      toast.show('error', t('intake.incompleteError'))
+      return
+    }
+    // Send only the filled fields — empty date/gender would fail validation, and
+    // blank optionals must not overwrite existing chart data on the backend.
+    const patientIntake = Object.fromEntries(
+      Object.entries(intake).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''),
+    ) as ApproveRequest['patient_intake']
     try {
       // Browser sends "YYYY-MM-DDTHH:MM"; treat as Asia/Bangkok by appending +07:00
       const isoBangkok = `${startAt}:00+07:00`
@@ -137,6 +192,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
           assigned_doctor_id: Number(doctorId),
           link_patient_id: typeof patientChoice === 'number' ? patientChoice : undefined,
           create_new_patient: patientChoice === 'new',
+          patient_intake: patientIntake,
         },
       })
       toast.show('success', t('approveModal.approveSuccess', { name: booking.patient_name ?? '' }))
@@ -152,7 +208,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
     <Modal open={open} title={t('approveModal.title')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('approveModal.patient')}</p>
+          <Eyebrow>{t('approveModal.patient')}</Eyebrow>
           <p className="mt-1 text-base font-semibold text-bbh-ink">
             {booking?.patient_name ?? '-'}
           </p>
@@ -162,51 +218,6 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
             </p>
           ) : null}
         </div>
-
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">{t('approveModal.appointmentDateTime')}</span>
-          <input
-            type="datetime-local"
-            value={startAt}
-            onChange={(event) => setStartAt(event.target.value)}
-            className={`mt-1.5 ${FIELD_CLASS}`}
-            required
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">{t('approveModal.durationMinutes')}</span>
-          <input
-            type="number"
-            min={15}
-            max={240}
-            step={15}
-            value={duration}
-            onChange={(event) => setDuration(Number(event.target.value))}
-            className={`mt-1.5 ${FIELD_CLASS}`}
-            required
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-bbh-ink">{t('approveModal.patientDoctor')}</span>
-          <select
-            value={doctorId}
-            onChange={(event) => setDoctorId(event.target.value === '' ? '' : Number(event.target.value))}
-            className={`mt-1.5 ${FIELD_CLASS}`}
-            required
-          >
-            <option value="">{t('approveModal.selectDoctorPlaceholder')}</option>
-            {(doctorsQ.data?.data ?? []).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-xs leading-relaxed text-bbh-muted">
-            {t('approveModal.doctorEmailNote')}
-          </span>
-        </label>
 
         {hasCandidates ? (
           <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
@@ -232,7 +243,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
                     {c.hn ? <span className="font-mono text-xs text-bbh-muted"> · {t('approveModal.hn', { hn: c.hn })}</span> : null}
                     {c.phone ? <span className="text-xs text-bbh-muted"> · {c.phone}</span> : null}
                     {c.latest_visit_at ? (
-                      <span className="block text-[11px] text-bbh-muted">
+                      <span className="block text-xs text-bbh-muted">
                         {t('approveModal.lastVisit', { date: new Date(c.latest_visit_at).toLocaleDateString(dateLocale()) })}
                       </span>
                     ) : null}
@@ -253,15 +264,55 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
           </div>
         ) : null}
 
-        {blockConflict ? (
-          <div className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
-            <p className="font-semibold text-bbh-ink">{t('approveModal.doctorUnavailableSlotTitle')}</p>
-            <p className="mt-1 font-mono tabular-nums">{formatBlockRange(blockConflict)} · {blockTypeLabel(blockConflict.block_type, t)}</p>
-            {blockConflict.reason ? <p className="mt-1 text-bbh-muted">{blockConflict.reason}</p> : null}
-          </div>
+        <PatientIntakeFields value={intake} onChange={setIntake} showErrors={showErrors} />
+
+        <div className="space-y-4 border-t border-bbh-line pt-4">
+          <Eyebrow>{t('approveModal.scheduleSection')}</Eyebrow>
+
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">{t('approveModal.appointmentDateTime')}</span>
+            <input type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} className={`mt-1.5 ${FIELD_CLASS}`} required />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">{t('approveModal.durationMinutes')}</span>
+            <input type="number" min={15} max={240} step={15} value={duration} onChange={(event) => setDuration(Number(event.target.value))} className={`mt-1.5 ${FIELD_CLASS}`} required />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-bbh-ink">{t('approveModal.patientDoctor')}</span>
+            <select value={doctorId} onChange={(event) => setDoctorId(event.target.value === '' ? '' : Number(event.target.value))} className={`mt-1.5 ${FIELD_CLASS}`} required>
+              <option value="">{t('approveModal.selectDoctorPlaceholder')}</option>
+              {(doctorsQ.data?.data ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.display_name}{d.specialty ? ` (${d.specialty})` : ''}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs leading-relaxed text-bbh-muted">
+              {t('approveModal.doctorEmailNote')}
+            </span>
+          </label>
+
+          {blockConflict ? (
+            <div className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
+              <p className="font-semibold text-bbh-ink">{t('approveModal.doctorUnavailableSlotTitle')}</p>
+              <p className="mt-1 font-mono tabular-nums">{formatBlockRange(blockConflict)} · {blockTypeLabel(blockConflict.block_type, t)}</p>
+              {blockConflict.reason ? <p className="mt-1 text-bbh-muted">{blockConflict.reason}</p> : null}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Missing-required transparency, right where the eye lands before the
+            confirm button — so the CRO sees exactly what's left, not a mystery
+            disabled button. */}
+        {showErrors && missingKeys.length > 0 ? (
+          <p className="text-xs font-medium text-red-600">
+            {t('intake.missingPrefix')}: {missingKeys.map((k) => t(INTAKE_LABEL_KEY[k])).join(', ')}
+          </p>
         ) : null}
 
-        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -272,16 +323,14 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
           </button>
           <button
             type="submit"
-            disabled={approve.isPending || !!blockConflict || patientUnresolved}
+            disabled={approve.isPending || !!blockConflict}
             className={`inline-flex items-center justify-center gap-2 rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}
           >
             {blockConflict
               ? t('approveModal.doctorUnavailable')
-              : patientUnresolved
-                ? t('approveModal.confirmPatientFirst')
-                : approve.isPending
-                  ? t('approveModal.confirming')
-                  : t('approveModal.confirmAppointment')}
+              : approve.isPending
+                ? t('approveModal.confirming')
+                : t('approveModal.confirmAppointment')}
           </button>
         </div>
       </form>

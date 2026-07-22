@@ -8,6 +8,7 @@ import { RejectModal } from '../components/bookings/RejectModal'
 import { RescheduleModal } from '../components/bookings/RescheduleModal'
 import { SourceBadge } from '../components/SourceBadge'
 import { StatusBadge } from '../components/StatusBadge'
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAssignDoctor } from '../hooks/useAssignDoctor'
 import { useBooking } from '../hooks/useBooking'
 import { useBookings } from '../hooks/useBookings'
@@ -86,7 +87,7 @@ function ConflictPill() {
   const { t } = useTranslation()
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"
       title={t('bookings.timeConflictHint')}
     >
       <AlertTriangle size={11} /> {t('bookings.timeConflict')}
@@ -146,16 +147,20 @@ export function Bookings() {
   const total = list.data?.pagination.total ?? 0
 
   return (
-    <div className="flex h-full min-w-0 overflow-hidden bg-white">
+    <div className="flex h-full min-w-0 overflow-hidden bg-bbh-canvas">
       <section
-        className={`${selectedUid ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col overflow-y-auto bg-white p-6 md:p-8 lg:p-10`}
+        className={`${selectedUid ? 'hidden lg:flex' : 'flex'} relative isolate min-w-0 flex-1 flex-col overflow-y-auto bg-bbh-canvas p-6 md:p-8 lg:p-10`}
       >
+        {/* Soft-light wash behind the masthead — warmth/depth without adding a
+            second colour (green-soft fades into the canvas). Sits behind flow. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-48 bg-gradient-to-b from-bbh-green-soft/60 to-transparent"
+        />
         {/* Masthead — instrument label + serif heading, primary action on the right */}
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-              CRO Bookings
-            </p>
+            <Eyebrow>CRO Bookings</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('bookings.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('bookings.subtitle')}
@@ -253,7 +258,7 @@ export function Bookings() {
           ) : null}
 
           {!list.isLoading && !list.isError && list.data && list.data.data.length > 0 ? (
-            <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
+            <div className="overflow-hidden rounded-xl border border-bbh-line bg-white shadow-bbh-sm">
               <div className="divide-y divide-bbh-line">
                 {list.data.data.map((row, i) => {
                   const active = row.request_uid === selectedUid
@@ -289,7 +294,7 @@ export function Bookings() {
                       <div className="flex shrink-0 flex-col items-end gap-2">
                         <StatusBadge status={row.status} />
                         {rowConflict ? <ConflictPill /> : null}
-                        <span className="font-mono text-[11px] tabular-nums text-bbh-muted">
+                        <span className="font-mono text-xs tabular-nums text-bbh-muted">
                           {formatRelative(row.created_at, t)}
                         </span>
                       </div>
@@ -327,7 +332,7 @@ export function Bookings() {
       </section>
 
       <aside
-        className={`${selectedUid ? 'block' : 'hidden lg:block'} animate-rise w-full overflow-y-auto bg-white p-6 md:p-8 lg:w-[420px] lg:border-l lg:border-bbh-line`}
+        className={`${selectedUid ? 'block' : 'hidden lg:block'} animate-rise w-full overflow-y-auto bg-bbh-canvas p-6 md:p-8 lg:w-[420px] lg:border-l lg:border-bbh-line`}
         style={{ animationDelay: '120ms' }}
       >
         {selectedUid ? (
@@ -351,9 +356,9 @@ export function Bookings() {
         ) : detail.isError ? (
           <p className="text-sm text-red-700">{t('bookings.detailLoadFailed')}</p>
         ) : detail.data ? (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('bookings.patient')}</p>
+              <Eyebrow>{t('bookings.patient')}</Eyebrow>
               <p className="mt-2 font-serif text-2xl font-semibold text-bbh-ink">
                 {detail.data.patient_name ?? '-'}
               </p>
@@ -368,23 +373,32 @@ export function Bookings() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-bbh-line bg-white p-4">
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                {t('bookings.requestedTime')}
-              </p>
-              <p className="mt-1 font-mono text-sm tabular-nums text-bbh-ink">
-                {detail.data.requested_datetime_text ?? '-'}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-bbh-line bg-white p-4">
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                {t('bookings.symptomDetail')}
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
-                {detail.data.symptom ?? '-'}
-              </p>
-            </div>
+            {/* One "request details" zone (Proximity): time + symptom + notes belong
+                together, so they share ONE hairline container with internal dividers
+                instead of three equal-weight boxes stacked (data-ink: 1 border, not 3).
+                Requested time leads as the decision anchor (larger, ink). */}
+            <dl className="space-y-4 rounded-2xl border border-bbh-line bg-white p-5 shadow-bbh-sm">
+              <div>
+                <Eyebrow as="dt">{t('bookings.requestedTime')}</Eyebrow>
+                <dd className="mt-1 font-mono text-base font-semibold tabular-nums text-bbh-ink">
+                  {detail.data.requested_datetime_text ?? '-'}
+                </dd>
+              </div>
+              <div className="border-t border-bbh-line/70 pt-4">
+                <Eyebrow as="dt">{t('bookings.symptomDetail')}</Eyebrow>
+                <dd className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
+                  {detail.data.symptom ?? '-'}
+                </dd>
+              </div>
+              {detail.data.notes ? (
+                <div className="border-t border-bbh-line/70 pt-4">
+                  <Eyebrow as="dt">{t('bookings.notes')}</Eyebrow>
+                  <dd className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
+                    {detail.data.notes}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
 
             {detail.data.calendar_event_url ? (
               <a
@@ -396,17 +410,6 @@ export function Bookings() {
                 {t('bookings.openCalendarEvent')}
                 <ExternalLink size={15} />
               </a>
-            ) : null}
-
-            {detail.data.notes ? (
-              <div className="rounded-xl border border-bbh-line bg-white p-4">
-                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-                  {t('bookings.notes')}
-                </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-bbh-ink">
-                  {detail.data.notes}
-                </p>
-              </div>
             ) : null}
 
             {detail.data.status === 'pending_approval' ? (
@@ -522,9 +525,9 @@ function AssignedDoctorField({ uid, assignedDoctorId, onDone }: {
   }
 
   return (
-    <div className={`rounded-xl border p-4 ${assigned ? 'border-bbh-line bg-white' : 'border-amber-300 bg-amber-50'}`}>
+    <div className={`rounded-xl border p-4 shadow-bbh-sm ${assigned ? 'border-bbh-line bg-white' : 'border-amber-300 bg-amber-50'}`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('bookings.attendingDoctor')}</p>
+        <Eyebrow>{t('bookings.attendingDoctor')}</Eyebrow>
         {!editing ? (
           <button
             type="button"

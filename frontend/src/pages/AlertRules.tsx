@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAdminAlertRules, type RuleOut } from '../hooks/useAdminAlertRules'
 import { useToggleAlertRule } from '../hooks/useToggleAlertRule'
 import { useUpdateAlertRuleThreshold } from '../hooks/useUpdateAlertRuleThreshold'
@@ -93,9 +94,7 @@ export function AlertRules() {
         {/* Masthead — instrument label + serif heading, refresh on the right */}
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-              Alert Rules
-            </p>
+            <Eyebrow>Alert Rules</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('alertRules.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('alertRules.subtitle')}
@@ -133,7 +132,7 @@ export function AlertRules() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
-              <div className="flex items-center justify-between border-b border-bbh-line bg-bbh-surface px-6 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+              <div className="flex items-center justify-between border-b border-bbh-line bg-bbh-surface px-6 py-4 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted">
                 <span>Rule</span>
                 <span>Status</span>
               </div>
@@ -155,7 +154,7 @@ export function AlertRules() {
                           <Icon size={18} className={SEVERITY_ICON_STYLES[r.severity] ?? 'text-bbh-muted'} />
                           <h3 className="truncate font-serif text-base font-semibold text-bbh-ink">{r.display_name}</h3>
                         </div>
-                        <p className="mt-1 font-mono text-[11px] tabular-nums text-bbh-muted">{r.rule_key}</p>
+                        <p className="mt-1 font-mono text-xs tabular-nums text-bbh-muted">{r.rule_key}</p>
                         {r.description ? <p className="mt-2 text-sm leading-relaxed text-bbh-muted">{r.description}</p> : null}
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -258,8 +257,8 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
         {m.error ? <p className="text-xs text-red-600">{t('alertRules.saveFailed')}</p> : null}
 
         <div className="rounded-lg border border-bbh-line bg-bbh-surface p-4">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('alertRules.thresholdExamples')}</p>
-          <ul className="mt-2 space-y-1 font-mono text-[11px] text-bbh-muted">
+          <Eyebrow>{t('alertRules.thresholdExamples')}</Eyebrow>
+          <ul className="mt-2 space-y-1 font-mono text-xs text-bbh-muted">
             <li>eval_stuck_reports: <span className="text-bbh-ink">{'{"minutes": 5}'}</span></li>
             <li>eval_stale_cro_approvals: <span className="text-bbh-ink">{'{"hours": 24}'}</span></li>
             <li>eval_failed_line_pushes: <span className="text-bbh-ink">{'{"window_minutes": 60, "min_count": 1}'}</span></li>

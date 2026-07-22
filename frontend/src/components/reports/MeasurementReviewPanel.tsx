@@ -15,6 +15,7 @@ import {
   type Measurement,
   type MeasurementCatalogItem,
 } from '../../hooks/useMeasurements'
+import { Eyebrow } from '../ui/Eyebrow'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-1'
@@ -99,7 +100,7 @@ function DraftRow({
         </button>
       </div>
       {draft.raw_label && draft.raw_label.toLowerCase() !== code ? (
-        <p className="mt-1 truncate font-mono text-[10px] text-bbh-muted">{t('measurementReviewPanel.fromLabResult', { label: draft.raw_label })}</p>
+        <p className="mt-1 truncate font-mono text-xs text-bbh-muted">{t('measurementReviewPanel.fromLabResult', { label: draft.raw_label })}</p>
       ) : null}
     </div>
   )
@@ -139,7 +140,7 @@ export function MeasurementReviewPanel({
   return (
     <section className="rounded-xl border border-bbh-line bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">{t('measurementReviewPanel.heading')}</h2>
+        <Eyebrow as="h2">{t('measurementReviewPanel.heading')}</Eyebrow>
         <button
           type="button"
           onClick={onExtract}
@@ -151,7 +152,7 @@ export function MeasurementReviewPanel({
         </button>
       </div>
 
-      <p className="mb-3 text-[11px] leading-5 text-bbh-muted">
+      <p className="mb-3 text-xs leading-5 text-bbh-muted">
         {t('measurementReviewPanel.description')}
       </p>
 

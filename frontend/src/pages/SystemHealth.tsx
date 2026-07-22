@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useSystemHealth, type ServiceCheck, type ServiceStatus } from '../hooks/useSystemHealth'
 
 // Shared focus treatment so every interactive element gets a visible,
@@ -114,7 +115,7 @@ function ServiceCard({ check }: { check: ServiceCheck }) {
           </span>
           <p className="truncate text-sm font-semibold text-bbh-ink">{label}</p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${s.badge}`}>
+        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${s.badge}`}>
           {s.label}
         </span>
       </div>
@@ -122,7 +123,7 @@ function ServiceCard({ check }: { check: ServiceCheck }) {
         <p className="truncate text-xs leading-relaxed text-bbh-muted">{check.detail}</p>
       ) : null}
       {typeof check.latency_ms === 'number' ? (
-        <p className="font-mono text-[11px] tabular-nums text-bbh-muted">{check.latency_ms} ms</p>
+        <p className="font-mono text-xs tabular-nums text-bbh-muted">{check.latency_ms} ms</p>
       ) : null}
     </div>
   )
@@ -152,7 +153,7 @@ export function SystemHealth() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-bbh-green opacity-30" />
                 <span className="relative inline-flex h-2 w-2 animate-beacon rounded-full bg-bbh-green" />
               </span>
-              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.28em] text-bbh-green">
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.28em] text-bbh-green">
                 System Monitor
               </span>
             </p>
@@ -211,9 +212,9 @@ export function SystemHealth() {
               <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-3 xl:grid-cols-7">
                 {dbStatsEntries.map(([key, value]) => (
                   <div key={key} className="flex flex-col gap-3 bg-white p-6">
-                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
+                    <Eyebrow>
                       {DB_STAT_LABEL_KEYS[key] ? t(DB_STAT_LABEL_KEYS[key]) : key}
-                    </p>
+                    </Eyebrow>
                     <p className="font-mono text-3xl font-semibold leading-none tabular-nums text-bbh-ink">
                       {String(value)}
                     </p>
@@ -241,7 +242,7 @@ export function SystemHealth() {
                         key={`${a.kind}-${a.subject}-${i}`}
                         className="grid grid-cols-[64px_1fr_auto] items-center gap-3 px-6 py-4 text-sm"
                       >
-                        <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-center font-mono text-[10px] font-semibold uppercase tracking-wider text-bbh-muted">
+                        <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-center font-mono text-xs font-semibold uppercase tracking-wider text-bbh-muted">
                           {ACTIVITY_KIND_LABEL[a.kind] ?? a.kind}
                         </span>
                         <span className="truncate text-bbh-ink">{a.summary}</span>
@@ -253,7 +254,7 @@ export function SystemHealth() {
               )}
             </section>
 
-            <p className="text-right font-mono text-[11px] tabular-nums text-bbh-muted">
+            <p className="text-right font-mono text-xs tabular-nums text-bbh-muted">
               {t('systemHealth.lastChecked', { time: new Date(data.checked_at).toLocaleTimeString(dateLocale()) })}
             </p>
           </div>

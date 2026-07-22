@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAuth } from '../lib/auth'
 import { useCreateUser } from '../hooks/useCreateUser'
 import { useResetUserPassword } from '../hooks/useResetUserPassword'
@@ -76,9 +77,7 @@ export function Users() {
         {/* Masthead — instrument label + serif heading, primary actions on the right */}
         <div className="animate-rise mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-              User Management
-            </p>
+            <Eyebrow>User Management</Eyebrow>
             <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('users.title')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
               {t('users.subtitle')}
@@ -152,7 +151,7 @@ export function Users() {
             <div className="rounded-xl border border-bbh-line bg-white p-10 text-center text-sm text-bbh-muted">{t('users.notFound')}</div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
-              <div className="hidden grid-cols-[60px_1fr_2fr_120px_160px_120px_140px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
+              <div className="hidden grid-cols-[60px_1fr_2fr_120px_160px_120px_140px] gap-3 border-b border-bbh-line bg-bbh-surface px-4 py-3 font-mono text-xs font-medium uppercase tracking-[0.22em] text-bbh-muted lg:grid">
                 <span>{t('users.colId')}</span>
                 <span>{t('users.colName')}</span>
                 <span>{t('users.colEmail')}</span>
@@ -174,7 +173,7 @@ export function Users() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-bbh-ink">
                           {u.display_name}
-                          {isMe ? <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-bbh-green-dark">{t('users.you')}</span> : null}
+                          {isMe ? <span className="ml-2 text-xs font-bold uppercase tracking-wider text-bbh-green-dark">{t('users.you')}</span> : null}
                         </p>
                         <p className="truncate font-mono text-xs text-bbh-muted lg:hidden">{u.email}</p>
                       </div>
@@ -291,7 +290,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
         <div>
           <label className="text-xs font-semibold text-bbh-muted">{t('users.passwordRequired')}</label>
           <input type="password" required minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} className={MODAL_FIELD} />
-          <p className="mt-1 text-[11px] text-bbh-muted">{t('users.passwordHint')}</p>
+          <p className="mt-1 text-xs text-bbh-muted">{t('users.passwordHint')}</p>
         </div>
         {m.error ? <p className="text-xs text-red-600">{t('users.createFailed')}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
@@ -348,7 +347,7 @@ function EditUserModal({ target, onClose, isSelf }: { target: UserOut | null; on
             <select value={role} onChange={(e) => setRole(e.target.value as typeof ROLES[number])} disabled={isSelf} className={`${MODAL_FIELD} disabled:bg-bbh-surface`}>
               {ROLES.map((r) => <option key={r} value={r}>{t(`roleShort.${r}`, r)}</option>)}
             </select>
-            {isSelf ? <p className="mt-1 text-[10px] text-bbh-muted">{t('users.cannotChangeOwnRole')}</p> : null}
+            {isSelf ? <p className="mt-1 text-xs text-bbh-muted">{t('users.cannotChangeOwnRole')}</p> : null}
           </div>
           <div>
             <label className="text-xs font-semibold text-bbh-muted">{t('users.specialty')}</label>
@@ -358,7 +357,7 @@ function EditUserModal({ target, onClose, isSelf }: { target: UserOut | null; on
         <label className="flex items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm text-bbh-ink">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} disabled={isSelf} className="h-4 w-4 accent-bbh-green" />
           {t('users.activeCanLogin')}
-          {isSelf ? <span className="ml-auto text-[10px] text-bbh-muted">{t('users.cannotDisableSelf')}</span> : null}
+          {isSelf ? <span className="ml-auto text-xs text-bbh-muted">{t('users.cannotDisableSelf')}</span> : null}
         </label>
         {m.error ? <p className="text-xs text-red-600">{t('users.saveFailed')}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
@@ -406,7 +405,7 @@ function ResetPasswordModal({ target, onClose }: { target: UserOut | null; onClo
           <div>
             <label className="text-xs font-semibold text-bbh-muted">{t('users.newPasswordRequired')}</label>
             <input type="text" required minLength={10} value={pw} onChange={(e) => setPw(e.target.value)} className={`${MODAL_FIELD} font-mono`} placeholder={t('users.newPasswordPlaceholder')} />
-            <p className="mt-1 text-[11px] text-bbh-muted">{t('users.resetHint')}</p>
+            <p className="mt-1 text-xs text-bbh-muted">{t('users.resetHint')}</p>
           </div>
           {m.error ? <p className="text-xs text-red-600">{t('users.resetFailed')}</p> : null}
           <div className="flex justify-end gap-2 pt-2">

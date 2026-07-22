@@ -14,6 +14,7 @@ class PatientListItem(BaseModel):
     display_name: str
     phone: str | None = None
     gender: Gender | None = None
+    dob: date | None = None
     latest_visit_at: datetime | None = None
     total_bookings: int = 0
     total_reports: int = 0
@@ -30,6 +31,13 @@ class PatientOut(BaseModel):
     dob: date | None = None
     gender: Gender | None = None
     nationality: str | None = None
+    national_id: str | None = None
+    blood_type: str | None = None
+    phone2: str | None = None
+    phone3: str | None = None
+    phone4: str | None = None
+    address: str | None = None
+    intake_by: str | None = None
     notes: str | None = None
     created_by: int | None = None
     created_at: datetime
@@ -58,6 +66,13 @@ class PatientCreateRequest(BaseModel):
     dob: date | None = None
     gender: Gender | None = None
     nationality: str | None = Field(default=None, max_length=60)
+    national_id: str | None = Field(default=None, max_length=30)
+    blood_type: str | None = Field(default=None, max_length=6)
+    phone2: str | None = Field(default=None, max_length=20)
+    phone3: str | None = Field(default=None, max_length=20)
+    phone4: str | None = Field(default=None, max_length=20)
+    address: str | None = Field(default=None, max_length=2000)
+    intake_by: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -69,4 +84,11 @@ class PatientUpdateRequest(BaseModel):
     dob: date | None = None
     gender: Gender | None = None
     nationality: str | None = Field(default=None, max_length=60)
+    national_id: str | None = Field(default=None, max_length=30)
+    blood_type: str | None = Field(default=None, max_length=6)
+    phone2: str | None = Field(default=None, max_length=20)
+    phone3: str | None = Field(default=None, max_length=20)
+    phone4: str | None = Field(default=None, max_length=20)
+    address: str | None = Field(default=None, max_length=2000)
+    intake_by: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=2000)

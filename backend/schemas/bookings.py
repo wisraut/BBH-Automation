@@ -1,8 +1,10 @@
 """Booking request/response schemas."""
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+Gender = Literal["male", "female", "other", "unknown"]
 
 BookingStatus = Literal[
     "draft", "pending_approval", "approved", "rejected", "cancelled", "expired", "no_show"
@@ -93,10 +95,30 @@ class BookingCreateResponse(BaseModel):
     request_uid: str
 
 
+class PatientIntake(BaseModel):
+    """ประวัติคนไข้ที่ CRO กรอกตอน approve — บันทึกลง patient record ที่ link/สร้างใหม่
+    (บังคับ required ฝั่ง UI; API รับทุก field แบบ optional เก็บเท่าที่ส่งมา)"""
+    display_name: str | None = Field(default=None, max_length=120)
+    gender: Gender | None = None
+    dob: date | None = None
+    national_id: str | None = Field(default=None, max_length=30)
+    blood_type: str | None = Field(default=None, max_length=6)
+    phone: str | None = Field(default=None, max_length=20)
+    phone2: str | None = Field(default=None, max_length=20)
+    phone3: str | None = Field(default=None, max_length=20)
+    phone4: str | None = Field(default=None, max_length=20)
+    email: str | None = Field(default=None, max_length=191)
+    address: str | None = Field(default=None, max_length=2000)
+    intake_by: str | None = Field(default=None, max_length=120)
+
+
 class ApproveRequest(BaseModel):
     """request body ตอน CRO อนุมัติ booking — เวลาเริ่ม + แพทย์ + วิธี resolve ตัวตน
     คนไข้ (link chart เดิม หรือสร้างใหม่เมื่อเบอร์ชนกัน; ดู PatientCandidate)"""
     start_at: datetime = Field(description="ISO 8601 datetime (Asia/Bangkok). Slot start.")
+    # Patient intake the CRO fills before confirming — persisted to the patient
+    # record (created or linked) as part of the approve.
+    patient_intake: PatientIntake | None = None
     duration_min: int = Field(default=60, ge=15, le=240)
     assigned_doctor_id: int | None = Field(
         default=None,

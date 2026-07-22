@@ -164,6 +164,7 @@
     "title": "ยืนยันการจอง",
     "patient": "คนไข้",
     "requestedByCustomer": "ลูกค้าขอ:",
+    "scheduleSection": "ตารางนัด",
     "appointmentDateTime": "วัน-เวลานัด",
     "durationMinutes": "ระยะเวลา (นาที)",
     "patientDoctor": "แพทย์ประจำตัวคนไข้",
@@ -749,6 +750,47 @@
     "nationalitySpecify": "ระบุสัญชาติ",
     "notes": "หมายเหตุ"
   },
+  "intake": {
+    "title": "ประวัติคนไข้",
+    "sectionIdentity": "ข้อมูลตัวตน",
+    "sectionContact": "ติดต่อ & การแพทย์",
+    "sectionIntakeBy": "ผู้กรอกข้อมูล",
+    "addMore": "เพิ่มเบอร์ / อีเมล",
+    "missingPrefix": "ยังขาด",
+    "name": "ชื่อ-นามสกุล",
+    "gender": "เพศ",
+    "dob": "วันเดือนปีเกิด",
+    "nationalId": "บัตรปชช / Passport",
+    "bloodType": "กรุ๊ปเลือด",
+    "bloodUnknown": "ไม่ทราบ",
+    "phone1": "เบอร์โทร 1",
+    "phone2": "เบอร์โทร 2",
+    "phone3": "เบอร์โทร 3",
+    "phone4": "เบอร์โทร 4",
+    "email": "อีเมล",
+    "address": "ที่อยู่",
+    "intakeBy": "ผู้กรอกข้อมูล (เจ้าหน้าที่)",
+    "intakeByPlaceholder": "พิมพ์ชื่อเจ้าหน้าที่ที่กรอก",
+    "selectPlaceholder": "เลือก",
+    "incompleteError": "กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบก่อนยืนยัน",
+    "fillFirst": "กรอกประวัติให้ครบก่อน"
+  },
+  "patientProfile": {
+    "edit": "แก้ไข",
+    "print": "พิมพ์ประวัติ",
+    "saved": "บันทึกประวัติแล้ว",
+    "saveFailed": "บันทึกไม่สำเร็จ กรุณาลองใหม่"
+  },
+  "profilePrint": {
+    "hospital": "โรงพยาบาล BBH",
+    "title": "ประวัติคนไข้ (Patient Profile)",
+    "printedOn": "พิมพ์เมื่อ",
+    "ageYears": "{{age}} ปี",
+    "patientSign": "ลายเซ็นคนไข้",
+    "staffSign": "ลายเซ็นเจ้าหน้าที่",
+    "dateLine": "วันที่ ______________",
+    "print": "พิมพ์"
+  },
   "patientMedicalRecords": {
     "edit": "แก้ไข",
     "doneEditing": "เสร็จ",
@@ -810,6 +852,12 @@
   },
   "patients": {
     "searchPlaceholder": "ค้นหาชื่อ HN หรือเบอร์โทร",
+    "colHn": "HN",
+    "colName": "ชื่อ",
+    "colGenderAge": "เพศ/อายุ",
+    "colPhone": "เบอร์",
+    "colLastVisit": "มาล่าสุด",
+    "colReports": "ผล",
     "myPatients": "คนไข้ของฉัน",
     "myPatientsTooltip": "แสดงเฉพาะคนไข้ในความดูแลของฉัน",
     "addPatient": "เพิ่มคนไข้",
@@ -834,7 +882,8 @@
     "tabs": {
       "overview": "ภาพรวม",
       "labs": "ผลแล็บ",
-      "activity": "กิจกรรม"
+      "activity": "กิจกรรม",
+      "profile": "ประวัติส่วนตัว"
     },
     "openReportTooltip": "เปิด report ในแท็บใหม่",
     "openFile": "เปิดไฟล์",

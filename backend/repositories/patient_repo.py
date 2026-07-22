@@ -7,7 +7,8 @@ from utils.phone import normalize_phone
 
 
 _BASE_COLUMNS = (
-    "id, hn, display_name, phone, email, dob, gender, nationality, notes, "
+    "id, hn, display_name, phone, phone2, phone3, phone4, email, dob, gender, "
+    "nationality, national_id, blood_type, address, intake_by, notes, "
     "created_by, created_at, updated_at"
 )
 
@@ -22,8 +23,18 @@ def _serialize(row: dict[str, Any] | None) -> dict[str, Any] | None:
     return row
 
 
+# Whitelisted sort columns — ORDER BY can't be parameterized, so the sort key is
+# mapped through this dict (never interpolated from raw client input).
+_SORT_COLUMNS = {
+    "hn": "p.hn",
+    "name": "p.display_name",
+    "latest_visit": "latest_visit_at",
+}
+
+
 def list_patients(
     *, search: str | None, page: int, limit: int, panel_doctor_id: int | None = None,
+    sort_key: str = "hn", direction: str = "desc",
 ) -> tuple[list[dict[str, Any]], int]:
     """List with optional fuzzy search (name/hn/phone) + booking/report counts.
 
@@ -52,6 +63,8 @@ def list_patients(
             )
             total = int(cur.fetchone()["n"])
 
+            order_col = _SORT_COLUMNS.get(sort_key, "p.hn")
+            order_dir = "ASC" if direction == "asc" else "DESC"
             cur.execute(
                 f"""
                 SELECT
@@ -60,6 +73,7 @@ def list_patients(
                     p.display_name,
                     p.phone,
                     p.gender,
+                    p.dob,
                     p.created_at,
                     (SELECT COUNT(*) FROM booking_requests b WHERE b.patient_id = p.id) AS total_bookings,
                     (SELECT COUNT(*) FROM patient_reports r WHERE r.patient_id = p.id) AS total_reports,
@@ -67,7 +81,7 @@ def list_patients(
                        WHERE b.patient_id = p.id AND b.status = 'approved') AS latest_visit_at
                 FROM patients p
                 {where_sql}
-                ORDER BY p.created_at DESC
+                ORDER BY {order_col} {order_dir}, p.id DESC
                 LIMIT %s OFFSET %s
                 """,
                 (*args, limit, offset),

@@ -115,7 +115,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             {t('rescheduleModal.rescheduleFailed')}
           </p>
         ) : null}
-        <p className="text-[11px] leading-relaxed text-bbh-muted">
+        <p className="text-xs leading-relaxed text-bbh-muted">
           {tbd
             ? t('rescheduleModal.effectTbd')
             : t('rescheduleModal.effectScheduled')}

@@ -14,6 +14,7 @@ import {
 } from '../../hooks/useCareTeam'
 import { useToast } from '../../hooks/useToast'
 import { ApiError } from '../../lib/api'
+import { Eyebrow } from '../ui/Eyebrow'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
@@ -50,9 +51,7 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
 
   return (
     <section>
-      <h2 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-bbh-muted">
-        {t('careTeamSection.title')}
-      </h2>
+      <Eyebrow as="h2" className="mb-3">{t('careTeamSection.title')}</Eyebrow>
 
       {members.length === 0 ? (
         <p className="rounded-xl border border-dashed border-bbh-line bg-white p-4 text-sm text-bbh-muted">
@@ -75,7 +74,7 @@ export function CareTeamSection({ patientId }: { patientId: number }) {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${
                       isPrimary
                         ? 'border-bbh-green/40 bg-bbh-green/5 text-bbh-green-dark'
                         : 'border-bbh-line bg-bbh-surface text-bbh-muted'

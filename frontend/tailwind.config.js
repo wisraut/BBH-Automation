@@ -13,9 +13,11 @@ export default {
           line: '#dfe8e3',
           surface: '#f7fbf9',
           // Work-surface a shade deeper than card white, so white panels read as
-          // elevated instead of blending into the page. Green-grey keeps it on
-          // brand and off pure-white glare. (See DESIGN_PRINCIPLES: depth, not colour.)
-          canvas: '#eef3f1',
+          // elevated instead of blending into the page (depth via value, not colour).
+          // A fresh, low-saturation mint (~5% sat) — same brand green family as the
+          // rest of the palette, kept light so it reads clean, not the murky grey-green
+          // of the earlier #eef3f1. Temperature matches the white cards floating on it.
+          canvas: '#eff6f2',
         },
       },
       boxShadow: {

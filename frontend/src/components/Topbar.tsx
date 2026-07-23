@@ -20,7 +20,7 @@ export function Topbar({ title, subtitle, onMenuClick, viewAs }: TopbarProps) {
   const showBackToAdmin = Boolean(viewAs && user?.role === 'admin')
 
   return (
-    <header className="border-b border-bbh-line bg-gradient-to-br from-white via-bbh-green-soft/80 to-bbh-green-soft px-3 py-2.5 shadow-sm md:px-5 lg:px-8">
+    <header className="relative z-10 border-b border-bbh-line bg-gradient-to-br from-white via-bbh-green-soft/80 to-bbh-green-soft px-3 py-2.5 shadow-bbh-md md:px-5 lg:px-8">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <button

@@ -28,7 +28,7 @@ export function PatientPickerModal({ open, onClose, onPick }: PatientPickerModal
 
   return (
     <Modal open={open} title={t('patientPickerModal.title')} onClose={onClose}>
-      <div className="space-y-3">
+      <div className="space-y-3 pb-5">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-bbh-muted" />
           <input

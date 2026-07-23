@@ -51,7 +51,11 @@ export function Modal({ open, title, onClose, children, size = 'md' }: ModalProp
             <X size={18} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5 md:px-7">{children}</div>
+        {/* pb-0 (not py-5): a sticky bottom footer (ModalActions) pins flush only if
+            the scroll container has no bottom padding — otherwise it floats above the
+            padding and content shows through underneath. Footer-less modals add their
+            own bottom spacing (pb-*) on their content. */}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 pt-5 md:px-7">{children}</div>
       </div>
     </div>
   )

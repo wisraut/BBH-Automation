@@ -110,6 +110,29 @@ class PatientIntake(BaseModel):
     email: str | None = Field(default=None, max_length=191)
     address: str | None = Field(default=None, max_length=2000)
     intake_by: str | None = Field(default=None, max_length=120)
+    # Optional health-record extras (paper "บันทึกประวัติ") — CRO may fill at approve
+    # time but usually defers; persisted to the patient chart like the rest.
+    english_name: str | None = Field(default=None, max_length=120)
+    religion: str | None = Field(default=None, max_length=60)
+    marital_status: str | None = Field(default=None, max_length=30)
+    occupation: str | None = Field(default=None, max_length=120)
+    father_name: str | None = Field(default=None, max_length=120)
+    father_phone: str | None = Field(default=None, max_length=20)
+    mother_name: str | None = Field(default=None, max_length=120)
+    mother_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_name: str | None = Field(default=None, max_length=120)
+    emergency_contact_relation: str | None = Field(default=None, max_length=60)
+    emergency_contact_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_address: str | None = Field(default=None, max_length=500)
+    past_illness: str | None = Field(default=None, max_length=2000)
+    congenital_disease: str | None = Field(default=None, max_length=2000)
+    drugs_supplements: str | None = Field(default=None, max_length=2000)
+    drug_allergy: str | None = Field(default=None, max_length=2000)
+    food_allergy: str | None = Field(default=None, max_length=2000)
+    smoking: bool | None = None
+    smoking_years: int | None = Field(default=None, ge=0, le=120)
+    drinking: bool | None = None
+    drinking_years: int | None = Field(default=None, ge=0, le=120)
 
 
 class ApproveRequest(BaseModel):

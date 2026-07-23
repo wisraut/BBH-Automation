@@ -3149,6 +3149,48 @@ export interface components {
             address?: string | null;
             /** Intake By */
             intake_by?: string | null;
+            /** English Name */
+            english_name?: string | null;
+            /** Religion */
+            religion?: string | null;
+            /** Marital Status */
+            marital_status?: string | null;
+            /** Occupation */
+            occupation?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Father Phone */
+            father_phone?: string | null;
+            /** Mother Name */
+            mother_name?: string | null;
+            /** Mother Phone */
+            mother_phone?: string | null;
+            /** Emergency Contact Name */
+            emergency_contact_name?: string | null;
+            /** Emergency Contact Relation */
+            emergency_contact_relation?: string | null;
+            /** Emergency Contact Phone */
+            emergency_contact_phone?: string | null;
+            /** Emergency Contact Address */
+            emergency_contact_address?: string | null;
+            /** Past Illness */
+            past_illness?: string | null;
+            /** Congenital Disease */
+            congenital_disease?: string | null;
+            /** Drugs Supplements */
+            drugs_supplements?: string | null;
+            /** Drug Allergy */
+            drug_allergy?: string | null;
+            /** Food Allergy */
+            food_allergy?: string | null;
+            /** Smoking */
+            smoking?: boolean | null;
+            /** Smoking Years */
+            smoking_years?: number | null;
+            /** Drinking */
+            drinking?: boolean | null;
+            /** Drinking Years */
+            drinking_years?: number | null;
         };
         /**
          * PatientListItem

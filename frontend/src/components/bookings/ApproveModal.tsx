@@ -151,6 +151,27 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
       phone4: linked.phone4 ?? prev.phone4,
       email: linked.email ?? prev.email,
       address: linked.address ?? prev.address,
+      english_name: linked.english_name ?? prev.english_name,
+      religion: linked.religion ?? prev.religion,
+      marital_status: linked.marital_status ?? prev.marital_status,
+      occupation: linked.occupation ?? prev.occupation,
+      father_name: linked.father_name ?? prev.father_name,
+      father_phone: linked.father_phone ?? prev.father_phone,
+      mother_name: linked.mother_name ?? prev.mother_name,
+      mother_phone: linked.mother_phone ?? prev.mother_phone,
+      emergency_contact_name: linked.emergency_contact_name ?? prev.emergency_contact_name,
+      emergency_contact_relation: linked.emergency_contact_relation ?? prev.emergency_contact_relation,
+      emergency_contact_phone: linked.emergency_contact_phone ?? prev.emergency_contact_phone,
+      emergency_contact_address: linked.emergency_contact_address ?? prev.emergency_contact_address,
+      past_illness: linked.past_illness ?? prev.past_illness,
+      congenital_disease: linked.congenital_disease ?? prev.congenital_disease,
+      drugs_supplements: linked.drugs_supplements ?? prev.drugs_supplements,
+      drug_allergy: linked.drug_allergy ?? prev.drug_allergy,
+      food_allergy: linked.food_allergy ?? prev.food_allergy,
+      smoking: linked.smoking == null ? prev.smoking : linked.smoking ? 'yes' : 'no',
+      smoking_years: linked.smoking_years != null ? String(linked.smoking_years) : prev.smoking_years,
+      drinking: linked.drinking == null ? prev.drinking : linked.drinking ? 'yes' : 'no',
+      drinking_years: linked.drinking_years != null ? String(linked.drinking_years) : prev.drinking_years,
     }))
   }, [linked])
 
@@ -179,9 +200,19 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
     }
     // Send only the filled fields — empty date/gender would fail validation, and
     // blank optionals must not overwrite existing chart data on the backend.
-    const patientIntake = Object.fromEntries(
-      Object.entries(intake).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''),
-    ) as ApproveRequest['patient_intake']
+    const flagKeys = ['smoking', 'smoking_years', 'drinking', 'drinking_years']
+    const patientIntake: Record<string, unknown> = Object.fromEntries(
+      Object.entries(intake)
+        .filter(([k]) => !flagKeys.includes(k))
+        .map(([k, v]) => [k, v.trim()])
+        .filter(([, v]) => v !== ''),
+    )
+    // smoking/drinking are a tri-state picker: '' omitted, 'no'->false, 'yes'->true;
+    // years only when 'yes'. (Bool/int, so they can't go through the string trim above.)
+    if (intake.smoking) patientIntake.smoking = intake.smoking === 'yes'
+    if (intake.smoking === 'yes' && intake.smoking_years) patientIntake.smoking_years = Number(intake.smoking_years)
+    if (intake.drinking) patientIntake.drinking = intake.drinking === 'yes'
+    if (intake.drinking === 'yes' && intake.drinking_years) patientIntake.drinking_years = Number(intake.drinking_years)
     try {
       // Browser sends "YYYY-MM-DDTHH:MM"; treat as Asia/Bangkok by appending +07:00
       const isoBangkok = `${startAt}:00+07:00`
@@ -193,7 +224,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
           assigned_doctor_id: Number(doctorId),
           link_patient_id: typeof patientChoice === 'number' ? patientChoice : undefined,
           create_new_patient: patientChoice === 'new',
-          patient_intake: patientIntake,
+          patient_intake: patientIntake as ApproveRequest['patient_intake'],
         },
       })
       toast.show('success', t('approveModal.approveSuccess', { name: booking.patient_name ?? '' }))

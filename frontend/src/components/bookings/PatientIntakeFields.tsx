@@ -226,29 +226,15 @@ export function PatientIntakeFields({ value, onChange, showErrors = false }: Pro
         )}
       </section>
 
-      {/* Who filled it */}
-      <section className="space-y-2.5">
-        <Head text={t('intake.sectionIntakeBy')} />
-        <label className="block">
-          <Label k="intake_by" text={t('intake.intakeBy')} />
-          <input
-            value={value.intake_by}
-            onChange={set('intake_by')}
-            maxLength={120}
-            placeholder={t('intake.intakeByPlaceholder')}
-            className={cls('intake_by')}
-          />
-        </label>
-      </section>
-
       {/* Optional health / family record — collapsed by default (usually deferred
-          past booking; kept here so the CRO can fill it now if the patient is present). */}
+          past booking; kept here so the CRO can fill it now if the patient is present).
+          Sits above "who filled it" so the toggle doesn't hide at the very bottom. */}
       <section className="space-y-3">
         <button
           type="button"
           onClick={() => setShowHealth((s) => !s)}
           aria-expanded={showHealth}
-          className="flex w-full items-center justify-between rounded-lg border border-bbh-line px-3 py-2.5 text-sm font-medium text-bbh-ink transition-colors hover:border-bbh-green"
+          className="flex w-full items-center justify-between rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2.5 text-sm font-medium text-bbh-ink transition-colors hover:border-bbh-green hover:text-bbh-green-dark"
         >
           <span>{t('intake.moreHealthTitle')}</span>
           <ChevronDown size={16} className={`shrink-0 transition-transform ${showHealth ? 'rotate-180' : ''}`} />
@@ -372,6 +358,21 @@ export function PatientIntakeFields({ value, onChange, showErrors = false }: Pro
             </div>
           </div>
         ) : null}
+      </section>
+
+      {/* Who filled it — kept last (meta: which staff recorded the intake) */}
+      <section className="space-y-2.5">
+        <Head text={t('intake.sectionIntakeBy')} />
+        <label className="block">
+          <Label k="intake_by" text={t('intake.intakeBy')} />
+          <input
+            value={value.intake_by}
+            onChange={set('intake_by')}
+            maxLength={120}
+            placeholder={t('intake.intakeByPlaceholder')}
+            className={cls('intake_by')}
+          />
+        </label>
       </section>
     </div>
   )

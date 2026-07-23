@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
-  Loader2,
   RefreshCw,
   Search,
 } from 'lucide-react'
@@ -13,6 +12,7 @@ import { useAuth } from '../lib/auth'
 import { useReportsWorkspace, type ReportDecision, type WorkspaceReport } from '../hooks/useReportsWorkspace'
 import { ReportDetailDrawer } from '../components/reports/ReportDetailDrawer'
 import { Eyebrow } from '../components/ui/Eyebrow'
+import { SkeletonList } from '../components/ui/Skeleton'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -222,9 +222,7 @@ export function Reports() {
         {/* Results */}
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {q.isLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> {t('common.loading')}
-            </div>
+            <SkeletonList rows={5} rowClassName="h-14 rounded-xl" className="space-y-2" />
           ) : q.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
               {t('common.loadFailed')}

@@ -6,6 +6,7 @@ import { ChevronDown, ChevronLeft, ChevronUp, Download, Edit3, ExternalLink, Lin
 
 import { openReportFile, downloadReportFile } from '../lib/reportFile'
 import { Eyebrow } from '../components/ui/Eyebrow'
+import { SkeletonList } from '../components/ui/Skeleton'
 import { PatientFormModal } from '../components/patients/PatientFormModal'
 import { AllergyBanner } from '../components/patients/AllergyBanner'
 import { PatientCallLog } from '../components/patients/PatientCallLog'
@@ -354,9 +355,7 @@ export function Patients() {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {patientsQ.isLoading ? (
-            <div className="space-y-2 p-3">
-              {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-11 animate-pulse rounded-lg bg-bbh-surface" />)}
-            </div>
+            <SkeletonList rows={5} rowClassName="h-11 rounded-lg" />
           ) : patients.length === 0 ? (
             <div className="m-3 mt-8 rounded-xl border border-dashed border-bbh-line p-6 text-center text-sm text-bbh-muted">
               {t('patients.notFound')}

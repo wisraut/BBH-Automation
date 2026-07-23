@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus, Stethoscope, X } from 'lucide-react'
 
+import { SkeletonList } from '../components/ui/Skeleton'
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { NewBookingModal } from '../components/bookings/NewBookingModal'
 import { RejectModal } from '../components/bookings/RejectModal'
@@ -99,6 +100,7 @@ function ConflictPill() {
 // กด approve (เลือกหมอ) / reject / reschedule คำขอจองที่มาจาก LINE bot
 export function Bookings() {
   const { t } = useTranslation()
+  const toast = useToast()
   const [tab, setTab] = useState<BookingGroup>('active')
   const [filter, setFilter] = useState<BookingStatus | 'all'>('all')
   const [page, setPage] = useState(1)
@@ -227,11 +229,7 @@ export function Bookings() {
 
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {list.isLoading ? (
-            <div className="space-y-2">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-xl bg-bbh-surface" />
-              ))}
-            </div>
+            <SkeletonList rows={4} rowClassName="h-16 rounded-xl" className="space-y-2" />
           ) : null}
 
           {list.isError ? (
@@ -475,7 +473,10 @@ export function Bookings() {
         uid={detail.data?.request_uid ?? null}
         currentDateTimeText={detail.data?.requested_datetime_text ?? null}
         onClose={() => setRescheduleOpen(false)}
-        onSuccess={() => void list.refetch()}
+        onSuccess={() => {
+          void list.refetch()
+          toast.show('success', t('calendar.rescheduleSuccess'))
+        }}
       />
       <NewBookingModal
         open={newBookingOpen}

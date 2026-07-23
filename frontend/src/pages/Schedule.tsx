@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Modal } from '../components/Modal'
+import { ModalActions } from '../components/ui/ModalActions'
 import { useMySchedule, type ScheduleAppointment, type ScheduleReport } from '../hooks/useMySchedule'
 import { usePatientAiSummary } from '../hooks/usePatientAiSummary'
 import { useCreateScheduleBlock, useDeleteScheduleBlock, useScheduleBlocks } from '../hooks/useScheduleBlocks'
@@ -664,7 +665,7 @@ function ScheduleBlocksSection() {
             <p className="mt-1 text-xs text-bbh-muted">{t('schedule.timeOff.videoLinkHint')}</p>
           </div>
           {create.error ? <p className="text-xs text-red-600">{t('schedule.timeOff.saveFailed')}</p> : null}
-          <div className="flex justify-end gap-2">
+          <ModalActions>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -679,7 +680,7 @@ function ScheduleBlocksSection() {
             >
               {t('common.save')}
             </button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
     </section>

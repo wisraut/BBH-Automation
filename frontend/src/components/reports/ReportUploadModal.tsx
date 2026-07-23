@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 
 import { Modal } from '../Modal'
+import { ModalActions } from '../ui/ModalActions'
 import { AllergyBanner } from '../patients/AllergyBanner'
 import { useDoctors } from '../../hooks/useDoctors'
 
@@ -126,7 +127,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
           {t('reportUploadModal.notes')}
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className={TEXTAREA} />
         </label>
-        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <ModalActions>
           <button type="button" onClick={onClose} className={`inline-flex h-11 items-center justify-center rounded-lg border border-bbh-line bg-white px-4 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:h-auto sm:py-2 ${FOCUS_RING}`}>
             {t('common.cancel')}
           </button>
@@ -134,7 +135,7 @@ export function ReportUploadModal({ open, saving, onClose, onSubmit, patientId }
             <Upload size={16} />
             {t('reportUploadModal.submit')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

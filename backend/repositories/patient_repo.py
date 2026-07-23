@@ -9,6 +9,11 @@ from utils.phone import normalize_phone
 _BASE_COLUMNS = (
     "id, hn, display_name, phone, phone2, phone3, phone4, email, dob, gender, "
     "nationality, national_id, blood_type, address, intake_by, notes, "
+    "english_name, religion, marital_status, occupation, "
+    "father_name, father_phone, mother_name, mother_phone, "
+    "emergency_contact_name, emergency_contact_relation, emergency_contact_phone, "
+    "emergency_contact_address, past_illness, congenital_disease, drugs_supplements, "
+    "drug_allergy, food_allergy, smoking, smoking_years, drinking, drinking_years, "
     "created_by, created_at, updated_at"
 )
 

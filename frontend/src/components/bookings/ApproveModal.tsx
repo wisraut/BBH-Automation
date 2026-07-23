@@ -21,6 +21,7 @@ import {
   type IntakeForm,
 } from './PatientIntakeFields'
 import { Eyebrow } from '../ui/Eyebrow'
+import { ModalActions } from '../ui/ModalActions'
 
 interface ApproveModalProps {
   booking: BookingOut | null
@@ -312,7 +313,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
           </p>
         ) : null}
 
-        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
+        <ModalActions>
           <button
             type="button"
             onClick={onClose}
@@ -332,7 +333,7 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
                 ? t('approveModal.confirming')
                 : t('approveModal.confirmAppointment')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

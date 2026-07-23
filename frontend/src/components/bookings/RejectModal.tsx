@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Modal } from '../Modal'
+import { ModalActions } from '../ui/ModalActions'
 import { useToast } from '../../hooks/useToast'
 import { useRejectBooking } from '../../hooks/useRejectBooking'
 import type { BookingOut } from '../../hooks/useBooking'
@@ -65,7 +66,7 @@ export function RejectModal({ booking, open, onClose, onRejected }: RejectModalP
           />
         </label>
 
-        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-end">
+        <ModalActions>
           <button
             type="button"
             onClick={onClose}
@@ -81,7 +82,7 @@ export function RejectModal({ booking, open, onClose, onRejected }: RejectModalP
           >
             {reject.isPending ? t('rejectModal.sending') : t('rejectModal.confirmReject')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

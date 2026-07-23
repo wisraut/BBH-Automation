@@ -39,6 +39,28 @@ class PatientOut(BaseModel):
     address: str | None = None
     intake_by: str | None = None
     notes: str | None = None
+    # Health-record intake fields (paper "บันทึกประวัติ / Health Record") — all optional.
+    english_name: str | None = None
+    religion: str | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    father_name: str | None = None
+    father_phone: str | None = None
+    mother_name: str | None = None
+    mother_phone: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_relation: str | None = None
+    emergency_contact_phone: str | None = None
+    emergency_contact_address: str | None = None
+    past_illness: str | None = None
+    congenital_disease: str | None = None
+    drugs_supplements: str | None = None
+    drug_allergy: str | None = None
+    food_allergy: str | None = None
+    smoking: bool | None = None
+    smoking_years: int | None = None
+    drinking: bool | None = None
+    drinking_years: int | None = None
     created_by: int | None = None
     created_at: datetime
     updated_at: datetime
@@ -74,6 +96,27 @@ class PatientCreateRequest(BaseModel):
     address: str | None = Field(default=None, max_length=2000)
     intake_by: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=2000)
+    english_name: str | None = Field(default=None, max_length=120)
+    religion: str | None = Field(default=None, max_length=60)
+    marital_status: str | None = Field(default=None, max_length=30)
+    occupation: str | None = Field(default=None, max_length=120)
+    father_name: str | None = Field(default=None, max_length=120)
+    father_phone: str | None = Field(default=None, max_length=20)
+    mother_name: str | None = Field(default=None, max_length=120)
+    mother_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_name: str | None = Field(default=None, max_length=120)
+    emergency_contact_relation: str | None = Field(default=None, max_length=60)
+    emergency_contact_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_address: str | None = Field(default=None, max_length=500)
+    past_illness: str | None = Field(default=None, max_length=2000)
+    congenital_disease: str | None = Field(default=None, max_length=2000)
+    drugs_supplements: str | None = Field(default=None, max_length=2000)
+    drug_allergy: str | None = Field(default=None, max_length=2000)
+    food_allergy: str | None = Field(default=None, max_length=2000)
+    smoking: bool | None = None
+    smoking_years: int | None = Field(default=None, ge=0, le=120)
+    drinking: bool | None = None
+    drinking_years: int | None = Field(default=None, ge=0, le=120)
 
 
 class PatientUpdateRequest(BaseModel):
@@ -92,3 +135,24 @@ class PatientUpdateRequest(BaseModel):
     address: str | None = Field(default=None, max_length=2000)
     intake_by: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=2000)
+    english_name: str | None = Field(default=None, max_length=120)
+    religion: str | None = Field(default=None, max_length=60)
+    marital_status: str | None = Field(default=None, max_length=30)
+    occupation: str | None = Field(default=None, max_length=120)
+    father_name: str | None = Field(default=None, max_length=120)
+    father_phone: str | None = Field(default=None, max_length=20)
+    mother_name: str | None = Field(default=None, max_length=120)
+    mother_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_name: str | None = Field(default=None, max_length=120)
+    emergency_contact_relation: str | None = Field(default=None, max_length=60)
+    emergency_contact_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_address: str | None = Field(default=None, max_length=500)
+    past_illness: str | None = Field(default=None, max_length=2000)
+    congenital_disease: str | None = Field(default=None, max_length=2000)
+    drugs_supplements: str | None = Field(default=None, max_length=2000)
+    drug_allergy: str | None = Field(default=None, max_length=2000)
+    food_allergy: str | None = Field(default=None, max_length=2000)
+    smoking: bool | None = None
+    smoking_years: int | None = Field(default=None, ge=0, le=120)
+    drinking: bool | None = None
+    drinking_years: int | None = Field(default=None, ge=0, le=120)

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Calendar, Loader2 } from 'lucide-react'
 
 import { Modal } from '../Modal'
+import { ModalActions } from '../ui/ModalActions'
 import { useRescheduleBooking } from '../../hooks/useRescheduleBooking'
 
 interface Props {
@@ -120,7 +121,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             ? t('rescheduleModal.effectTbd')
             : t('rescheduleModal.effectScheduled')}
         </p>
-        <div className="flex justify-end gap-2 pt-2">
+        <ModalActions>
           <button
             type="button"
             onClick={onClose}
@@ -136,7 +137,7 @@ export function RescheduleModal({ open, uid, currentDateTimeText, onClose, onSuc
             {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Calendar size={14} />}
             {tbd ? t('rescheduleModal.confirmTbd') : t('rescheduleModal.confirm')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

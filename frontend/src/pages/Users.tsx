@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { ModalActions } from '../components/ui/ModalActions'
 import { SkeletonList } from '../components/ui/Skeleton'
 import { staggerStyle } from '../lib/motion'
 import { Eyebrow } from '../components/ui/Eyebrow'
@@ -293,12 +294,12 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
           <p className="mt-1 text-xs text-bbh-muted">{t('users.passwordHint')}</p>
         </div>
         {m.error ? <p className="text-xs text-red-600">{t('users.createFailed')}</p> : null}
-        <div className="flex justify-end gap-2 pt-2">
+        <ModalActions>
           <button type="button" onClick={() => { reset(); onClose() }} className={MODAL_CANCEL}>{t('common.cancel')}</button>
           <button type="submit" disabled={m.isPending} className={MODAL_SUBMIT}>
             {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {t('users.create')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )
@@ -360,12 +361,12 @@ function EditUserModal({ target, onClose, isSelf }: { target: UserOut | null; on
           {isSelf ? <span className="ml-auto text-xs text-bbh-muted">{t('users.cannotDisableSelf')}</span> : null}
         </label>
         {m.error ? <p className="text-xs text-red-600">{t('users.saveFailed')}</p> : null}
-        <div className="flex justify-end gap-2 pt-2">
+        <ModalActions>
           <button type="button" onClick={onClose} className={MODAL_CANCEL}>{t('common.cancel')}</button>
           <button type="submit" disabled={m.isPending} className={MODAL_SUBMIT}>
             {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />} {t('common.save')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )
@@ -408,12 +409,12 @@ function ResetPasswordModal({ target, onClose }: { target: UserOut | null; onClo
             <p className="mt-1 text-xs text-bbh-muted">{t('users.resetHint')}</p>
           </div>
           {m.error ? <p className="text-xs text-red-600">{t('users.resetFailed')}</p> : null}
-          <div className="flex justify-end gap-2 pt-2">
+          <ModalActions>
             <button type="button" onClick={close} className={MODAL_CANCEL}>{t('common.cancel')}</button>
             <button type="submit" disabled={m.isPending} className={MODAL_SUBMIT}>
               {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />} {t('users.setPassword')}
             </button>
-          </div>
+          </ModalActions>
         </form>
       )}
     </Modal>

@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { ModalActions } from '../components/ui/ModalActions'
 import { SkeletonList } from '../components/ui/Skeleton'
 import { staggerStyle } from '../lib/motion'
 import { Eyebrow } from '../components/ui/Eyebrow'
@@ -265,7 +266,7 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
           </ul>
         </div>
 
-        <div className="flex justify-end gap-2 pt-1">
+        <ModalActions>
           <button
             type="button"
             onClick={onClose}
@@ -280,7 +281,7 @@ function EditThresholdModal({ target, onClose }: { target: RuleOut | null; onClo
           >
             {m.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t('common.save')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

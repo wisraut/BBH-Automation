@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { ModalActions } from '../components/ui/ModalActions'
 import { useMySchedule, type ScheduleAppointment } from '../hooks/useMySchedule'
 import {
   useCreateScheduleBlock,
@@ -229,10 +230,10 @@ function CreateBlockModal({
           placeholder={t('doctorCalendar.videoLinkPlaceholder')}
         />
         {create.error ? <p className="text-xs text-red-600">{t('doctorCalendar.saveFailed')}</p> : null}
-        <div className="flex justify-end gap-2 pt-2">
+        <ModalActions>
           <button type="button" onClick={onClose} className={`rounded-lg border border-bbh-line bg-white px-4 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}>{t('common.cancel')}</button>
           <button type="submit" disabled={create.isPending} className={`rounded-lg bg-bbh-green px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-60 ${FOCUS_RING}`}>{t('common.save')}</button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

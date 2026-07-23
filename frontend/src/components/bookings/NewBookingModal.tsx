@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Modal } from '../Modal'
+import { ModalActions } from '../ui/ModalActions'
 import { useCreateBooking } from '../../hooks/useCreateBooking'
 import type { BookingCreateRequest } from '../../hooks/useCreateBooking'
 import { useToast } from '../../hooks/useToast'
@@ -151,7 +152,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
           />
         </label>
 
-        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
+        <ModalActions>
           <button
             type="button"
             onClick={onClose}
@@ -167,7 +168,7 @@ export function NewBookingModal({ open, onClose, onCreated }: NewBookingModalPro
           >
             {createBooking.isPending ? t('newBookingModal.creating') : t('newBookingModal.submit')}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   )

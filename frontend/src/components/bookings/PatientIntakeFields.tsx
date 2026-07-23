@@ -226,9 +226,24 @@ export function PatientIntakeFields({ value, onChange, showErrors = false }: Pro
         )}
       </section>
 
-      {/* Optional health / family record — collapsed by default (usually deferred
-          past booking; kept here so the CRO can fill it now if the patient is present).
-          Sits above "who filled it" so the toggle doesn't hide at the very bottom. */}
+      {/* Who filled it */}
+      <section className="space-y-2.5">
+        <Head text={t('intake.sectionIntakeBy')} />
+        <label className="block">
+          <Label k="intake_by" text={t('intake.intakeBy')} />
+          <input
+            value={value.intake_by}
+            onChange={set('intake_by')}
+            maxLength={120}
+            placeholder={t('intake.intakeByPlaceholder')}
+            className={cls('intake_by')}
+          />
+        </label>
+      </section>
+
+      {/* Optional health / family record — kept at the very bottom (per request);
+          collapsed by default since it's usually filled later, not at booking time.
+          The tinted toggle header keeps it easy to spot even down here. */}
       <section className="space-y-3">
         <button
           type="button"
@@ -358,21 +373,6 @@ export function PatientIntakeFields({ value, onChange, showErrors = false }: Pro
             </div>
           </div>
         ) : null}
-      </section>
-
-      {/* Who filled it — kept last (meta: which staff recorded the intake) */}
-      <section className="space-y-2.5">
-        <Head text={t('intake.sectionIntakeBy')} />
-        <label className="block">
-          <Label k="intake_by" text={t('intake.intakeBy')} />
-          <input
-            value={value.intake_by}
-            onChange={set('intake_by')}
-            maxLength={120}
-            placeholder={t('intake.intakeByPlaceholder')}
-            className={cls('intake_by')}
-          />
-        </label>
       </section>
     </div>
   )

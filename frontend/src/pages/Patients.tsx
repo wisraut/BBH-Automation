@@ -305,7 +305,7 @@ export function Patients() {
   const totalPages = pagination?.total_pages ?? 1
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-bbh-canvas">
+    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-white">
       <section
         className={`${showPatientDetail ? 'hidden' : 'flex'} m-6 min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-bbh-md`}
       >

@@ -147,9 +147,9 @@ export function Bookings() {
   const total = list.data?.pagination.total ?? 0
 
   return (
-    <div className="flex h-full min-w-0 overflow-hidden bg-bbh-canvas">
+    <div className="flex h-full min-w-0 overflow-hidden bg-white">
       <section
-        className={`${selectedUid ? 'hidden lg:flex' : 'flex'} relative isolate min-w-0 flex-1 flex-col overflow-y-auto bg-bbh-canvas p-6 md:p-8 lg:p-10`}
+        className={`${selectedUid ? 'hidden lg:flex' : 'flex'} relative isolate min-w-0 flex-1 flex-col overflow-y-auto bg-white p-6 md:p-8 lg:p-10`}
       >
         {/* Soft-light wash behind the masthead — warmth/depth without adding a
             second colour (green-soft fades into the canvas). Sits behind flow. */}

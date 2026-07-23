@@ -7,6 +7,7 @@ import i18n from '../i18n'
 import { getToken } from '../lib/api'
 import { API_BASE } from '../lib/apiBase'
 import { aiActions, getSnapshot, subscribe, NEW_SESSION_TITLE } from '../lib/aiStore'
+import type { BookSource } from '../lib/aiStore'
 import { useAiSessions } from './useAiSessions'
 
 export type { ChatMessage } from '../lib/aiStore'
@@ -77,6 +78,7 @@ async function runStream(
         try {
           const payload = JSON.parse(raw) as
             | { type: 'delta'; text: string }
+            | { type: 'book_sources'; sources: BookSource[] }
             | { type: 'conv_id'; value: string }
             | { type: 'done' }
             | { type: 'error'; message: string }
@@ -95,6 +97,17 @@ async function runStream(
               aiActions.patchById(sid, (s) => ({
                 messages: s.messages.map((m) =>
                   m.id === assistantId ? { ...m, text: buffer } : m,
+                ),
+              }))
+            }
+          } else if (payload.type === 'book_sources') {
+            // Arrives after all deltas — the assistant message already exists.
+            // Attach the textbook citations so the footnote renders (and persists
+            // via the store). Guarded on assistantCreated in case of an empty answer.
+            if (assistantCreated && payload.sources?.length) {
+              aiActions.patchById(sid, (s) => ({
+                messages: s.messages.map((m) =>
+                  m.id === assistantId ? { ...m, bookSources: payload.sources } : m,
                 ),
               }))
             }

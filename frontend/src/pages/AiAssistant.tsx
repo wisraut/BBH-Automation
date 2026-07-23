@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { dateLocale } from '../i18n/datetime'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, MessageSquare, Paperclip, Send, User, X } from 'lucide-react'
+import { AlertTriangle, BookOpen, MessageSquare, Paperclip, Send, User, X } from 'lucide-react'
+
+import type { BookSource } from '../lib/aiStore'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
 import { PatientPickerModal } from '../components/ai/PatientPickerModal'
@@ -50,9 +52,38 @@ function TypingDots() {
   )
 }
 
+// Source footnote — textbook citations that grounded an assistant answer
+// (answer-level, not per-sentence). Kept visually quiet: subtle surface, smaller
+// type, distinct from the answer body so it reads as supporting evidence and
+// does not interrupt the answer itself.
+function SourceFootnote({ sources }: { sources: BookSource[] }) {
+  const { t } = useTranslation()
+  return (
+    <div className="mt-1 rounded-xl border border-bbh-line bg-bbh-green-soft/30 px-3 py-2">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-bbh-green-dark">
+        <BookOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span>{t('aiAssistant.sources.label')}</span>
+      </div>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {sources.map((s, i) => (
+          <li key={i} className="flex items-baseline gap-1.5 text-xs text-bbh-ink">
+            <span className="text-bbh-muted tabular-nums">{i + 1}.</span>
+            <span className="min-w-0">
+              {s.title}
+              {typeof s.page === 'number' && (
+                <span className="text-bbh-muted"> · {t('aiAssistant.sources.page', { page: s.page })}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function MessageBubble(
-  { role, text, ts, imageThumb, onExpand }:
-  { role: 'user' | 'assistant'; text: string; ts: Date; imageThumb?: string; onExpand?: (src: string) => void },
+  { role, text, ts, imageThumb, bookSources, onExpand }:
+  { role: 'user' | 'assistant'; text: string; ts: Date; imageThumb?: string; bookSources?: BookSource[]; onExpand?: (src: string) => void },
 ) {
   const { t } = useTranslation()
   const isUser = role === 'user'
@@ -88,6 +119,9 @@ function MessageBubble(
               </span>
             ))}
           </div>
+        )}
+        {!isUser && bookSources && bookSources.length > 0 && (
+          <SourceFootnote sources={bookSources} />
         )}
         <p className="px-1 font-mono text-xs tabular-nums text-bbh-muted">
           {ts.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
@@ -303,7 +337,7 @@ export function AiAssistant() {
         ) : (
           <div className="max-w-3xl space-y-4">
             {messages.map((m) => (
-              <MessageBubble key={m.id} role={m.role} text={m.text} ts={m.ts} imageThumb={m.imageThumb} onExpand={setLightbox} />
+              <MessageBubble key={m.id} role={m.role} text={m.text} ts={m.ts} imageThumb={m.imageThumb} bookSources={m.bookSources} onExpand={setLightbox} />
             ))}
 
             {isLoading && (

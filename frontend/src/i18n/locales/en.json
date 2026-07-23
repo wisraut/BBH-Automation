@@ -111,6 +111,10 @@
       "badType": "Only images are supported (JPG, PNG, WebP, GIF)",
       "tooLarge": "Image must be 5MB or smaller",
       "readError": "Could not read the image file, please try again"
+    },
+    "sources": {
+      "label": "Grounded in medical textbooks",
+      "page": "p. {{page}}"
     }
   },
   "aiChat": {

@@ -123,7 +123,10 @@ def chat(
             status_code=502,
             detail={"code": "AI_ERROR", "message": "AI ตอบไม่สำเร็จ กรุณาลองใหม่"},
         ) from exc
-    _persist_turn(conv_pk, message, answer, image_thumb=(image or {}).get("thumb"))
+    _persist_turn(
+        conv_pk, message, answer,
+        image_thumb=(image or {}).get("thumb"), book_sources=book_sources,
+    )
     return {"answer": answer, "conversation_id": conv_token, "book_sources": book_sources}
 
 
@@ -167,7 +170,10 @@ def chat_stream(
             if delta:
                 chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
-        _persist_turn(conv_pk, message, "".join(chunks), image_thumb=(image or {}).get("thumb"))
+        _persist_turn(
+            conv_pk, message, "".join(chunks),
+            image_thumb=(image or {}).get("thumb"), book_sources=book_sources,
+        )
         # Textbook citations (if any) ride alongside the answer metadata so the
         # UI can footnote which sources grounded it — see search_books gate below.
         if book_sources:
@@ -180,18 +186,24 @@ def chat_stream(
 
 
 def _persist_turn(
-    conversation_pk: int, message: str, answer: str, image_thumb: str | None = None
+    conversation_pk: int,
+    message: str,
+    answer: str,
+    image_thumb: str | None = None,
+    book_sources: list[dict] | None = None,
 ) -> None:
     """Save both sides of a turn as short-term memory + display history. The ORIGINAL
     user text is stored (our MySQL is auth-gated — redaction happens only when text
     leaves for the external LLM, in load-for-send), together with any attached image
-    thumbnail. The first user message seeds the conversation title for the sidebar."""
+    thumbnail and textbook citations. The first user message seeds the conversation
+    title for the sidebar."""
     title = " ".join(message.split())[:80] if message.strip() else None
     ai_message_repo.save_exchange(
         conversation_pk=conversation_pk,
         user_content=message,
         assistant_content=answer,
         image_thumb=image_thumb,
+        book_sources=book_sources,
         title=title,
     )
 
@@ -288,14 +300,20 @@ def _book_context(message: str, history: list[dict] | None = None) -> tuple[str,
             cite += f" · หน้า {page}"
         lines.append(f"[{i}] {cite}\n{(h.get('text') or '').strip()}")
 
-    sources = [
-        {
-            "title": h.get("title") or h.get("source") or "",
-            "page": h.get("page"),
-            "score": h.get("score"),
-        }
-        for h in hits
-    ]
+    # De-duplicate by (title, page): several retrieved chunks often come from the
+    # same book/page, and the footnote should list each source once — not repeat
+    # identical lines. score is intentionally dropped: it grounds retrieval, not
+    # the citation shown to staff, so persisting it would be dead payload.
+    sources: list[dict] = []
+    seen: set[tuple[str, object]] = set()
+    for h in hits:
+        title = h.get("title") or h.get("source") or ""
+        page = h.get("page")
+        key = (title, page)
+        if not title or key in seen:
+            continue
+        seen.add(key)
+        sources.append({"title": title, "page": page})
     return "\n\n".join(lines), sources
 
 

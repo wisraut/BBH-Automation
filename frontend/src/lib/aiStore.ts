@@ -13,6 +13,15 @@ import { api } from './api'
 
 let currentOwner: string | null = null
 
+// A textbook citation that grounded an assistant answer (answer-level, not
+// per-sentence). Rendered as a source footnote below the message. De-duplicated
+// by (title, page) server-side; retrieval score is not carried — it grounds
+// retrieval, not the citation shown to staff.
+export interface BookSource {
+  title: string
+  page?: number | null
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -21,6 +30,9 @@ export interface ChatMessage {
   // Downscaled preview of an attached image (data URL). Persisted server-side now,
   // so it survives reload / shows on other devices.
   imageThumb?: string
+  // Medical-textbook citations that grounded this answer (Book RAG). Also
+  // persisted server-side, so the footnote survives reload.
+  bookSources?: BookSource[]
 }
 
 export interface PinnedPatient {
@@ -60,6 +72,7 @@ interface ApiMessage {
   role: 'user' | 'assistant'
   text: string
   imageThumb: string | null
+  bookSources?: BookSource[] | null
   ts: string | null
 }
 
@@ -187,6 +200,7 @@ export const aiActions = {
           text: m.text,
           ts: m.ts ? new Date(m.ts) : new Date(),
           imageThumb: m.imageThumb ?? undefined,
+          bookSources: m.bookSources ?? undefined,
         })),
         loaded: true,
       }))

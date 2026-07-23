@@ -8,6 +8,7 @@ A conversation is addressed by an opaque string token (stored in
 ai_conversations.dify_conversation_id, repurposed as a provider-agnostic id) so
 the frontend contract — send/receive a `conversation_id` string — is unchanged.
 """
+import json
 import logging
 import uuid
 
@@ -71,14 +72,15 @@ def load_history(conversation_pk: int, *, limit: int = 10) -> list[dict[str, str
 
 def load_messages(conversation_pk: int) -> list[dict]:
     """All turns of a conversation for DISPLAY (oldest-first), including the image
-    thumbnail. Shape matches the frontend ChatMessage: {id, role, text, imageThumb, ts}."""
+    thumbnail and any textbook citations. Shape matches the frontend ChatMessage:
+    {id, role, text, imageThumb, bookSources, ts}."""
     if not conversation_pk:
         return []
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, role, content, image_thumb, created_at FROM ai_messages "
-                "WHERE conversation_id = %s ORDER BY id ASC",
+                "SELECT id, role, content, image_thumb, book_sources, created_at "
+                "FROM ai_messages WHERE conversation_id = %s ORDER BY id ASC",
                 (conversation_pk,),
             )
             rows = list(cur.fetchall())
@@ -88,10 +90,31 @@ def load_messages(conversation_pk: int) -> list[dict]:
             "role": r["role"],
             "text": r["content"] or "",
             "imageThumb": r["image_thumb"],
+            "bookSources": _decode_book_sources(r["book_sources"]),
             "ts": r["created_at"].isoformat() if r["created_at"] else None,
         }
         for r in rows
     ]
+
+
+def _decode_book_sources(value) -> list[dict]:
+    """book_sources is stored as JSON. Depending on the MySQL driver/config it may
+    come back as a decoded list, a str, or bytes — normalize to a list (same
+    concern as alert_repo._decode_json_field). Never let a malformed value break
+    history loading, and drop any element that isn't a citation object with a
+    title so the frontend never renders a blank source line."""
+    if not value:
+        return []
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode("utf-8")
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (ValueError, TypeError):
+            return []
+    if not isinstance(value, list):
+        return []
+    return [s for s in value if isinstance(s, dict) and s.get("title")]
 
 
 def save_exchange(
@@ -100,13 +123,16 @@ def save_exchange(
     user_content: str,
     assistant_content: str,
     image_thumb: str | None = None,
+    book_sources: list[dict] | None = None,
     title: str | None = None,
 ) -> None:
     """Persist a full turn (user + assistant) ATOMICALLY in one transaction, plus
     the updated_at bump and first-message title, so a mid-write failure can't leave
     a half-saved conversation (user question with no answer). Best-effort at the
     call site, but a failure is LOGGED (not silently swallowed) so lost writes are
-    observable — important for a hospital's audit posture."""
+    observable — important for a hospital's audit posture. book_sources (textbook
+    citations) ride on the assistant row so the footnote survives reload."""
+    sources_json = json.dumps(book_sources, ensure_ascii=False) if book_sources else None
     try:
         with mysql_db() as conn:
             with conn.cursor() as cur:
@@ -118,9 +144,9 @@ def save_exchange(
                     )
                 if assistant_content:
                     cur.execute(
-                        "INSERT INTO ai_messages (conversation_id, role, content) "
-                        "VALUES (%s, 'assistant', %s)",
-                        (conversation_pk, assistant_content),
+                        "INSERT INTO ai_messages (conversation_id, role, content, book_sources) "
+                        "VALUES (%s, 'assistant', %s, %s)",
+                        (conversation_pk, assistant_content, sources_json),
                     )
                 # Bump recency (sidebar order) + seed the title from the first
                 # message, all in the same transaction.

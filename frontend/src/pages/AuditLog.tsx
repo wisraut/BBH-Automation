@@ -4,12 +4,13 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
-  Loader2,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react'
 
 import { Eyebrow } from '../components/ui/Eyebrow'
+import { SkeletonList } from '../components/ui/Skeleton'
+import { staggerStyle } from '../lib/motion'
 import { useAuditLog, type AuditEntry } from '../hooks/useAuditLog'
 import { useUsers } from '../hooks/useUsers'
 
@@ -177,9 +178,7 @@ export function AuditLog() {
         {/* Table */}
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {q.isLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> {t('auditLog.loadingLog')}
-            </div>
+            <SkeletonList rows={6} rowClassName="h-12 rounded-lg" className="space-y-2" />
           ) : q.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{t('common.loadFailed')}</div>
           ) : !q.data || q.data.data.length === 0 ? (
@@ -222,7 +221,7 @@ function AuditRow({ r, index }: { r: AuditEntry; index: number }) {
   const actionStyle = ACTION_STYLES[r.action] ?? 'border-bbh-line bg-bbh-surface text-bbh-muted'
   return (
     <div
-      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+      style={staggerStyle(index)}
       className="animate-rise grid grid-cols-[1fr_auto] gap-3 bg-white px-4 py-3 text-sm transition-colors duration-200 hover:bg-bbh-surface lg:grid-cols-[160px_160px_140px_180px_1fr_100px]"
     >
       <span className="font-mono text-xs tabular-nums text-bbh-muted">{fmtDateTime(r.created_at)}</span>

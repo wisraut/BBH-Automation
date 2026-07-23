@@ -19,6 +19,7 @@ import type { LucideIcon } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
 import { Eyebrow } from '../components/ui/Eyebrow'
+import { staggerStyle } from '../lib/motion'
 import { useAcknowledgeAlert } from '../hooks/useAcknowledgeAlert'
 import { useAdminAlertRules } from '../hooks/useAdminAlertRules'
 import { useAdminAlertSummary } from '../hooks/useAdminAlertSummary'
@@ -263,13 +264,14 @@ export function AdminDashboard() {
                   : 'md:grid-cols-2'
             }`}
           >
-            {ROLE_WORKSPACES.map((item) => {
+            {ROLE_WORKSPACES.map((item, i) => {
               const Icon = item.icon
               return (
                 <a
                   key={item.label}
                   href={item.path}
-                  className={`group rounded-xl border border-bbh-line bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-bbh-green/40 hover:shadow-bbh-card ${FOCUS_RING}`}
+                  style={staggerStyle(i)}
+                  className={`animate-rise group rounded-xl border border-bbh-line bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-bbh-green/40 hover:shadow-bbh-card ${FOCUS_RING}`}
                 >
                   <div className="flex items-start gap-4">
                     <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-bbh-green-soft text-bbh-green-dark transition-colors duration-200 group-hover:bg-bbh-green group-hover:text-white">
@@ -338,7 +340,7 @@ export function AdminDashboard() {
                       key={a.alert_id}
                       type="button"
                       onClick={() => { setSelectedId(a.alert_id); setDetailOpen(true) }}
-                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                      style={staggerStyle(i)}
                       className={`animate-rise relative grid w-full grid-cols-[1fr_auto] gap-3 px-6 py-5 text-left transition-colors duration-200 lg:grid-cols-[140px_1.3fr_140px_120px] ${FOCUS_RING} ${
                         active ? 'bg-bbh-green-soft/60' : 'bg-white hover:bg-bbh-surface'
                       }`}

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus, Stethoscope, X } from 'lucide-react'
 
 import { SkeletonList } from '../components/ui/Skeleton'
+import { staggerStyle } from '../lib/motion'
 import { ApproveModal } from '../components/bookings/ApproveModal'
 import { NewBookingModal } from '../components/bookings/NewBookingModal'
 import { RejectModal } from '../components/bookings/RejectModal'
@@ -267,7 +268,7 @@ export function Bookings() {
                       key={row.request_uid}
                       type="button"
                       onClick={() => setSelectedUid(row.request_uid)}
-                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                      style={staggerStyle(i)}
                       className={`animate-rise relative flex w-full items-center gap-4 px-4 py-4 text-left transition-colors duration-200 ${FOCUS_RING} ${
                         active ? 'bg-bbh-green-soft/60' : 'bg-white hover:bg-bbh-surface'
                       }`}

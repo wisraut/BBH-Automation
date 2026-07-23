@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { SkeletonList } from '../components/ui/Skeleton'
+import { staggerStyle } from '../lib/motion'
 import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAuth } from '../lib/auth'
 import { useCreateUser } from '../hooks/useCreateUser'
@@ -142,9 +144,7 @@ export function Users() {
         {/* Table */}
         <div className="animate-rise" style={{ animationDelay: '140ms' }}>
           {q.isLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> {t('common.loading')}
-            </div>
+            <SkeletonList rows={6} rowClassName="h-12 rounded-lg" className="space-y-2" />
           ) : q.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{t('common.loadFailed')}</div>
           ) : !q.data || q.data.data.length === 0 ? (
@@ -166,7 +166,7 @@ export function Users() {
                   return (
                     <div
                       key={u.id}
-                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                      style={staggerStyle(i)}
                       className="animate-rise grid grid-cols-[1fr_auto] gap-3 bg-white px-4 py-3 transition-colors duration-200 hover:bg-bbh-surface lg:grid-cols-[60px_1fr_2fr_120px_160px_120px_140px]"
                     >
                       <span className="hidden font-mono text-xs tabular-nums text-bbh-muted lg:block">{u.id}</span>

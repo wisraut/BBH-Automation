@@ -3,6 +3,7 @@ import { dateLocale } from '../../i18n/datetime'
 import { CalendarDays, FileText } from 'lucide-react'
 
 import { SourceBadge } from '../SourceBadge'
+import { staggerStyle } from '../../lib/motion'
 import { StatusBadge } from '../StatusBadge'
 import type { ReportListItem } from '../../hooks/usePatientReports'
 import type { components } from '../../lib/api-types'
@@ -79,7 +80,7 @@ export function PatientTimeline({ reports, bookings, onSelectReport }: PatientTi
               key={item.id}
               type="button"
               onClick={() => onSelectReport?.(item.report.id)}
-              style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+              style={staggerStyle(i)}
               className={`animate-rise flex w-full items-start gap-3 px-4 py-4 text-left transition-colors duration-200 hover:bg-bbh-surface ${FOCUS_RING}`}
             >
               <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-bbh-surface text-bbh-muted">
@@ -103,7 +104,7 @@ export function PatientTimeline({ reports, bookings, onSelectReport }: PatientTi
           ) : (
             <div
               key={item.id}
-              style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+              style={staggerStyle(i)}
               className="animate-rise flex items-start gap-3 px-4 py-4"
             >
               <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-bbh-surface text-bbh-muted">

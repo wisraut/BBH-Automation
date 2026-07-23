@@ -13,6 +13,7 @@ import { useReportsWorkspace, type ReportDecision, type WorkspaceReport } from '
 import { ReportDetailDrawer } from '../components/reports/ReportDetailDrawer'
 import { Eyebrow } from '../components/ui/Eyebrow'
 import { SkeletonList } from '../components/ui/Skeleton'
+import { staggerStyle } from '../lib/motion'
 
 // Shared focus treatment so every interactive element gets a visible,
 // on-brand keyboard ring without repeating the class list everywhere.
@@ -53,7 +54,7 @@ function ReportRow({ r, index, onOpen }: { r: WorkspaceReport; index: number; on
     <button
       type="button"
       onClick={() => onOpen(r)}
-      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+      style={staggerStyle(index)}
       className={`animate-rise grid w-full grid-cols-[1fr_auto] gap-3 bg-white px-4 py-4 text-left transition-colors duration-200 hover:bg-bbh-surface lg:grid-cols-[180px_1fr_110px_140px_120px] ${FOCUS_RING}`}
     >
       <div className="hidden lg:block">

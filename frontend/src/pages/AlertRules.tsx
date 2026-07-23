@@ -13,6 +13,8 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { Modal } from '../components/Modal'
+import { SkeletonList } from '../components/ui/Skeleton'
+import { staggerStyle } from '../lib/motion'
 import { Eyebrow } from '../components/ui/Eyebrow'
 import { useAdminAlertRules, type RuleOut } from '../hooks/useAdminAlertRules'
 import { useToggleAlertRule } from '../hooks/useToggleAlertRule'
@@ -119,9 +121,7 @@ export function AlertRules() {
           </div>
 
           {q.isLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-              <Loader2 size={16} className="mr-2 animate-spin" /> {t('alertRules.loadingRules')}
-            </div>
+            <SkeletonList rows={5} rowClassName="h-16 rounded-xl" className="space-y-2" />
           ) : q.isError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
               {t('alertRules.loadFailedRetry')}
@@ -143,7 +143,7 @@ export function AlertRules() {
                   return (
                     <div
                       key={r.rule_key}
-                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                      style={staggerStyle(i)}
                       className="animate-rise relative flex flex-wrap items-start justify-between gap-4 px-6 py-5"
                     >
                       {/* severity lead rail */}

@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Database,
-  Loader2,
   RefreshCw,
   Server,
   Webhook,
@@ -14,6 +13,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { Eyebrow } from '../components/ui/Eyebrow'
+import { SkeletonList } from '../components/ui/Skeleton'
 import { useSystemHealth, type ServiceCheck, type ServiceStatus } from '../hooks/useSystemHealth'
 
 // Shared focus treatment so every interactive element gets a visible,
@@ -181,9 +181,7 @@ export function SystemHealth() {
         </div>
 
         {q.isLoading ? (
-          <div className="animate-rise flex items-center justify-center rounded-xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-            <Loader2 size={16} className="mr-2 animate-spin" /> {t('systemHealth.checkingStatus')}
-          </div>
+          <SkeletonList rows={4} rowClassName="h-20 rounded-xl" className="space-y-3" />
         ) : q.isError ? (
           <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
             <div className="flex items-center gap-2">

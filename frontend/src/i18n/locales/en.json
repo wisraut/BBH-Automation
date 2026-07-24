@@ -685,30 +685,6 @@
       "title": "Doctor Calendar",
       "subtitle": "Appointments, time off, and doctor availability"
     },
-    "today": {
-      "title": "Today",
-      "subtitle": "Today's tasks at a glance"
-    },
-    "book": {
-      "title": "Self Booking",
-      "subtitle": "Book directly → send to CRO queue for confirmation"
-    },
-    "availability": {
-      "title": "My Availability",
-      "subtitle": "Set open times so the system can offer booking slots"
-    },
-    "biomarker": {
-      "title": "Biomarker",
-      "subtitle": "Lab value trends vs optimal range"
-    },
-    "documents": {
-      "title": "Document Inbox",
-      "subtitle": "Files CRO uploaded and assigned to you"
-    },
-    "labResults": {
-      "title": "Lab Results (detailed)",
-      "subtitle": "Per-analyte values · reference ranges · status"
-    },
     "patients": {
       "title": "Patients"
     },

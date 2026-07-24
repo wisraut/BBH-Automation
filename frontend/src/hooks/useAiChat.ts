@@ -12,17 +12,6 @@ import { useAiSessions } from './useAiSessions'
 
 export type { ChatMessage } from '../lib/aiStore'
 
-// Frontend-only topic guard: prepended to every outbound message so the model
-// stays on health/medical/patient topics. It is NOT stored in the visible chat
-// (the user bubble keeps the clean text) — it only steers the reply. Real
-// enforcement would live in the backend system prompt, which this app must not
-// touch; this is the closest frontend-only approximation.
-const HEALTH_DIRECTIVE =
-  '[คำสั่งระบบ: คุณคือผู้ช่วยของโรงพยาบาล Better Being ตอบได้เฉพาะเรื่องสุขภาพ ' +
-  'การแพทย์ ผลแล็บ ยา โภชนาการ และข้อมูลคนไข้เท่านั้น ถ้าผู้ใช้ถามนอกเรื่องสุขภาพ ' +
-  '(เช่น การเมือง กีฬา บันเทิง การเขียนโค้ด คณิตศาสตร์ ดูดวง เรื่องทั่วไป) ' +
-  'ให้ปฏิเสธอย่างสุภาพเป็นภาษาไทยและชวนกลับมาคุยเรื่องสุขภาพ ห้ามตอบเนื้อหานอกเรื่อง]'
-
 function deriveTitle(text: string): string {
   const trimmed = text.trim().replace(/\s+/g, ' ')
   return trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed
@@ -64,9 +53,7 @@ async function runStream(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({
-        // Steer the model toward health-only replies; the visible user bubble
-        // (added in send()) keeps `clean` without this prefix.
-        message: `${HEALTH_DIRECTIVE}\n\n${clean}`,
+        message: clean,
         conversation_id: convId,
         patient_id: pinnedPatientId,
         image: image ? { mime_type: image.mime, data: image.data, thumb: image.thumb || null } : null,

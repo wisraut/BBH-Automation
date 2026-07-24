@@ -17,19 +17,13 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { AlertRules } from './pages/AlertRules'
 import { AuditLog } from './pages/AuditLog'
 import { AiAssistant } from './pages/AiAssistant'
-import { Availability } from './pages/Availability'
-import { Biomarker } from './pages/Biomarker'
-import { Book } from './pages/Book'
 import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
-import { Documents } from './pages/Documents'
-import { LabResults } from './pages/LabResults'
 import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
 import { PatientProfilePrint } from './pages/PatientProfilePrint'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
-import { Today } from './pages/Today'
 import { SystemHealth } from './pages/SystemHealth'
 import { Users } from './pages/Users'
 import { Login } from './routes/Login'
@@ -37,7 +31,7 @@ import { Login } from './routes/Login'
 const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   cro: '/bookings',
   admin: '/admin',
-  doctor: '/today',
+  doctor: '/schedule',
   nurse: '/patients',
   lab_staff: '/reports',
 }
@@ -52,13 +46,6 @@ const ROUTE_ALLOW: Record<string, Role[]> = {
   '/calendar': ['cro', 'admin'],
   '/schedule': ['doctor', 'admin', 'nurse'],
   '/doctor-calendar': ['doctor', 'admin', 'nurse'],
-  // Doctor Workspace pages — mirror <ProtectedRoute allow={['doctor','admin']}> in AppRoutes
-  '/today': ['doctor', 'admin'],
-  '/book': ['doctor', 'admin'],
-  '/availability': ['doctor', 'admin'],
-  '/biomarker': ['doctor', 'admin'],
-  '/documents': ['doctor', 'admin'],
-  '/lab-results': ['doctor', 'admin'],
   '/reports': ['doctor', 'admin', 'nurse', 'lab_staff'],
   '/patients': ['cro', 'doctor', 'admin', 'nurse'],
   '/users': ['admin'],
@@ -81,12 +68,6 @@ const PAGE_META: Record<string, { key: string; hasSubtitle?: boolean }> = {
   '/calendar': { key: 'calendar' },
   '/schedule': { key: 'schedule' },
   '/doctor-calendar': { key: 'doctorCalendar', hasSubtitle: true },
-  '/today': { key: 'today', hasSubtitle: true },
-  '/book': { key: 'book', hasSubtitle: true },
-  '/availability': { key: 'availability', hasSubtitle: true },
-  '/biomarker': { key: 'biomarker', hasSubtitle: true },
-  '/documents': { key: 'documents', hasSubtitle: true },
-  '/lab-results': { key: 'labResults', hasSubtitle: true },
   '/patients': { key: 'patients' },
   '/reports': { key: 'reports' },
   '/ai': { key: 'ai' },
@@ -144,11 +125,7 @@ const ADMIN_PATHS = ['/admin', '/users', '/system-health', '/alert-rules', '/aud
 const ROLE_OF_PATH: Record<string, Role> = {
   '/bookings': 'cro',
   '/calendar': 'cro',
-  '/today': 'doctor',
   '/schedule': 'doctor',
-  '/book': 'doctor',
-  '/availability': 'doctor',
-  '/biomarker': 'doctor',
   '/doctor-calendar': 'doctor',
 }
 const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
@@ -217,14 +194,6 @@ function AppRoutes() {
           <Route element={<ProtectedRoute allow={['cro', 'admin']} />}>
             <Route path="bookings" element={<Bookings />} />
             <Route path="calendar" element={<Calendar />} />
-          </Route>
-          <Route element={<ProtectedRoute allow={['doctor', 'admin']} />}>
-            <Route path="today" element={<Today />} />
-            <Route path="book" element={<Book />} />
-            <Route path="availability" element={<Availability />} />
-            <Route path="biomarker" element={<Biomarker />} />
-            <Route path="documents" element={<Documents />} />
-            <Route path="lab-results" element={<LabResults />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />

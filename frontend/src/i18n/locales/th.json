@@ -677,30 +677,6 @@
       "title": "ปฏิทินแพทย์",
       "subtitle": "นัดหมาย เวลาที่ไม่อยู่ และ availability ของแพทย์"
     },
-    "today": {
-      "title": "วันนี้",
-      "subtitle": "สรุปงานที่ต้องจัดการวันนี้"
-    },
-    "book": {
-      "title": "ลงนัดเอง",
-      "subtitle": "ลงนัด → ส่งเข้าคิว CRO ยืนยัน"
-    },
-    "availability": {
-      "title": "ตารางว่างของฉัน",
-      "subtitle": "กำหนดเวลาว่างให้ระบบเสนอเวลาจอง"
-    },
-    "biomarker": {
-      "title": "Biomarker",
-      "subtitle": "แนวโน้มค่าตรวจเทียบ optimal range"
-    },
-    "documents": {
-      "title": "กล่องเอกสาร",
-      "subtitle": "เอกสารที่ CRO อัปโหลดและมอบหมายให้คุณ"
-    },
-    "labResults": {
-      "title": "ผลแล็บ (ละเอียด)",
-      "subtitle": "ค่าตรวจแตกรายตัว · ค่าอ้างอิง · สถานะ"
-    },
     "patients": {
       "title": "คนไข้"
     },

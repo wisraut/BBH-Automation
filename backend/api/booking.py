@@ -170,13 +170,16 @@ def reject_booking(
     """ปฏิเสธ booking จากฝั่ง LINE (CRO กด REJECT ในแชท → n8n เรียกด้วย internal
     token) — เปลี่ยนสถานะเป็น rejected พร้อมบันทึกเหตุผลลง notes"""
     _require_internal_token(x_internal_token)
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE booking_requests SET status = 'rejected', notes = %s WHERE request_uid = %s",
-                (body.reason, request_uid),
-            )
-        conn.commit()
+    # Route through the guarded repo path (like approve): only pending_approval ->
+    # rejected, atomically, with an audit row. A raw UPDATE with no status guard
+    # could silently flip an already-approved booking to rejected — orphaning the
+    # created patient + Google Calendar event with no trail of who did it (e.g. a
+    # stale [REJECT] quick-reply tapped after another CRO approved on the web).
+    rows = booking_repo.update_rejected(
+        uid=request_uid, reason=body.reason, rejected_by=body.rejected_by,
+    )
+    if not rows:
+        raise HTTPException(status_code=409, detail="Booking is not pending approval")
     log.info("Booking rejected: %s", request_uid[:8])
     return {"ok": True}
 

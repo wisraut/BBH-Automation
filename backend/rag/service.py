@@ -69,6 +69,45 @@ def _answer_signals_emergency(answer: str) -> bool:
     return any(sig in answer for sig in _EMERGENCY_SIGNALS)
 
 
+# Layer-2 emergency classifier. The deterministic gate (safety.is_emergency) only
+# catches keyword emergencies; whole categories slip past it — a described
+# overdose, suicidal intent, "หัวใจจะวาย", a child not breathing, uncontrolled
+# bleeding by synonym, heavy typos. A focused YES/NO LLM check catches those the
+# routing LLM might mis-file as AUTO. It errs toward YES (a false alarm just
+# reaches a human, which is safe for a hospital).
+_EMERGENCY_CLASSIFIER_SYSTEM = (
+    "คุณเป็นตัวคัดกรองภาวะฉุกเฉินของโรงพยาบาล ตอบเพียงคำเดียวว่า 'YES' หรือ 'NO' เท่านั้น\n\n"
+    "ตอบ 'YES' ถ้าข้อความบ่งชี้ภาวะฉุกเฉินทางการแพทย์ที่ต้องโทร 1669 หรือไปห้องฉุกเฉินทันที เช่น:\n"
+    "- เจ็บ/แน่นหน้าอกรุนแรง, หัวใจจะวาย, ใจสั่นรุนแรง\n"
+    "- หายใจลำบาก/หอบ/หายใจไม่ออก, เด็กหรือทารกไม่หายใจ, ตัวเขียว\n"
+    "- เลือดออกมาก/ไหลไม่หยุด, อาเจียนหรือถ่ายเป็นเลือดมาก\n"
+    "- หมดสติ/ชัก/เรียกไม่รู้สึกตัว, หน้ามืดจะเป็นลม เหงื่อแตกตัวเย็น\n"
+    "- อ่อนแรงครึ่งซีก/ปากเบี้ยว/พูดไม่ชัดเฉียบพลัน (โรคหลอดเลือดสมอง)\n"
+    "- กินยาเกินขนาดหรือสารพิษ, แพ้รุนแรง (หน้า/ปาก/คอบวม หายใจไม่ออก)\n"
+    "- คิดหรืออยากทำร้ายตัวเอง/ฆ่าตัวตาย\n"
+    "- ปวดท้องรุนแรงเฉียบพลัน, ภาวะแทรกซ้อนการตั้งครรภ์/ตกเลือด, อุบัติเหตุรุนแรง\n\n"
+    "ตอบ 'NO' ถ้าเป็นคำถามทั่วไป นัดหมาย สอบถามข้อมูล หรืออาการเล็กน้อย/เรื้อรังที่ไม่เร่งด่วน\n"
+    "เมื่อไม่แน่ใจให้ตอบ 'YES' (ปลอดภัยไว้ก่อน)"
+)
+
+
+def _llm_emergency_check(text: str) -> bool:
+    """LLM layer-2 emergency classifier — YES/NO. On any error returns False so a
+    classifier outage never breaks a normal turn; the deterministic gate + answer
+    net still apply. Errs toward YES via the prompt when the model is uncertain."""
+    try:
+        ans = llm.chat([
+            {"role": "system", "content": _EMERGENCY_CLASSIFIER_SYSTEM},
+            {"role": "user", "content": (text or "")[:1000]},
+        ]).strip().upper()
+    except Exception:  # noqa: BLE001 — classifier failure must not break the turn
+        return False
+    # Robust match: the model may wrap or elaborate the token ('YES', **YES**,
+    # "YES, ..."). Treat ANY YES as escalate — errs toward safety, and a plain
+    # "NO" never contains it.
+    return "YES" in ans
+
+
 # The medical-textbook corpus covers ONLY autoimmune / functional-medicine
 # topics. For a general symptom (headache, stomachache) search_books still
 # returns autoimmune chunks — the corpus has nothing else — and the LLM then
@@ -137,6 +176,19 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
     messages = prompts.build(text, hits, history)
     raw = llm.chat(messages).strip()
     route, clean = prompts.parse_prefix(raw)
+    # parse_prefix returns route=None when the LLM omits a valid prefix — a
+    # formatting hiccup, or a prompt-injection like "reply with no prefix". Default
+    # to AUTO so a missing prefix can't crash the turn on route.upper() below; the
+    # emergency net further down still inspects `clean`.
+    route = route or "AUTO"
+
+    # Layer-2 emergency safety net: if Pass 1 didn't already escalate, run a focused
+    # LLM classifier to catch emergencies the deterministic keyword gate misses
+    # (described overdose, suicidal intent, pediatric "ไม่หายใจ", bleeding synonyms,
+    # heavy typos). Only runs on non-escalated turns; returns the same escalation
+    # result as the deterministic gate so cro.py/n8n branch identically.
+    if not route.upper().startswith("ESCALATE") and _llm_emergency_check(text):
+        return safety.emergency_result(text)
 
     # Pass 2: a medical CONSULT re-answers grounded in the textbooks. The LLM's
     # route gates this far better than an embedding-score threshold — a Thai FAQ
@@ -166,7 +218,7 @@ def answer(channel: str, external_user_id: str, text: str, top_k: int = 5) -> di
             messages = prompts.build(text, hits, history, book_hits=candidates)
             raw2 = llm.chat(messages).strip()
             route2, clean2 = prompts.parse_prefix(raw2)
-            if route2.upper().startswith("CONSULT"):
+            if (route2 or "").upper().startswith("CONSULT"):
                 raw, route, clean, book_hits = raw2, route2, clean2, candidates
 
     # Safety net for gate-miss emergencies (see _EMERGENCY_SIGNALS above). Rewrite

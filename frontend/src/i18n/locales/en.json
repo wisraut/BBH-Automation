@@ -137,8 +137,8 @@
     "noFile": "No file attached",
     "sending": "Sending...",
     "sendCount": "Send {{count}} report(s)",
-    "sentSuccess": "Sent {{count}} file(s) to {{email}}",
-    "sentPartial": "Sent {{count}} file(s) to {{email}} — skipped {{skipped}} (no file / too large)",
+    "sentSuccess": "Dispatched {{count}} file(s) to {{email}} — check the recipient inbox to confirm receipt",
+    "sentPartial": "Dispatched {{count}} file(s) to {{email}} — skipped {{skipped}} (no file / too large); check the recipient inbox",
     "sendFailed": "Failed to send, please try again"
   },
   "aiSessionsList": {

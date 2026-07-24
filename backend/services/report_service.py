@@ -292,6 +292,10 @@ def send_reports_to_doctor(
             status_code=502,
             detail={"code": "EMAIL_FAILED", "message": "ส่งอีเมลไม่สำเร็จ กรุณาลองใหม่"},
         )
+    # NOTE: `sent: True` means the message was ACCEPTED by the SMTP relay, not that
+    # it was delivered to the recipient's inbox (a later bounce is possible). The UI
+    # wording reflects this ("dispatched — verify at inbox"); don't upgrade it to a
+    # delivery guarantee without real bounce/DSN handling.
     return {"sent": True, "to": dest, "attached": len(attachments), "skipped": skipped}
 
 

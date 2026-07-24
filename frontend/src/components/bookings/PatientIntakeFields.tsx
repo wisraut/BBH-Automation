@@ -21,7 +21,7 @@ export interface IntakeForm {
   email: string
   address: string
   intake_by: string
-  // Optional health-record extras (collapsed by default in the UI).
+  // Optional health-record extras (rendered in the collapsed PatientHealthAccordion).
   english_name: string
   religion: string
   marital_status: string
@@ -55,8 +55,8 @@ export const EMPTY_INTAKE: IntakeForm = {
   smoking: '', smoking_years: '', drinking: '', drinking_years: '',
 }
 
-// The optional (health/family) keys — used to auto-open the collapsed section when
-// a linked chart already carries any of them.
+// The optional (health/family) keys — auto-open the collapsed accordion when a
+// linked chart already carries any of them.
 const HEALTH_KEYS: (keyof IntakeForm)[] = [
   'english_name', 'religion', 'marital_status', 'occupation',
   'father_name', 'father_phone', 'mother_name', 'mother_phone',
@@ -107,6 +107,7 @@ const BASE =
   'w-full rounded-lg border px-3 py-2 text-sm transition-colors duration-200 focus:outline-none focus:ring-2'
 const OK = 'border-bbh-line focus:border-bbh-green focus:ring-bbh-green/30'
 const ERR = 'border-red-400 bg-red-50/40 focus:border-red-400 focus:ring-red-300'
+const FIELD = `${BASE} ${OK}` // optional fields never error
 
 interface Props {
   value: IntakeForm
@@ -115,16 +116,14 @@ interface Props {
   showErrors?: boolean
 }
 
-// Grouped intake block embedded in ApproveModal. Sections chunk the fields to cut
-// cognitive load; required identity/contact stay up top, while the fuller health/
-// family record (usually filled later, not at booking time) sits in a collapsed
-// section so it never bloats the confirm flow.
+// Required intake block embedded in ApproveModal (identity + contact + who-filled).
+// The fuller optional health/family record is a SEPARATE component
+// (PatientHealthAccordion) so ApproveModal can place it at the very bottom of the
+// modal — below the schedule — where the CRO expects "extra, later" fields.
 export function PatientIntakeFields({ value, onChange, showErrors = false }: Props) {
   const { t } = useTranslation()
   const hasExtra = !!(value.phone2 || value.phone3 || value.phone4 || value.email)
   const [showMore, setShowMore] = useState(hasExtra)
-  const hasHealth = HEALTH_KEYS.some((k) => value[k].trim() !== '')
-  const [showHealth, setShowHealth] = useState(hasHealth)
 
   const set = (k: keyof IntakeForm) => (e: { target: { value: string } }) =>
     onChange({ ...value, [k]: e.target.value })
@@ -240,140 +239,153 @@ export function PatientIntakeFields({ value, onChange, showErrors = false }: Pro
           />
         </label>
       </section>
+    </div>
+  )
+}
 
-      {/* Optional health / family record — kept at the very bottom (per request);
-          collapsed by default since it's usually filled later, not at booking time.
-          The tinted toggle header keeps it easy to spot even down here. */}
-      <section className="space-y-3">
-        <button
-          type="button"
-          onClick={() => setShowHealth((s) => !s)}
-          aria-expanded={showHealth}
-          className="flex w-full items-center justify-between rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2.5 text-sm font-medium text-bbh-ink transition-colors hover:border-bbh-green hover:text-bbh-green-dark"
-        >
-          <span>{t('intake.moreHealthTitle')}</span>
-          <ChevronDown size={16} className={`shrink-0 transition-transform ${showHealth ? 'rotate-180' : ''}`} />
-        </button>
+// Optional health/family record — collapsed by default (usually filled later, not
+// at booking time). Rendered by ApproveModal at the VERY bottom of the modal
+// (below the schedule) so it never gets in the way of the required confirm flow.
+export function PatientHealthAccordion({ value, onChange }: { value: IntakeForm; onChange: (next: IntakeForm) => void }) {
+  const { t } = useTranslation()
+  const hasHealth = HEALTH_KEYS.some((k) => value[k].trim() !== '')
+  const [open, setOpen] = useState(hasHealth)
+  const set = (k: keyof IntakeForm) => (e: { target: { value: string } }) =>
+    onChange({ ...value, [k]: e.target.value })
+  const Label = ({ text }: { text: string }) => (
+    <span className="mb-1 block text-xs font-medium text-bbh-ink">{text}</span>
+  )
 
-        {showHealth ? (
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+  return (
+    <section className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-lg border border-bbh-line bg-bbh-surface px-3 py-2.5 text-sm font-medium text-bbh-ink transition-colors hover:border-bbh-green hover:text-bbh-green-dark"
+      >
+        <span>{t('intake.moreHealthTitle')}</span>
+        <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <Label text={t('patientFormModal.englishName')} />
+              <input value={value.english_name} onChange={set('english_name')} maxLength={120} className={FIELD} />
+            </label>
+            <label className="block">
+              <Label text={t('patientFormModal.occupation')} />
+              <input value={value.occupation} onChange={set('occupation')} maxLength={120} className={FIELD} />
+            </label>
+            <label className="block">
+              <Label text={t('patientFormModal.religion')} />
+              <input value={value.religion} onChange={set('religion')} maxLength={60} className={FIELD} />
+            </label>
+            <label className="block">
+              <Label text={t('patientFormModal.maritalStatus')} />
+              <input value={value.marital_status} onChange={set('marital_status')} maxLength={30} className={FIELD} />
+            </label>
+          </div>
+
+          <div>
+            <Eyebrow>{t('patientFormModal.secFamily')}</Eyebrow>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <Label k="english_name" text={t('patientFormModal.englishName')} />
-                <input value={value.english_name} onChange={set('english_name')} maxLength={120} className={cls('english_name')} />
+                <Label text={t('patientFormModal.fatherName')} />
+                <input value={value.father_name} onChange={set('father_name')} maxLength={120} className={FIELD} />
               </label>
               <label className="block">
-                <Label k="occupation" text={t('patientFormModal.occupation')} />
-                <input value={value.occupation} onChange={set('occupation')} maxLength={120} className={cls('occupation')} />
+                <Label text={t('patientFormModal.fatherPhone')} />
+                <input type="tel" inputMode="tel" value={value.father_phone} onChange={set('father_phone')} maxLength={20} className={FIELD} />
               </label>
               <label className="block">
-                <Label k="religion" text={t('patientFormModal.religion')} />
-                <input value={value.religion} onChange={set('religion')} maxLength={60} className={cls('religion')} />
+                <Label text={t('patientFormModal.motherName')} />
+                <input value={value.mother_name} onChange={set('mother_name')} maxLength={120} className={FIELD} />
               </label>
               <label className="block">
-                <Label k="marital_status" text={t('patientFormModal.maritalStatus')} />
-                <input value={value.marital_status} onChange={set('marital_status')} maxLength={30} className={cls('marital_status')} />
+                <Label text={t('patientFormModal.motherPhone')} />
+                <input type="tel" inputMode="tel" value={value.mother_phone} onChange={set('mother_phone')} maxLength={20} className={FIELD} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.emergencyName')} />
+                <input value={value.emergency_contact_name} onChange={set('emergency_contact_name')} maxLength={120} className={FIELD} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.emergencyRelation')} />
+                <input value={value.emergency_contact_relation} onChange={set('emergency_contact_relation')} maxLength={60} className={FIELD} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.emergencyPhone')} />
+                <input type="tel" inputMode="tel" value={value.emergency_contact_phone} onChange={set('emergency_contact_phone')} maxLength={20} className={FIELD} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.emergencyAddress')} />
+                <input value={value.emergency_contact_address} onChange={set('emergency_contact_address')} maxLength={500} className={FIELD} />
               </label>
             </div>
+          </div>
 
-            <div>
-              <Head text={t('patientFormModal.secFamily')} />
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <div>
+            <Eyebrow>{t('patientFormModal.secHealth')}</Eyebrow>
+            <div className="mt-2 space-y-2.5">
+              <label className="block">
+                <Label text={t('patientFormModal.pastIllness')} />
+                <textarea value={value.past_illness} onChange={set('past_illness')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${FIELD}`} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.congenitalDisease')} />
+                <textarea value={value.congenital_disease} onChange={set('congenital_disease')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${FIELD}`} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.drugsSupplements')} />
+                <textarea value={value.drugs_supplements} onChange={set('drugs_supplements')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${FIELD}`} />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <Label k="father_name" text={t('patientFormModal.fatherName')} />
-                  <input value={value.father_name} onChange={set('father_name')} maxLength={120} className={cls('father_name')} />
+                  <Label text={t('patientFormModal.drugAllergy')} />
+                  <textarea value={value.drug_allergy} onChange={set('drug_allergy')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${FIELD}`} />
                 </label>
                 <label className="block">
-                  <Label k="father_phone" text={t('patientFormModal.fatherPhone')} />
-                  <input type="tel" inputMode="tel" value={value.father_phone} onChange={set('father_phone')} maxLength={20} className={cls('father_phone')} />
-                </label>
-                <label className="block">
-                  <Label k="mother_name" text={t('patientFormModal.motherName')} />
-                  <input value={value.mother_name} onChange={set('mother_name')} maxLength={120} className={cls('mother_name')} />
-                </label>
-                <label className="block">
-                  <Label k="mother_phone" text={t('patientFormModal.motherPhone')} />
-                  <input type="tel" inputMode="tel" value={value.mother_phone} onChange={set('mother_phone')} maxLength={20} className={cls('mother_phone')} />
-                </label>
-                <label className="block">
-                  <Label k="emergency_contact_name" text={t('patientFormModal.emergencyName')} />
-                  <input value={value.emergency_contact_name} onChange={set('emergency_contact_name')} maxLength={120} className={cls('emergency_contact_name')} />
-                </label>
-                <label className="block">
-                  <Label k="emergency_contact_relation" text={t('patientFormModal.emergencyRelation')} />
-                  <input value={value.emergency_contact_relation} onChange={set('emergency_contact_relation')} maxLength={60} className={cls('emergency_contact_relation')} />
-                </label>
-                <label className="block">
-                  <Label k="emergency_contact_phone" text={t('patientFormModal.emergencyPhone')} />
-                  <input type="tel" inputMode="tel" value={value.emergency_contact_phone} onChange={set('emergency_contact_phone')} maxLength={20} className={cls('emergency_contact_phone')} />
-                </label>
-                <label className="block">
-                  <Label k="emergency_contact_address" text={t('patientFormModal.emergencyAddress')} />
-                  <input value={value.emergency_contact_address} onChange={set('emergency_contact_address')} maxLength={500} className={cls('emergency_contact_address')} />
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <Head text={t('patientFormModal.secHealth')} />
-              <div className="mt-2 space-y-2.5">
-                <label className="block">
-                  <Label k="past_illness" text={t('patientFormModal.pastIllness')} />
-                  <textarea value={value.past_illness} onChange={set('past_illness')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('past_illness')}`} />
-                </label>
-                <label className="block">
-                  <Label k="congenital_disease" text={t('patientFormModal.congenitalDisease')} />
-                  <textarea value={value.congenital_disease} onChange={set('congenital_disease')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('congenital_disease')}`} />
-                </label>
-                <label className="block">
-                  <Label k="drugs_supplements" text={t('patientFormModal.drugsSupplements')} />
-                  <textarea value={value.drugs_supplements} onChange={set('drugs_supplements')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('drugs_supplements')}`} />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block">
-                    <Label k="drug_allergy" text={t('patientFormModal.drugAllergy')} />
-                    <textarea value={value.drug_allergy} onChange={set('drug_allergy')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('drug_allergy')}`} />
-                  </label>
-                  <label className="block">
-                    <Label k="food_allergy" text={t('patientFormModal.foodAllergy')} />
-                    <textarea value={value.food_allergy} onChange={set('food_allergy')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('food_allergy')}`} />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Head text={t('patientFormModal.secBehavior')} />
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <Label k="smoking" text={t('patientFormModal.smoking')} />
-                  <select value={value.smoking} onChange={set('smoking')} className={cls('smoking')}>
-                    <option value="">{t('patientFormModal.htUnset')}</option>
-                    <option value="no">{t('patientFormModal.htNo')}</option>
-                    <option value="yes">{t('patientFormModal.htYes')}</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <Label k="smoking_years" text={t('patientFormModal.years')} />
-                  <input type="number" min={0} max={120} value={value.smoking_years} disabled={value.smoking !== 'yes'} onChange={set('smoking_years')} className={`${cls('smoking_years')} disabled:cursor-not-allowed disabled:bg-bbh-surface`} />
-                </label>
-                <label className="block">
-                  <Label k="drinking" text={t('patientFormModal.drinking')} />
-                  <select value={value.drinking} onChange={set('drinking')} className={cls('drinking')}>
-                    <option value="">{t('patientFormModal.htUnset')}</option>
-                    <option value="no">{t('patientFormModal.htNo')}</option>
-                    <option value="yes">{t('patientFormModal.htYes')}</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <Label k="drinking_years" text={t('patientFormModal.years')} />
-                  <input type="number" min={0} max={120} value={value.drinking_years} disabled={value.drinking !== 'yes'} onChange={set('drinking_years')} className={`${cls('drinking_years')} disabled:cursor-not-allowed disabled:bg-bbh-surface`} />
+                  <Label text={t('patientFormModal.foodAllergy')} />
+                  <textarea value={value.food_allergy} onChange={set('food_allergy')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${FIELD}`} />
                 </label>
               </div>
             </div>
           </div>
-        ) : null}
-      </section>
-    </div>
+
+          <div>
+            <Eyebrow>{t('patientFormModal.secBehavior')}</Eyebrow>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <Label text={t('patientFormModal.smoking')} />
+                <select value={value.smoking} onChange={set('smoking')} className={FIELD}>
+                  <option value="">{t('patientFormModal.htUnset')}</option>
+                  <option value="no">{t('patientFormModal.htNo')}</option>
+                  <option value="yes">{t('patientFormModal.htYes')}</option>
+                </select>
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.years')} />
+                <input type="number" min={0} max={120} value={value.smoking_years} disabled={value.smoking !== 'yes'} onChange={set('smoking_years')} className={`${FIELD} disabled:cursor-not-allowed disabled:bg-bbh-surface`} />
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.drinking')} />
+                <select value={value.drinking} onChange={set('drinking')} className={FIELD}>
+                  <option value="">{t('patientFormModal.htUnset')}</option>
+                  <option value="no">{t('patientFormModal.htNo')}</option>
+                  <option value="yes">{t('patientFormModal.htYes')}</option>
+                </select>
+              </label>
+              <label className="block">
+                <Label text={t('patientFormModal.years')} />
+                <input type="number" min={0} max={120} value={value.drinking_years} disabled={value.drinking !== 'yes'} onChange={set('drinking_years')} className={`${FIELD} disabled:cursor-not-allowed disabled:bg-bbh-surface`} />
+              </label>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
   )
 }

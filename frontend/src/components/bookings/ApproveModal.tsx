@@ -14,6 +14,7 @@ import { ApiError } from '../../lib/api'
 import type { ApproveRequest } from '../../hooks/useApproveBooking'
 import {
   PatientIntakeFields,
+  PatientHealthAccordion,
   EMPTY_INTAKE,
   isIntakeComplete,
   missingIntakeKeys,
@@ -334,6 +335,10 @@ export function ApproveModal({ booking, open, onClose, onApproved, defaultDoctor
             </div>
           ) : null}
         </div>
+
+        {/* Fuller health/family record — optional, kept at the very bottom (below
+            the schedule) so it never blocks the required confirm flow. */}
+        <PatientHealthAccordion value={intake} onChange={setIntake} />
 
         {/* Missing-required transparency, right where the eye lands before the
             confirm button — so the CRO sees exactly what's left, not a mystery

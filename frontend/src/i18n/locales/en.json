@@ -791,7 +791,7 @@
     "notes": "Notes"
   },
   "intake": {
-    "moreHealthTitle": "Health & family history (optional)",
+    "moreHealthTitle": "Personal information",
     "title": "Patient details",
     "sectionIdentity": "Identity",
     "sectionContact": "Contact & medical",

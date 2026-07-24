@@ -50,6 +50,43 @@ _HN = re.compile(rf"\bHN{_SEP}\d{{4}}{_SEP}\d+\b|(?<!\d)\d{{2}}{_SEP}\d{{4,}}(?!
 _PT_CODE = re.compile(r"\bPT\d{3,}\b")
 _LINE_UID = re.compile(r"\bU[a-fA-F0-9]{32}\b")
 
+# A single Thai/Latin word token (a name part). Thai digits were already folded to
+# ASCII by _prep, so this class won't swallow numbers — a name token stops at the
+# first space, digit, or punctuation.
+_NAME_TOK = r"[ก-๛A-Za-z]{1,20}"
+
+# Honorific + given name — catches people the patient-name dictionary can't: a
+# relative, a referring doctor, or a name inside a Google Calendar summary that
+# isn't a registered patient. Thai has no reliable NER (models are English-trained
+# and collapse on Thai), so a rule over honorifics is the pragmatic PDPA net.
+# Dotted abbreviations always precede a name; นาย/นาง/นางสาว can begin compounds
+# (นายแพทย์ = physician, นางพยาบาล = nurse), so those two words are excluded via
+# lookahead to avoid masking clinical role words.
+_HONORIFIC_NAME = re.compile(
+    r"(?:น\.ส\.|ด\.ช\.|ด\.ญ\.|นพ\.|พญ\.|ทพ\.|ทพญ\.|ภก\.|ภญ\.|เด็กชาย|เด็กหญิง"
+    r"|(?:นางสาว|นาง|นาย)(?!แพทย์|พยาบาล))"
+    # One token only: the given name is the primary Thai identifier, and grabbing a
+    # second token would eat the following word (a symptom/diagnosis) — losing
+    # clinical content the model needs. A registered patient's full name is still
+    # masked completely by the known_names dictionary below; this rule is the net
+    # for un-registered names (relatives, referring doctors, calendar entries).
+    rf"\s*{_NAME_TOK}"
+)
+
+# Thai street-address components. Each keyword is address-specific, so masking the
+# token after it strips the identifying part (house no / street / sub-district /
+# district / province) without touching clinical text. Postal codes are left alone
+# (a bare 5-digit run collides with lab values / amounts).
+_ADDRESS = re.compile(
+    r"(?:บ้านเลขที่\s*\S+"
+    r"|เลขที่\s*\d[\d/\-]*"
+    # NB: 'เขต' is intentionally omitted — it means both a Bangkok district AND a
+    # body region ("เขตหน้าอก" = chest area), so masking it would eat symptom
+    # location the triage AI needs. 'แขวง' still masks the sub-district name.
+    rf"|(?:หมู่ที่|หมู่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|แขวง|อำเภอ|จังหวัด)\s*{_NAME_TOK}"
+    r")"
+)
+
 
 def redact_text(text: str, *, known_names: list[str] | None = None) -> str:
     """Mask universal PII patterns plus caller-supplied exact names."""
@@ -63,6 +100,8 @@ def redact_text(text: str, *, known_names: list[str] | None = None) -> str:
     out = _HN.sub("[HN]", out)
     out = _PT_CODE.sub("[PT_CODE]", out)
     out = _LINE_UID.sub("[LINE_UID]", out)
+    out = _ADDRESS.sub("[ADDRESS]", out)
+    out = _HONORIFIC_NAME.sub("[NAME]", out)
 
     if known_names:
         seen: set[str] = set()

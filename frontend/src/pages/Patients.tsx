@@ -160,13 +160,28 @@ export function Patients() {
   // Open a patient's record = push ?patient=<id> (a real history entry, so the
   // browser Back button pops it and returns to the list); clearing the param goes
   // back to the list. The report picker stays local — opening a patient resets it.
+  // Preserve the ?as=<role> view-as param across selection: /patients is a shared
+  // page with no fixed role, so an admin "viewing as CRO" keeps the CRO sidebar
+  // only while ?as=cro rides along. Replacing the whole query (the old behaviour)
+  // dropped it and the sidebar snapped back to Admin.
   function openPatient(id: number) {
     setSelectedReportId(null)
     setViewMode('detail')
-    setSearchParams({ patient: String(id) })
+    setSearchParams((prev) => {
+      const next = new URLSearchParams()
+      const as = prev.get('as')
+      if (as) next.set('as', as)
+      next.set('patient', String(id))
+      return next
+    })
   }
   function backToList() {
-    setSearchParams({})
+    setSearchParams((prev) => {
+      const next = new URLSearchParams()
+      const as = prev.get('as')
+      if (as) next.set('as', as)
+      return next
+    })
   }
 
   useEffect(() => {

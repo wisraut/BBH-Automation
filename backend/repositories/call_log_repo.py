@@ -6,6 +6,7 @@ from core.mysql import mysql_db
 
 
 def list_by_patient(patient_id: int, *, limit: int = 50) -> list[dict[str, Any]]:
+    """ประวัติการโทรของคนไข้ 1 คน เรียงล่าสุดก่อน + join ชื่อผู้โทร (called_by → users)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -37,6 +38,8 @@ def insert(
     called_by: int | None,
     called_at: datetime | None = None,
 ) -> int:
+    """บันทึกการโทร 1 ครั้งลง patient_call_logs คืน id ใหม่. ถ้าไม่ส่ง called_at
+    ปล่อยให้ DB ใส่เวลาปัจจุบัน (ไม่ใส่คอลัมน์นั้นใน INSERT)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             if called_at is None:
@@ -67,6 +70,7 @@ def insert(
 
 
 def delete(call_id: int) -> int:
+    """ลบ call log 1 แถวถาวรด้วย id. คืนจำนวนแถวที่ลบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(

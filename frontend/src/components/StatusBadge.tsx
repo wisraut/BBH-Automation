@@ -1,29 +1,23 @@
+import { useTranslation } from 'react-i18next'
+
 import type { BookingStatus } from '../hooks/useBookings'
 
-const LABELS: Record<BookingStatus, string> = {
-  draft: 'ร่าง',
-  pending_approval: 'รอยืนยัน',
-  approved: 'ยืนยันแล้ว',
-  rejected: 'ปฏิเสธ',
-  cancelled: 'ยกเลิก',
-  expired: 'หมดอายุ',
-  no_show: 'No-show',
-}
-
 const STYLES: Record<BookingStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  pending_approval: 'bg-amber-50 text-amber-700 border border-amber-200',
-  approved: 'bg-bbh-green-soft text-bbh-green-dark border border-bbh-green/30',
-  rejected: 'bg-red-50 text-red-700 border border-red-200',
-  cancelled: 'bg-gray-100 text-gray-500',
-  expired: 'bg-gray-100 text-gray-500',
-  no_show: 'bg-orange-50 text-orange-800 border border-orange-300',
+  draft: 'border border-bbh-line bg-bbh-surface text-bbh-muted',
+  pending_approval: 'border border-amber-200 bg-amber-50 text-amber-700',
+  approved: 'border border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
+  rejected: 'border border-red-200 bg-red-50 text-red-700',
+  cancelled: 'border border-bbh-line bg-bbh-surface text-bbh-muted',
+  expired: 'border border-bbh-line bg-bbh-surface text-bbh-muted',
+  no_show: 'border border-amber-300 bg-white text-amber-700',
 }
 
+// ป้ายสถานะนัด (รออนุมัติ/อนุมัติ/ปฏิเสธ/ยกเลิก ฯลฯ) — map แต่ละสถานะเป็นสีเฉพาะ ใช้ทั่วหน้า bookings/calendar
 export function StatusBadge({ status }: { status: BookingStatus }) {
+  const { t } = useTranslation()
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${STYLES[status]}`}>
-      {LABELS[status]}
+    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STYLES[status]}`}>
+      {t(`statusBadge.${status}`)}
     </span>
   )
 }

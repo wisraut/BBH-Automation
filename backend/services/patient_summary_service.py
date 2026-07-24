@@ -16,12 +16,14 @@ from services.pii_redactor import redact_text
 _SYSTEM_INSTRUCTION = (
     "คุณเป็นผู้ช่วยแพทย์ในโรงพยาบาล สรุปประวัติคนไข้ให้แพทย์อ่านก่อนตรวจ "
     "เป็นภาษาไทย ความยาว 3-5 บรรทัดสั้นๆ แต่ละบรรทัดมีจุดเดียว "
-    "หลีกเลี่ยงข้อมูลส่วนตัว เน้นที่ประวัติคลินิกล้วน: โรคประจำตัว, แพ้ยา, "
+    "หลีกเลี่ยงข้อมูลส่วนตัว เน้นที่ประวัติทางการแพทย์ล้วน: โรคประจำตัว, แพ้ยา, "
     "ยาที่ใช้อยู่, ประวัติการรักษาสำคัญ และข้อควรระวังก่อนตรวจ"
 )
 
 
 def _compose_brief(patient_id: int) -> tuple[str, list[str]]:
+    """รวบประวัติทางการแพทย์ (แพ้ยา/โรคประจำตัว/ยาที่ใช้อยู่/ประวัติรักษา) เป็น prompt
+    เดียว แล้ว PII-redact ชื่อคนไข้ก่อนคืน — 404 ถ้าไม่พบคนไข้; คืน (prompt, [ชื่อ])"""
     p = patient_repo.get_by_id(patient_id)
     if not p:
         raise HTTPException(404, {"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้นี้"})
@@ -83,6 +85,8 @@ def _compose_brief(patient_id: int) -> tuple[str, list[str]]:
 
 
 def generate_summary(patient_id: int, *, user: dict[str, Any]) -> dict[str, str]:
+    """สร้างสรุปประวัติสั้นๆ (pre-visit brief) ให้แพทย์อ่านก่อนตรวจ — ยิง LLM ด้วย
+    prompt ที่ redact แล้ว; LLM ล้มโยน 502 AI_ERROR"""
     prompt, _ = _compose_brief(patient_id)
     messages = [
         {"role": "system", "content": _SYSTEM_INSTRUCTION},

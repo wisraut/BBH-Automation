@@ -1,4 +1,5 @@
-﻿import { Link, NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Link, NavLink } from 'react-router-dom'
 import {
   Activity,
   ArrowLeft,
@@ -26,18 +27,12 @@ import type { LucideIcon } from 'lucide-react'
 
 import type { Role } from '../lib/auth'
 import bbhDashboardLogo from '../assets/bbh-logo-dashboard.png'
-
-const VIEW_AS_LABEL: Record<Role, string> = {
-  admin: 'Admin',
-  cro: 'CRO',
-  doctor: 'Doctor',
-  nurse: 'Nurse',
-  lab_staff: 'Lab',
-}
+import { Eyebrow } from './ui/Eyebrow'
 
 interface NavItem {
   to: string
-  label: string
+  labelKey?: string // i18n key — shared NAV (CRO/admin/nurse/lab) resolves via t()
+  label?: string // literal label — Doctor Workspace nav (DOCTOR_NAV) uses fixed Thai copy
   icon: LucideIcon
   roles: Role[]
   soon?: boolean // parked: visible on the roadmap but not wired to real data yet
@@ -47,18 +42,19 @@ interface NavItem {
 // (CRO bookings, doctor schedule, etc.) admin uses the "Go as X" cards on the
 // /admin dashboard — route gates still allow admin in those pages.
 const NAV: NavItem[] = [
-  { to: '/admin', label: 'Admin', icon: ShieldCheck, roles: ['admin'] },
-  { to: '/bookings', label: 'การจอง', icon: ClipboardList, roles: ['cro'] },
-  { to: '/calendar', label: 'ปฏิทิน', icon: CalendarDays, roles: ['cro'] },
-  { to: '/schedule', label: 'ตารางงาน', icon: CalendarClock, roles: ['doctor', 'nurse'] },
-  { to: '/patients', label: 'คนไข้', icon: Users, roles: ['cro', 'doctor', 'nurse'] },
-  { to: '/reports', label: 'รายงาน', icon: FileText, roles: ['doctor', 'nurse', 'lab_staff'] },
-  { to: '/ai', label: 'AI Assistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
-  { to: '/users', label: 'ผู้ใช้', icon: UserCog, roles: ['admin'] },
-  { to: '/alert-rules', label: 'Alert Rules', icon: BellRing, roles: ['admin'] },
-  { to: '/audit', label: 'Audit Log', icon: History, roles: ['admin'] },
-  { to: '/system-health', label: 'สถานะระบบ', icon: Activity, roles: ['admin'] },
-  { to: '/account', label: 'บัญชี', icon: UserCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
+  { to: '/admin', labelKey: 'nav.admin', icon: ShieldCheck, roles: ['admin'] },
+  { to: '/bookings', labelKey: 'nav.bookings', icon: ClipboardList, roles: ['cro'] },
+  { to: '/calendar', labelKey: 'nav.calendar', icon: CalendarDays, roles: ['cro'] },
+  { to: '/schedule', labelKey: 'nav.today', icon: CalendarClock, roles: ['doctor', 'nurse'] },
+  { to: '/doctor-calendar', labelKey: 'nav.doctorCalendar', icon: CalendarDays, roles: ['doctor', 'nurse'] },
+  { to: '/patients', labelKey: 'nav.patients', icon: Users, roles: ['cro', 'doctor', 'nurse'] },
+  { to: '/reports', labelKey: 'nav.reports', icon: FileText, roles: ['doctor', 'nurse', 'lab_staff'] },
+  { to: '/ai', labelKey: 'nav.aiAssistant', icon: MessageCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
+  { to: '/users', labelKey: 'nav.users', icon: UserCog, roles: ['admin'] },
+  { to: '/alert-rules', labelKey: 'nav.alertRules', icon: BellRing, roles: ['admin'] },
+  { to: '/audit', labelKey: 'nav.auditLog', icon: History, roles: ['admin'] },
+  { to: '/system-health', labelKey: 'nav.systemHealth', icon: Activity, roles: ['admin'] },
+  { to: '/account', labelKey: 'nav.account', icon: UserCircle, roles: ['cro', 'doctor', 'admin', 'nurse', 'lab_staff'] },
 ]
 
 // Doctor Workspace has its own ordered nav (spec §2) with doctor-specific labels
@@ -86,8 +82,15 @@ interface SidebarProps {
   onToggleCollapsed?: () => void
 }
 
+// แถบเมนูซ้ายของ dashboard — กรองรายการเมนูตาม role ที่กำลังใช้ พับ/กางได้บน desktop
+// และเลื่อนออกเป็น drawer บนมือถือ; แสดงปุ่ม "กลับสู่ admin" เมื่อ admin สวมบทบาทดูแทน role อื่น
 export function Sidebar({ role, actualRole, viewAs, open = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
+  const { t } = useTranslation()
+  // Doctor Workspace has its own nav (DOCTOR_NAV, literal Thai labels); everyone
+  // else uses the shared i18n NAV filtered by role.
   const items = role === 'doctor' ? DOCTOR_NAV : NAV.filter((item) => item.roles.includes(role))
+  // DOCTOR_NAV items carry a literal `label`; shared NAV items carry an i18n `labelKey`.
+  const labelOf = (item: NavItem) => item.label ?? t(item.labelKey ?? '')
   const showBackToAdmin = Boolean(viewAs && actualRole === 'admin')
   // Preserve view-as query so admin stays in the shadowed role while navigating
   const withViewAs = (path: string) => (viewAs ? `${path}?as=${viewAs}` : path)
@@ -96,14 +99,14 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
     <>
       <button
         type="button"
-        aria-label="ปิดเมนู"
+        aria-label={t('nav.closeMenu')}
         onClick={onClose}
         className={`fixed inset-0 z-40 bg-bbh-ink/45 backdrop-blur-[2px] transition-opacity lg:hidden ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-bbh-line bg-white/95 shadow-2xl shadow-bbh-ink/20 backdrop-blur transition-[transform,width] duration-200 lg:static lg:z-auto lg:max-w-none lg:translate-x-0 lg:bg-white/90 lg:shadow-bbh-card ${collapsed ? 'lg:w-20' : 'lg:w-64'} ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-bbh-line bg-white shadow-2xl shadow-bbh-ink/20 transition-[transform,width] duration-200 lg:static lg:z-auto lg:max-w-none lg:translate-x-0 lg:shadow-none ${collapsed ? 'lg:w-20' : 'lg:w-64'} ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -117,7 +120,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
               />
               <div className="min-w-0 flex-1">
                 <p className="font-serif text-base font-semibold leading-none text-bbh-ink">BBH</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-bbh-muted">Portal</p>
+                <Eyebrow className="mt-1">Portal</Eyebrow>
               </div>
             </>
           ) : (
@@ -133,7 +136,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
             type="button"
             onClick={onClose}
             className="ml-auto grid h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
-            aria-label="ปิดเมนู"
+            aria-label={t('nav.closeMenu')}
           >
             <X size={18} />
           </button>
@@ -144,8 +147,8 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
               type="button"
               onClick={onToggleCollapsed}
               className={`hidden h-9 w-9 place-items-center rounded-xl border border-bbh-line text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:grid ${collapsed ? 'ml-0' : 'ml-auto'}`}
-              aria-label={collapsed ? 'กางเมนู' : 'พับเมนู'}
-              title={collapsed ? 'กางเมนู' : 'พับเมนู'}
+              aria-label={collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')}
+              title={collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')}
             >
               {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
             </button>
@@ -157,14 +160,14 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
             <Link
               to="/admin"
               onClick={onClose}
-              title={collapsed ? 'กลับ Admin' : undefined}
+              title={collapsed ? t('nav.backToAdmin') : undefined}
               className={`flex items-center rounded-xl border border-bbh-green/30 bg-white text-xs font-semibold text-bbh-green-dark transition-all duration-200 hover:border-bbh-green ${
                 collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-2'
               }`}
             >
               <ArrowLeft size={14} className="shrink-0" />
               <span className={collapsed ? 'sr-only lg:hidden' : ''}>
-                กลับ Admin · กำลังดูในมุม {VIEW_AS_LABEL[viewAs]}
+                {t('nav.backToAdminViewingAs', { role: t(`roleShort.${viewAs}`) })}
               </span>
             </Link>
           </div>
@@ -178,9 +181,9 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
                 key={item.to}
                 to={withViewAs(item.to)}
                 onClick={onClose}
-                title={collapsed ? `${item.label}${item.soon ? ' (เร็วๆนี้)' : ''}` : undefined}
+                title={collapsed ? `${labelOf(item)}${item.soon ? ' (เร็วๆนี้)' : ''}` : undefined}
                 className={({ isActive }) =>
-                  `mb-1 flex items-center rounded-xl text-sm font-semibold transition ${
+                  `mb-1 flex items-center rounded-xl text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                     collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
                   } ${
                     isActive
@@ -193,7 +196,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
                   <>
                     <Icon size={18} className="shrink-0" />
                     <span className={collapsed ? 'sr-only lg:hidden' : 'truncate'}>
-                      {item.label}
+                      {labelOf(item)}
                     </span>
                     {item.soon && !collapsed ? (
                       <span
@@ -213,7 +216,7 @@ export function Sidebar({ role, actualRole, viewAs, open = false, onClose, colla
 
         {/* footer */}
         <div className={`border-t border-bbh-line py-3 ${collapsed ? 'lg:px-2' : 'px-4'}`}>
-          <div className={`flex items-center gap-2 text-[11px] text-bbh-muted ${collapsed ? 'lg:justify-center' : ''}`}>
+          <div className={`flex items-center gap-2 text-xs text-bbh-muted ${collapsed ? 'lg:justify-center' : ''}`}>
             <Stethoscope size={14} className="text-bbh-green shrink-0" />
             <span className={collapsed ? 'sr-only lg:hidden' : ''}>
               Better Being Hospital

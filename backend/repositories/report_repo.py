@@ -102,6 +102,8 @@ def list_recent(
 
 
 def list_by_patient(patient_id: int) -> list[dict[str, Any]]:
+    """รายการรีพอร์ตของคนไข้ 1 คน (ซ่อน soft-deleted) เรียงอัปโหลดล่าสุดก่อน
+    พร้อมเวลาวิเคราะห์ล่าสุดของแต่ละใบ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -120,6 +122,8 @@ def list_by_patient(patient_id: int) -> list[dict[str, Any]]:
 
 
 def get_by_id(report_id: int) -> dict[str, Any] | None:
+    """ดึงรีพอร์ต 1 ใบพร้อมรายละเอียดเต็ม (รวม extracted_text) ด้วย id.
+    ไม่กรอง deleted_at — ยังเปิดดูใบที่ถูก soft-delete ได้. คืน None ถ้าไม่เจอ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -153,6 +157,7 @@ def create(
     uploaded_by: int | None,
     assigned_doctor_id: int | None = None,
 ) -> int:
+    """สร้างรีพอร์ตใหม่ (lab/ผลตรวจ) ให้คนไข้ คืน id ใหม่."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -176,6 +181,7 @@ def create(
 
 
 def update_notebooklm_url(report_id: int, url: str | None) -> int:
+    """ตั้ง/ล้าง NotebookLM URL ของรีพอร์ต. คืนจำนวนแถวที่แก้."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -204,6 +210,7 @@ def soft_delete(report_id: int, *, deleted_by: int | None) -> int:
 
 
 def list_analyses(report_id: int) -> list[dict[str, Any]]:
+    """ประวัติผลวิเคราะห์ AI ของรีพอร์ต 1 ใบ เรียงใหม่สุดก่อน (วิเคราะห์ซ้ำได้หลายครั้ง)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -228,6 +235,8 @@ def create_analysis(
     raw_response: str | None,
     triage_decision: str,
 ) -> int:
+    """บันทึกผลวิเคราะห์ AI 1 ครั้ง (summary + triage suggestion เริ่มต้น) คืน id ใหม่.
+    dify_conversation_id ใช้เป็น id แบบ provider-agnostic (ไม่ผูก Dify แล้ว)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

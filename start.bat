@@ -3,11 +3,10 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 REM ============================================================
 REM BBH Hospital System Launcher
-REM Starts: Docker -> Dify -> Bot Ops DB -> Bridge -> n8n -> Frontend
+REM Starts: Docker -> Bot Ops DB -> Bridge -> n8n -> Frontend
 REM ============================================================
 
 set "ROOT_DIR=%~dp0"
-if not defined DIFY_DIR set "DIFY_DIR=%ROOT_DIR%..\dify\docker"
 set "DOCKER_DESKTOP=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
 set "FRONTEND_DIR=%ROOT_DIR%frontend"
 
@@ -21,9 +20,9 @@ echo ============================================================
 echo.
 
 REM ============================================================
-REM [1/7] Docker Desktop
+REM [1/5] Docker Desktop
 REM ============================================================
-echo [1/7] Checking Docker...
+echo [1/5] Checking Docker...
 docker info >nul 2>&1
 if errorlevel 1 (
     echo   Docker not running - starting Docker Desktop...
@@ -53,62 +52,22 @@ goto wait_docker
 :docker_ready
 echo   Docker ready.
 
+REM ------------------------------------------------------------
+REM Ensure the shared docker network exists. It was originally created by the
+REM (now-removed) Dify stack as "docker_default"; the compose files below attach
+REM to it as external, so create it if missing — otherwise compose up fails with
+REM "network docker_default not found" after the Dify stack is fully removed.
+REM ------------------------------------------------------------
+docker network inspect docker_default >nul 2>&1 || (
+    echo   Shared network missing - creating docker_default...
+    docker network create docker_default >nul 2>&1
+)
+
 REM ============================================================
-REM [2/7] Dify stack
+REM [2/5] Bot Ops MySQL
 REM ============================================================
 echo.
-echo [2/7] Starting Dify stack...
-if not exist "%DIFY_DIR%\docker-compose.yaml" (
-    echo   [ERROR] Dify folder not found: %DIFY_DIR%
-    pause
-    exit /b 1
-)
-pushd "%DIFY_DIR%"
-docker compose -f docker-compose.yaml up -d
-if errorlevel 1 (
-    echo   [ERROR] Dify compose up failed.
-    popd
-    pause
-    exit /b 1
-)
-popd
-
-set /a elapsed=0
-:wait_dify
-curl -s -o nul -w "%%{http_code}" http://localhost/v1/info > "%TEMP%\bbh_dify.txt" 2>nul
-set /p HTTP_CODE=<"%TEMP%\bbh_dify.txt"
-del "%TEMP%\bbh_dify.txt" >nul 2>&1
-if "!HTTP_CODE!"=="200" goto dify_ready
-if "!HTTP_CODE!"=="401" goto dify_ready
-if !elapsed! geq 180 (
-    echo   [WARN] Dify not ready after 180s. HTTP: !HTTP_CODE!. Continuing...
-    goto dify_ready
-)
-if "!HTTP_CODE!"=="502" (
-    echo   Dify warming up... !elapsed!s
-) else (
-    echo   Waiting for Dify API... HTTP !HTTP_CODE! / !elapsed!s
-)
-ping 127.0.0.1 -n 6 >nul
-set /a elapsed+=5
-goto wait_dify
-
-:dify_ready
-echo   Dify API ready. HTTP: !HTTP_CODE!
-
-REM ============================================================
-REM [3/7] Refresh Dify nginx (Docker DNS cache fix)
-REM ============================================================
-echo.
-echo [3/7] Refreshing Dify nginx...
-docker restart docker-nginx-1 >nul 2>&1
-echo   nginx restarted.
-
-REM ============================================================
-REM [4/7] Bot Ops MySQL
-REM ============================================================
-echo.
-echo [4/7] Starting Bot Ops MySQL...
+echo [2/5] Starting Bot Ops MySQL...
 docker compose -f n8n\docker-compose.n8n.yaml --env-file n8n\.env.n8n up -d --remove-orphans bot-ops-db
 if errorlevel 1 (
     echo   [ERROR] Bot Ops DB failed to start.
@@ -135,10 +94,10 @@ goto wait_bot_ops_db
 echo   Bot Ops DB ready.
 
 REM ============================================================
-REM [5/7] Bridge (FastAPI backend)
+REM [3/5] Bridge (FastAPI backend) + Embedder (RAG BGE-M3)
 REM ============================================================
 echo.
-echo [5/7] Starting Bridge...
+echo [3/5] Starting Bridge + Embedder...
 docker image inspect hospital-bridge:dev >nul 2>&1
 if errorlevel 1 (
     echo   Image not found - building on first run...
@@ -171,11 +130,34 @@ goto wait_bridge
 :bridge_ready
 echo   Bridge ready. HTTP: !BRIDGE_CODE!
 
+REM ------------------------------------------------------------
+REM Embedder readiness — the RAG lane can't embed until BGE-M3 finishes loading.
+REM It starts as part of the bridge compose above; wait for its /health.
+REM ------------------------------------------------------------
+echo   Waiting for Embedder (RAG model load)...
+set /a elapsed=0
+:wait_embedder
+curl -s -o nul -w "%%{http_code}" http://127.0.0.1:8085/health > "%TEMP%\bbh_embed.txt" 2>nul
+set /p EMBED_CODE=<"%TEMP%\bbh_embed.txt"
+del "%TEMP%\bbh_embed.txt" >nul 2>&1
+if "!EMBED_CODE!"=="200" goto embedder_ready
+if !elapsed! geq 150 (
+    echo   [WARN] Embedder not ready after 150s. HTTP: !EMBED_CODE!. RAG/AI unavailable until it loads.
+    goto embedder_ready
+)
+echo   Waiting for Embedder... HTTP !EMBED_CODE! / !elapsed!s
+ping 127.0.0.1 -n 6 >nul
+set /a elapsed+=5
+goto wait_embedder
+
+:embedder_ready
+echo   Embedder ready. HTTP: !EMBED_CODE!
+
 REM ============================================================
-REM [6/7] n8n (LINE Main Bot workflow runner)
+REM [4/5] n8n (LINE Main Bot workflow runner)
 REM ============================================================
 echo.
-echo [6/7] Starting n8n...
+echo [4/5] Starting n8n...
 REM Safety net: reset volume ownership so n8n (UID 1000) can write to its SQLite.
 REM Prevents SQLITE_READONLY crash if someone touched the volume as root
 REM (e.g. via "docker cp ... hospital-n8n:/home/node/.n8n/...").
@@ -206,10 +188,10 @@ goto wait_n8n
 echo   n8n ready. HTTP: !N8N_CODE!
 
 REM ============================================================
-REM [7/7] Frontend dev server (Vite)
+REM [5/5] Frontend dev server (Vite)
 REM ============================================================
 echo.
-echo [7/7] Starting Frontend dev server...
+echo [5/5] Starting Frontend dev server...
 if not exist "%FRONTEND_DIR%\package.json" (
     echo   [WARN] Frontend folder not found: %FRONTEND_DIR%. Skipping.
     goto skip_frontend
@@ -253,7 +235,6 @@ echo.
 echo  Frontend : http://localhost:5173/
 echo  Bridge   : http://localhost:8000/
 echo  n8n      : http://localhost:5678/
-echo  Dify     : http://localhost/
 echo  Webhook  : https://bridge.bbh-hospital.com/webhook
 echo  Tunnel   : Cloudflare (external Windows service)
 echo.
@@ -265,7 +246,6 @@ echo.
 echo  Stop all:
 echo    docker compose -f docker-compose.bridge.yaml down
 echo    docker compose -f n8n\docker-compose.n8n.yaml --env-file n8n\.env.n8n down
-echo    cd "%DIFY_DIR%" ^&^& docker compose down
 echo    (close the "BBH Frontend (Vite)" window to stop Vite)
 echo ============================================================
 echo.

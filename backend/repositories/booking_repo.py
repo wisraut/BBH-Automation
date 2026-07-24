@@ -6,30 +6,49 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from core.mysql import mysql_db
+from utils.phone import normalize_phone
 
 
 _LIST_COLUMNS = (
     "request_uid, status, patient_name, phone, requested_datetime_text, "
-    "symptom, booking_source, appointment_type, created_at"
+    "symptom, booking_source, appointment_type, assigned_doctor_id, created_at"
 )
 
 _DETAIL_COLUMNS = (
     "request_uid, status, channel, external_user_id, patient_name, phone, "
     "requested_date, requested_time, requested_datetime_text, symptom, "
     "service_type, doctor_code, booking_source, appointment_type, duration_min, "
-    "calendar_event_id, calendar_event_url, calendar_status, "
+    "calendar_event_id, calendar_event_url, doctor_calendar_event_id, calendar_status, "
     "assigned_doctor_id, patient_id, notes, approved_by, approved_at, "
     "reminder_24h_sent_at, reminder_1h_sent_at, "
     "created_at, updated_at"
 )
 
 
+# Lifecycle groups for the Bookings inbox tabs. "active" = still needs / has
+# CRO attention; "history" = terminal states kept for the record.
+ACTIVE_STATUSES = ("pending_approval", "approved")
+HISTORY_STATUSES = ("rejected", "cancelled", "expired", "no_show")
+
+
 def list_bookings(
-    *, status: str | None, page: int, limit: int
+    *, status: str | None, group: str | None = None, page: int, limit: int
 ) -> tuple[list[dict[str, Any]], int]:
+    """List bookings, filtered by exact ``status`` or by lifecycle ``group``.
+
+    An explicit ``status`` always wins. Otherwise ``group`` selects a status
+    set: 'active' (pending_approval/approved) or 'history' (rejected/cancelled/
+    expired/no_show). When neither is given we default to 'active'.
+    """
     offset = (page - 1) * limit
-    where_sql = "WHERE status = %s" if status else ""
-    where_args: tuple[Any, ...] = (status,) if status else ()
+    if status:
+        where_sql = "WHERE status = %s"
+        where_args: tuple[Any, ...] = (status,)
+    else:
+        statuses = HISTORY_STATUSES if group == "history" else ACTIVE_STATUSES
+        placeholders = ", ".join(["%s"] * len(statuses))
+        where_sql = f"WHERE status IN ({placeholders})"
+        where_args = tuple(statuses)
 
     with mysql_db() as conn:
         with conn.cursor() as cur:
@@ -74,6 +93,8 @@ def list_by_date_range(start: date, end: date) -> list[dict[str, Any]]:
 
 
 def get_by_uid(uid: str) -> dict[str, Any] | None:
+    """ดึงการจอง 1 ใบด้วย request_uid พร้อมคอลัมน์รายละเอียดครบ (คืน None ถ้าไม่เจอ).
+    วันที่/เวลาถูก serialize เป็น string."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -86,6 +107,8 @@ def get_by_uid(uid: str) -> dict[str, Any] | None:
 
 
 def _serialize_booking_row(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลงแถว booking ให้ JSON-serializable in-place: requested_date เป็น ISO,
+    requested_time เป็น 'HH:MM:SS' (รองรับทั้ง time และ timedelta ที่ driver คืนมา)."""
     requested_date = row.get("requested_date")
     requested_time = row.get("requested_time")
     if isinstance(requested_date, date):
@@ -112,6 +135,9 @@ def create_manual_booking(
     booking_source: str,
     created_by: str,
 ) -> str:
+    """สร้างการจองด้วยมือจาก Web Dashboard (channel='web_dashboard',
+    status='pending_approval' รอ CRO อนุมัติ). gen request_uid + external_user_id
+    เอง คืน request_uid."""
     request_uid = str(uuid.uuid4())
     external_user_id = f"web-{request_uid}"
     raw_summary = {
@@ -278,6 +304,7 @@ def reschedule_to_pending(
                         requested_datetime_text = NULL,
                         calendar_event_id = NULL,
                         calendar_event_url = NULL,
+                        doctor_calendar_event_id = NULL,
                         calendar_status = 'not_created',
                         approved_at = NULL,
                         approved_by = NULL,
@@ -330,14 +357,31 @@ def update_approved(
     approved_by_user_id: int | None,
     hn_year: str,
     assigned_doctor_id: int | None = None,
+    requested_date: str | None = None,
+    requested_time: str | None = None,
+    resolved_patient_id: int | None = None,
+    create_new_patient: bool = False,
 ) -> dict[str, Any] | None:
-    """Approve booking and attach/create the real patient record atomically."""
+    """Approve booking and attach/create the real patient record atomically.
+
+    ``requested_date``/``requested_time`` persist the confirmed slot so the DB
+    is the source of truth for per-doctor schedule views (the doctor calendar
+    filters on ``requested_date``). Google Calendar stays a mirror.
+
+    Patient identity resolution (only when the booking isn't already linked):
+      - ``resolved_patient_id`` — CRO confirmed this is an existing patient; link.
+      - ``create_new_patient``  — CRO confirmed it's a new person despite a phone
+        match; force a fresh record.
+      - neither — auto path (LINE/n8n, no human to confirm): link by normalized
+        phone if there's a match, else create. The dashboard never reaches this
+        branch: ``booking_service`` blocks (409) on an unresolved phone collision.
+    """
     with mysql_db() as conn:
         try:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT request_uid, status, patient_id, patient_name, phone, email
+                    SELECT request_uid, status, patient_id, patient_name, phone, email, nationality
                     FROM booking_requests
                     WHERE request_uid = %s
                     FOR UPDATE
@@ -355,8 +399,22 @@ def update_approved(
                     cur.execute("SELECT hn FROM patients WHERE id = %s LIMIT 1", (patient_id,))
                     patient = cur.fetchone()
                     hn = patient.get("hn") if patient else None
+                elif resolved_patient_id and not create_new_patient:
+                    # CRO confirmed link to an existing chart.
+                    cur.execute(
+                        "SELECT hn FROM patients WHERE id = %s AND deleted_at IS NULL LIMIT 1",
+                        (resolved_patient_id,),
+                    )
+                    patient = cur.fetchone()
+                    if not patient:
+                        conn.rollback()
+                        return None
+                    patient_id = resolved_patient_id
+                    hn = patient.get("hn")
                 else:
-                    patient = _find_patient_for_booking(cur, booking)
+                    # Auto path only: create_new_patient forces a fresh record;
+                    # otherwise link by normalized phone if there's a match.
+                    patient = None if create_new_patient else _find_patient_for_booking(cur, booking)
                     if patient:
                         patient_id = patient["id"]
                         hn = patient.get("hn")
@@ -365,15 +423,17 @@ def update_approved(
                         cur.execute(
                             """
                             INSERT INTO patients
-                                (hn, display_name, phone, email, notes, created_by)
+                                (hn, display_name, phone, phone_normalized, email, nationality, notes, created_by)
                             VALUES
-                                (%s, %s, %s, %s, %s, %s)
+                                (%s, %s, %s, %s, %s, %s, %s, %s)
                             """,
                             (
                                 hn,
                                 booking.get("patient_name") or "Unknown Patient",
                                 booking.get("phone") or None,
+                                normalize_phone(booking.get("phone")) or None,
                                 booking.get("email") or None,
+                                booking.get("nationality") or None,
                                 f"Created from booking {uid}",
                                 approved_by_user_id,
                             ),
@@ -388,12 +448,15 @@ def update_approved(
                         calendar_event_id   = %s,
                         calendar_event_url  = %s,
                         calendar_status     = 'created',
+                        requested_date      = COALESCE(%s, requested_date),
+                        requested_time      = COALESCE(%s, requested_time),
                         approved_by         = %s,
                         approved_at         = NOW(),
                         assigned_doctor_id  = COALESCE(%s, assigned_doctor_id)
                     WHERE request_uid = %s AND status = 'pending_approval'
                     """,
-                    (patient_id, event_id, event_url, approved_by, assigned_doctor_id, uid),
+                    (patient_id, event_id, event_url, requested_date, requested_time,
+                     approved_by, assigned_doctor_id, uid),
                 )
             if rows == 0:
                 conn.rollback()
@@ -403,6 +466,33 @@ def update_approved(
         except Exception:
             conn.rollback()
             raise
+
+
+def set_doctor_calendar_event(uid: str, event_id: str | None) -> int:
+    """Store (or clear) the per-doctor mirror event id for a booking."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE booking_requests SET doctor_calendar_event_id = %s "
+                "WHERE request_uid = %s",
+                (event_id, uid),
+            )
+        conn.commit()
+    return rows
+
+
+def set_calendar_event(uid: str, event_id: str, event_url: str) -> int:
+    """Re-point a booking at a (re)created calendar event — used when the old
+    event_id is stale (event lived on a calendar we no longer use)."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            rows = cur.execute(
+                "UPDATE booking_requests SET calendar_event_id = %s, "
+                "calendar_event_url = %s WHERE request_uid = %s",
+                (event_id, event_url, uid),
+            )
+        conn.commit()
+    return rows
 
 
 _DATE_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
@@ -510,6 +600,51 @@ def list_rescheduled_in_range(
     return result
 
 
+def find_approved_overlapping(
+    *, doctor_id: int, start_at: datetime, end_at: datetime,
+) -> list[dict[str, Any]]:
+    """Approved bookings for this doctor whose appointment window overlaps
+    [start_at, end_at]. Used to warn the CRO when a doctor blocks time that
+    clashes with already-confirmed appointments (the reverse of the approve/
+    assign DOCTOR_BLOCKED guard — a block added AFTER the doctor was assigned)."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT request_uid, patient_name, phone,
+                       requested_date, requested_time, requested_datetime_text
+                FROM booking_requests
+                WHERE assigned_doctor_id = %s
+                  AND status = 'approved'
+                  AND requested_date IS NOT NULL
+                  AND requested_time IS NOT NULL
+                  AND TIMESTAMP(requested_date, requested_time) < %s
+                  AND TIMESTAMP(requested_date, requested_time)
+                      + INTERVAL COALESCE(duration_min, 60) MINUTE > %s
+                ORDER BY requested_date, requested_time
+                """,
+                (doctor_id, end_at, start_at),
+            )
+            return cur.fetchall() or []
+
+
+def list_active_cro_line_uids() -> list[str]:
+    """Distinct CRO LINE user ids that have messaged the CRO bot (bot_sessions,
+    channel='line_cro', valid LINE uid). This is the reachable CRO target the
+    booking notifications use — cro_users.line_uid is frequently unset."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT external_user_id
+                FROM bot_sessions
+                WHERE channel = 'line_cro'
+                  AND external_user_id REGEXP '^U[0-9a-f]{32}$'
+                """
+            )
+            return [r["external_user_id"] for r in cur.fetchall()]
+
+
 def assign_doctor(
     *,
     uid: str,
@@ -564,23 +699,29 @@ def assign_doctor(
 
 
 def _find_patient_for_booking(cur: Any, booking: dict[str, Any]) -> dict[str, Any] | None:
-    phone = (booking.get("phone") or "").strip()
-    if not phone:
+    """Auto-path patient match by NORMALIZED phone (format-insensitive). The
+    dashboard doesn't rely on this — it resolves identity with the CRO first;
+    this is the LINE/n8n fallback where no human is present to confirm."""
+    phone_norm = normalize_phone(booking.get("phone"))
+    if not phone_norm:
         return None
     cur.execute(
         """
         SELECT id, hn
         FROM patients
-        WHERE phone = %s
+        WHERE phone_normalized = %s AND deleted_at IS NULL
         ORDER BY id ASC
         LIMIT 1
         """,
-        (phone,),
+        (phone_norm,),
     )
     return cur.fetchone()
 
 
 def _next_hn(cur: Any, year_yy: str) -> str:
+    """gen เลข HN ถัดไปของปี (format 'YY-NNNN') แบบ atomic ผ่าน
+    patient_hn_counters + SELECT ... FOR UPDATE กัน HN ชนตอน approve พร้อมกัน.
+    ใช้ cursor เดิมของ transaction ที่เรียกมา (ต้องอยู่ใน tx ที่ยังไม่ commit)."""
     cur.execute(
         """
         INSERT INTO patient_hn_counters (year_yy, last_seq)
@@ -640,7 +781,8 @@ def update_cancelled(*, uid: str, reason: str, cancelled_by: str) -> dict[str, A
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, calendar_event_id
+                    SELECT id, calendar_event_id, assigned_doctor_id,
+                           doctor_calendar_event_id
                     FROM booking_requests
                     WHERE request_uid = %s AND status = 'approved'
                     FOR UPDATE
@@ -676,7 +818,11 @@ def update_cancelled(*, uid: str, reason: str, cancelled_by: str) -> dict[str, A
                     detail={"reason": reason},
                 )
             conn.commit()
-            return {"calendar_event_id": booking.get("calendar_event_id")}
+            return {
+                "calendar_event_id": booking.get("calendar_event_id"),
+                "assigned_doctor_id": booking.get("assigned_doctor_id"),
+                "doctor_calendar_event_id": booking.get("doctor_calendar_event_id"),
+            }
         except Exception:
             conn.rollback()
             raise
@@ -692,6 +838,8 @@ def _insert_booking_audit(
     to_status: str,
     detail: dict[str, Any],
 ) -> None:
+    """เขียน audit log 1 แถวของการเปลี่ยนสถานะ booking (lookup booking id จาก uid
+    ใน INSERT...SELECT). ใช้ cursor เดิมของ transaction ที่เรียกมา — atomic กับการอัปเดต."""
     cur.execute(
         """
         INSERT INTO booking_audit_logs

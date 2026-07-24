@@ -16,10 +16,16 @@ router = APIRouter(prefix="/internal/rag")
 class AnswerRequest(BaseModel):
     channel: str = "line_main"
     external_user_id: str = ""
-    text: str = Field(min_length=1)
+    # LINE text messages can be up to 5000 chars; cap here matches that so a
+    # long-but-legitimate patient message isn't 422-rejected (which the n8n node
+    # would surface as the generic "ระบบไม่พร้อม" error, indistinguishable from
+    # an outage). 5000 still bounds LLM cost per turn.
+    text: str = Field(min_length=1, max_length=5000)
 
 
 @router.post("/answer")
 def rag_answer(body: AnswerRequest, x_internal_token: str | None = Header(None)) -> dict:
+    """endpoint ภายในให้ n8n เรียก — รับข้อความลูกค้าจาก LINE ส่งเข้า RAG
+    pipeline แล้วคืน answer + route_prefix ให้ n8n เอาไปตอบ/แตกสาขา"""
     _require_internal_token(x_internal_token)
     return service.answer(body.channel, body.external_user_id, body.text)

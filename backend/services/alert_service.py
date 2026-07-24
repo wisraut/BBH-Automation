@@ -26,6 +26,8 @@ def list_alerts(
     page: int,
     limit: int,
 ) -> dict[str, Any]:
+    """คืนรายการ alert ที่ยังเปิดอยู่แบบแบ่งหน้า พร้อม filter ตาม status/severity/
+    category/rule_key ห่อ pagination meta ให้ frontend"""
     offset = (page - 1) * limit
     rows, total = alert_repo.list_open_alerts(
         status=status,
@@ -48,6 +50,7 @@ def list_alerts(
 
 
 def get_alert_with_events(alert_id: int) -> dict[str, Any]:
+    """คืน alert ตัวเดียวพร้อม timeline ของ event ทั้งหมด — 404 ถ้าไม่พบ"""
     alert = alert_repo.get_alert(alert_id)
     if not alert:
         raise HTTPException(
@@ -59,6 +62,8 @@ def get_alert_with_events(alert_id: int) -> dict[str, Any]:
 
 
 def get_summary() -> dict[str, Any]:
+    """สรุปยอด alert ที่ยังเปิดสำหรับ dashboard widget — นับแยกตาม rule + severity
+    และรวมยอด total_active"""
     by_rule = alert_repo.count_open_alerts_by_rule()
     by_severity = alert_repo.count_open_alerts_by_severity()
     return {
@@ -69,10 +74,12 @@ def get_summary() -> dict[str, Any]:
 
 
 def list_rules() -> list[dict[str, Any]]:
+    """คืน alert rule ทั้งหมด (config รวมถึง threshold/enabled) สำหรับหน้า admin"""
     return alert_repo.list_rules()
 
 
 def list_recent_events(limit: int = 8) -> list[dict[str, Any]]:
+    """คืน event ล่าสุดข้ามทุก alert ใช้โชว์ feed กิจกรรมในหน้า admin"""
     return alert_repo.list_recent_events_for_admin(limit=limit)
 
 
@@ -87,6 +94,9 @@ def acknowledge(
     note: str | None,
     snooze_hours: int | None,
 ) -> dict[str, Any]:
+    """รับทราบ (acknowledge) alert ที่สถานะ 'open' เท่านั้น — snooze_hours จะตั้ง
+    เวลาหมดอายุการ ack; ใช้ conditional UPDATE กัน race (2 admin กดพร้อมกัน คนแพ้
+    ได้ 409 ALERT_RACE_LOST) แล้วบันทึก event"""
     alert = alert_repo.get_alert(alert_id)
     if not alert:
         raise HTTPException(404, {"code": "ALERT_NOT_FOUND", "message": "Alert not found"})
@@ -134,6 +144,8 @@ def resolve(
     reason: str,
     note: str | None,
 ) -> dict[str, Any]:
+    """ปิด (resolve) alert พร้อมเหตุผล — กันปิดซ้ำ (409 ถ้า resolved แล้ว) และ
+    กัน race ด้วย conditional UPDATE แล้วบันทึก event"""
     alert = alert_repo.get_alert(alert_id)
     if not alert:
         raise HTTPException(404, {"code": "ALERT_NOT_FOUND", "message": "Alert not found"})
@@ -163,6 +175,7 @@ def resolve(
 
 
 def set_rule_enabled(rule_key: str, enabled: bool) -> dict[str, Any]:
+    """เปิด/ปิด alert rule — 404 ถ้าไม่พบ rule; คืน rule หลังอัปเดต"""
     rule = alert_repo.get_rule(rule_key)
     if not rule:
         raise HTTPException(404, {"code": "RULE_NOT_FOUND", "message": "Rule not found"})
@@ -171,6 +184,7 @@ def set_rule_enabled(rule_key: str, enabled: bool) -> dict[str, Any]:
 
 
 def set_rule_threshold(rule_key: str, threshold: dict[str, Any]) -> dict[str, Any]:
+    """แก้ค่า threshold ของ alert rule (เกณฑ์ที่ใช้ trigger) — 404 ถ้าไม่พบ rule"""
     rule = alert_repo.get_rule(rule_key)
     if not rule:
         raise HTTPException(404, {"code": "RULE_NOT_FOUND", "message": "Rule not found"})

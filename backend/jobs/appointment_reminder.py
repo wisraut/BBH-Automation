@@ -73,6 +73,8 @@ def _due_1h() -> list[dict]:
 
 
 def _mark_sent(booking_id: int, column: str) -> None:
+    """ประทับเวลาว่าส่ง reminder แล้วในคอลัมน์ที่ระบุ กันส่งซ้ำรอบถัดไป
+    whitelist ชื่อคอลัมน์ก่อน format เข้า SQL เพราะ column ต่อ f-string ตรงๆ (กัน SQL injection)"""
     if column not in ("reminder_24h_sent_at", "reminder_1h_sent_at"):
         return
     with mysql_db() as conn:
@@ -85,6 +87,8 @@ def _mark_sent(booking_id: int, column: str) -> None:
 
 
 def _push_reminder(row: dict, *, label: str, mark_col: str) -> None:
+    """push ข้อความเตือนนัดหมายทาง LINE แล้ว mark sent ถ้าสำเร็จ
+    ถ้า push พังจะ log เฉยๆ ไม่ mark — รอบหน้าจะหยิบมาลองใหม่เพราะคอลัมน์ยัง NULL"""
     when_text = row.get("requested_datetime_text") or (
         f"{row['requested_date']} {row['requested_time']}"
     )
@@ -112,6 +116,7 @@ def _push_reminder(row: dict, *, label: str, mark_col: str) -> None:
 
 
 def run_once() -> None:
+    """หนึ่งรอบตรวจ — ส่ง reminder ทั้งชุด 24 ชม. และชุด 1 ชม. ที่ถึงกำหนด"""
     for r in _due_24h():
         _push_reminder(r, label="24 ชั่วโมงก่อนนัด", mark_col="reminder_24h_sent_at")
     for r in _due_1h():
@@ -119,6 +124,8 @@ def run_once() -> None:
 
 
 async def start_worker(interval_seconds: int = CHECK_INTERVAL) -> None:
+    """async loop รัน run_once() ทุก interval — cancellable ตอน shutdown
+    รัน run_once ใน thread (to_thread) เพราะ DB call เป็น blocking จะได้ไม่บล็อก event loop"""
     log.info("Appointment reminder worker started (interval=%ds)", interval_seconds)
     while True:
         try:

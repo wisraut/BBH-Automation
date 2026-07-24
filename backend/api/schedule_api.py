@@ -4,21 +4,27 @@ Powers the /schedule page. Returns a focused view of the logged-in user's
 upcoming work without paginating: the caller picks a date window and gets
 all assignments in that window in one shot.
 """
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
+from core.config import log
 from core.mysql import mysql_db
 from core.security import require_user
+from integrations import calendar_client
 
 
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
+
+TZ_BANGKOK = timezone(timedelta(hours=7))
 
 _doctor_like = require_user(["doctor", "nurse", "admin"])
 
 
 def _serialize_date_time(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลง date/time/timedelta/datetime ใน row ให้เป็น string (ISO / HH:MM:SS)
+    เพื่อให้ serialize เป็น JSON ส่งกลับ frontend ได้"""
     rd = row.get("requested_date")
     rt = row.get("requested_time")
     if isinstance(rd, date):
@@ -104,6 +110,25 @@ def my_schedule(
             today_count = sum(
                 1 for a in appointments if a["requested_date"] == date.today().isoformat()
             )
+
+    # Best-effort: attach a Google Meet / video link to each appointment by
+    # matching its Google Calendar event. Never break the schedule view if
+    # Calendar is down or misconfigured.
+    for a in appointments:
+        a["video_link"] = None
+    try:
+        if calendar_client.is_configured():
+            win_start = datetime.combine(date_from, time.min, tzinfo=TZ_BANGKOK)
+            win_end = datetime.combine(date_to, time.max, tzinfo=TZ_BANGKOK)
+            meet_by_event = {
+                e["id"]: e.get("video_link")
+                for e in calendar_client.list_events(win_start, win_end)
+                if e.get("video_link")
+            }
+            for a in appointments:
+                a["video_link"] = meet_by_event.get(a.get("calendar_event_id"))
+    except Exception:
+        log.warning("schedule/me meet-link enrichment failed", exc_info=True)
 
     return {
         "user": {"id": user["id"], "display_name": user.get("display_name"), "role": user.get("role")},

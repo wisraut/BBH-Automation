@@ -1,17 +1,25 @@
-﻿import { useMemo } from 'react'
+import { useMemo } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
   Database,
-  Loader2,
   RefreshCw,
   Server,
   Webhook,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { Eyebrow } from '../components/ui/Eyebrow'
+import { SkeletonList } from '../components/ui/Skeleton'
 import { useSystemHealth, type ServiceCheck, type ServiceStatus } from '../hooks/useSystemHealth'
+
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
 const SERVICE_ICONS: Record<string, LucideIcon> = {
   bridge: Server,
@@ -29,37 +37,39 @@ const SERVICE_LABELS: Record<string, string> = {
   line_cro_webhook: 'LINE CRO Bot',
 }
 
-const STATUS_STYLES: Record<ServiceStatus, { dot: string; ring: string; label: string; pill: string }> = {
+// Status carries meaning through a semantic dot + lead rail, not a big fill.
+// Green is reserved for healthy — a warn/down cell stays calm ink text.
+const STATUS_STYLES: Record<ServiceStatus, { dot: string; rail: string; badge: string; label: string }> = {
   ok: {
     dot: 'bg-bbh-green',
-    ring: 'ring-bbh-green/30',
+    rail: 'bg-bbh-green',
+    badge: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
     label: 'OK',
-    pill: 'border-bbh-green/30 bg-bbh-green-soft text-bbh-green-dark',
   },
   warn: {
     dot: 'bg-amber-500',
-    ring: 'ring-amber-500/30',
+    rail: 'bg-amber-500',
+    badge: 'border-amber-200 bg-amber-50 text-amber-700',
     label: 'Warn',
-    pill: 'border-amber-200 bg-amber-50 text-amber-700',
   },
   error: {
     dot: 'bg-red-500',
-    ring: 'ring-red-500/30',
+    rail: 'bg-red-500',
+    badge: 'border-red-200 bg-red-50 text-red-700',
     label: 'Down',
-    pill: 'border-red-200 bg-red-50 text-red-700',
   },
 }
 
-const DB_STAT_LABELS: Record<string, string> = {
-  patients: 'คนไข้ทั้งหมด',
-  active_users: 'User ที่ active',
-  active_doctors: 'แพทย์ active',
-  pending_bookings: 'จองรอ approve',
-  today_bookings: 'จองวันนี้',
-  today_reports: 'รายงานวันนี้',
-  open_alerts: 'Alert ค้าง',
-  webhook_pending: 'Webhook คิวค้าง',
-  webhook_failed_24h: 'Webhook fail 24h',
+const DB_STAT_LABEL_KEYS: Record<string, string> = {
+  patients: 'systemHealth.dbStatPatients',
+  active_users: 'systemHealth.dbStatActiveUsers',
+  active_doctors: 'systemHealth.dbStatActiveDoctors',
+  pending_bookings: 'systemHealth.dbStatPendingBookings',
+  today_bookings: 'systemHealth.dbStatTodayBookings',
+  today_reports: 'systemHealth.dbStatTodayReports',
+  open_alerts: 'systemHealth.dbStatOpenAlerts',
+  webhook_pending: 'systemHealth.dbStatWebhookPending',
+  webhook_failed_24h: 'systemHealth.dbStatWebhookFailed24h',
 }
 
 const ACTIVITY_KIND_LABEL: Record<string, string> = {
@@ -68,15 +78,17 @@ const ACTIVITY_KIND_LABEL: Record<string, string> = {
   alert: 'ALRT',
 }
 
-function formatRelative(iso: string): string {
+type TFn = (key: string, opts?: Record<string, unknown>) => string
+
+function formatRelative(iso: string, t: TFn): string {
   const then = new Date(iso).getTime()
   const diffSec = Math.round((Date.now() - then) / 1000)
-  if (diffSec < 5) return 'เมื่อกี้'
-  if (diffSec < 60) return `${diffSec} วิ`
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)} นาที`
+  if (diffSec < 5) return t('systemHealth.justNow')
+  if (diffSec < 60) return t('systemHealth.secondsAgo', { count: diffSec })
+  if (diffSec < 3600) return t('systemHealth.minutesAgo', { count: Math.round(diffSec / 60) })
   const diffHr = Math.round(diffSec / 3600)
-  if (diffHr < 24) return `${diffHr} ชม.`
-  return `${Math.round(diffHr / 24)} วัน`
+  if (diffHr < 24) return t('systemHealth.hoursAgo', { count: diffHr })
+  return t('systemHealth.daysAgo', { count: Math.round(diffHr / 24) })
 }
 
 function ServiceCard({ check }: { check: ServiceCheck }) {
@@ -84,32 +96,43 @@ function ServiceCard({ check }: { check: ServiceCheck }) {
   const label = SERVICE_LABELS[check.name] ?? check.name
   const s = STATUS_STYLES[check.status]
   return (
-    <div className="rounded-2xl border border-bbh-line bg-white p-6 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0 pt-0.5 text-bbh-muted">
-          <Icon size={20} />
-          <span className={`absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${s.dot}`} />
+    <div className="relative flex flex-col gap-3 bg-white p-6">
+      {/* status lead rail — carries state so the card body stays calm ink */}
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${s.rail}`} />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative shrink-0 text-bbh-muted">
+            <Icon size={18} />
+            {/* healthy beacon pulses; warn/down hold a steady dot */}
+            {check.status === 'ok' ? (
+              <span className="absolute -right-1 -top-1 flex h-2 w-2" aria-hidden>
+                <span className={`absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-30`} />
+                <span className={`relative inline-flex h-2 w-2 animate-beacon rounded-full ${s.dot}`} />
+              </span>
+            ) : (
+              <span aria-hidden className={`absolute -right-1 -top-1 h-2 w-2 rounded-full ${s.dot}`} />
+            )}
+          </span>
+          <p className="truncate text-sm font-semibold text-bbh-ink">{label}</p>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-bbh-ink">{label}</p>
-            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${s.pill}`}>
-              {s.label}
-            </span>
-          </div>
-          {check.detail ? (
-            <p className="mt-1 truncate text-xs text-bbh-muted">{check.detail}</p>
-          ) : null}
-          {typeof check.latency_ms === 'number' ? (
-            <p className="mt-0.5 font-mono text-[11px] text-bbh-muted">{check.latency_ms} ms</p>
-          ) : null}
-        </div>
+        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${s.badge}`}>
+          {s.label}
+        </span>
       </div>
+      {check.detail ? (
+        <p className="truncate text-xs leading-relaxed text-bbh-muted">{check.detail}</p>
+      ) : null}
+      {typeof check.latency_ms === 'number' ? (
+        <p className="font-mono text-xs tabular-nums text-bbh-muted">{check.latency_ms} ms</p>
+      ) : null}
     </div>
   )
 }
 
+// หน้าเฝ้าดูสุขภาพระบบ (admin เท่านั้น) — สถานะ health check ของแต่ละ service (DB, RAG,
+// LINE, Google Calendar ฯลฯ) พร้อม latency เพื่อจับปัญหา infra ก่อนกระทบผู้ใช้
 export function SystemHealth() {
+  const { t } = useTranslation()
   const q = useSystemHealth()
   const data = q.data
 
@@ -120,104 +143,121 @@ export function SystemHealth() {
   }, [data])
 
   return (
-    <div className="flex h-full min-w-0 flex-col overflow-y-auto rounded-[20px] border border-bbh-line bg-white/90 p-4 shadow-bbh-card backdrop-blur md:rounded-[28px] md:p-7">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-bbh-green">System Monitor</p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">สถานะระบบโรงพยาบาล</h1>
-          <p className="mt-1 text-sm text-bbh-muted">
-            ตรวจสถานะของ Bridge, n8n, MySQL, LINE webhooks และข้อมูลล่าสุดในระบบ — รีเฟรชอัตโนมัติทุก 5 วินาที
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {data ? (
-            <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-semibold ${overallStyle.pill}`}>
-              <span className={`h-2 w-2 rounded-full ${overallStyle.dot}`} />
-              ภาพรวม: {overallStyle.label}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => q.refetch()}
-            className="inline-flex items-center gap-2 rounded-xl border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink hover:border-bbh-green"
-          >
-            <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
-            รีเฟรช
-          </button>
-        </div>
-      </div>
-
-      {q.isLoading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-bbh-line bg-white p-10 text-sm text-bbh-muted">
-          <Loader2 size={16} className="mr-2 animate-spin" /> กำลังตรวจสถานะ
-        </div>
-      ) : q.isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={16} />
-            โหลดข้อมูลไม่ได้ — backend อาจ down
+    <div className="flex h-full min-w-0 overflow-hidden bg-white">
+      <section className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-white p-6 md:p-8 lg:p-10">
+        {/* Masthead — instrument label with a live monitoring beacon */}
+        <div className="animate-rise mb-10 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="flex items-center gap-2.5">
+              <span className="relative flex h-2 w-2" aria-hidden>
+                <span className="absolute inline-flex h-full w-full rounded-full bg-bbh-green opacity-30" />
+                <span className="relative inline-flex h-2 w-2 animate-beacon rounded-full bg-bbh-green" />
+              </span>
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.28em] text-bbh-green">
+                System Monitor
+              </span>
+            </p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-bbh-ink md:text-4xl">{t('systemHealth.title')}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bbh-muted">
+              {t('systemHealth.subtitle')}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {data ? (
+              <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${overallStyle.badge}`}>
+                <span className={`h-2 w-2 rounded-full ${overallStyle.dot}`} />
+                {t('systemHealth.overallLabel', { status: overallStyle.label })}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => q.refetch()}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
+            >
+              <RefreshCw size={15} className={q.isFetching ? 'animate-spin' : ''} />
+              {t('systemHealth.refresh')}
+            </button>
           </div>
         </div>
-      ) : data ? (
-        <div className="space-y-6">
-          {/* Services grid */}
-          <section>
-            <h2 className="mb-3 font-serif text-base font-semibold text-bbh-ink">Services</h2>
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {data.services.map((s) => (
-                <ServiceCard key={s.name} check={s} />
-              ))}
+
+        {q.isLoading ? (
+          <SkeletonList rows={4} rowClassName="h-20 rounded-xl" className="space-y-3" />
+        ) : q.isError ? (
+          <div className="animate-rise rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} />
+              {t('systemHealth.loadFailedBackendDown')}
             </div>
-          </section>
-
-          {/* DB stats */}
-          <section>
-            <h2 className="mb-3 font-serif text-base font-semibold text-bbh-ink">ข้อมูลในระบบ</h2>
-            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
-              {dbStatsEntries.map(([key, value]) => (
-                <div key={key} className="rounded-2xl border border-bbh-line bg-white p-6 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-bbh-muted">
-                    {DB_STAT_LABELS[key] ?? key}
-                  </p>
-                  <p className="mt-2 font-serif text-2xl font-semibold text-bbh-ink">{String(value)}</p>
-                </div>
-              ))}
-            </div>
-            {data.db_stats.error ? (
-              <p className="mt-2 text-xs text-red-600">DB error: {String(data.db_stats.error)}</p>
-            ) : null}
-          </section>
-
-          {/* Recent activity */}
-          <section>
-            <h2 className="mb-3 font-serif text-base font-semibold text-bbh-ink">Activity ล่าสุด</h2>
-            {data.recent_activity.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-bbh-line bg-white p-4 text-sm text-bbh-muted">
-                <CheckCircle2 size={16} className="text-bbh-green" />
-                ยังไม่มี activity
+          </div>
+        ) : data ? (
+          <div className="space-y-12">
+            {/* Services — one hairline-ruled cluster; gap-px reveals bbh-line */}
+            <section className="animate-rise" style={{ animationDelay: '70ms' }}>
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2 className="font-serif text-xl font-semibold text-bbh-ink md:text-2xl">Services</h2>
+                <span className="font-mono text-xs tabular-nums text-bbh-muted">{data.services.length} services</span>
               </div>
-            ) : (
-              <div className="overflow-hidden rounded-2xl border border-bbh-line bg-white shadow-sm">
-                <div className="divide-y divide-bbh-line">
-                  {data.recent_activity.map((a, i) => (
-                    <div key={`${a.kind}-${a.subject}-${i}`} className="grid grid-cols-[80px_1fr_90px] items-center gap-3 px-4 py-3 text-sm">
-                      <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-center font-mono text-[10px] font-bold uppercase tracking-wider text-bbh-muted">
-                        {ACTIVITY_KIND_LABEL[a.kind] ?? a.kind}
-                      </span>
-                      <span className="truncate text-bbh-ink">{a.summary}</span>
-                      <span className="text-right font-mono text-xs text-bbh-muted">{formatRelative(a.ts)}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="grid gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line sm:grid-cols-2 xl:grid-cols-3">
+                {data.services.map((s) => (
+                  <ServiceCard key={s.name} check={s} />
+                ))}
               </div>
-            )}
-          </section>
+            </section>
 
-          <p className="text-right text-[11px] text-bbh-muted">
-            ตรวจล่าสุด: {new Date(data.checked_at).toLocaleTimeString('th-TH')}
-          </p>
-        </div>
-      ) : null}
+            {/* DB stats — metric cluster, all figures mono tabular-nums */}
+            <section className="animate-rise" style={{ animationDelay: '140ms' }}>
+              <h2 className="mb-4 font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('systemHealth.dbStatsHeading')}</h2>
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-bbh-line bg-bbh-line md:grid-cols-3 xl:grid-cols-7">
+                {dbStatsEntries.map(([key, value]) => (
+                  <div key={key} className="flex flex-col gap-3 bg-white p-6">
+                    <Eyebrow>
+                      {DB_STAT_LABEL_KEYS[key] ? t(DB_STAT_LABEL_KEYS[key]) : key}
+                    </Eyebrow>
+                    <p className="font-mono text-3xl font-semibold leading-none tabular-nums text-bbh-ink">
+                      {String(value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {data.db_stats.error ? (
+                <p className="mt-3 text-xs text-red-600">DB error: {String(data.db_stats.error)}</p>
+              ) : null}
+            </section>
+
+            {/* Recent activity — hairline list */}
+            <section className="animate-rise" style={{ animationDelay: '210ms' }}>
+              <h2 className="mb-4 font-serif text-xl font-semibold text-bbh-ink md:text-2xl">{t('systemHealth.recentActivity')}</h2>
+              {data.recent_activity.length === 0 ? (
+                <div className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white p-6 text-sm text-bbh-muted">
+                  <CheckCircle2 size={16} className="text-bbh-green" />
+                  {t('systemHealth.noActivity')}
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-bbh-line bg-white">
+                  <div className="divide-y divide-bbh-line">
+                    {data.recent_activity.map((a, i) => (
+                      <div
+                        key={`${a.kind}-${a.subject}-${i}`}
+                        className="grid grid-cols-[64px_1fr_auto] items-center gap-3 px-6 py-4 text-sm"
+                      >
+                        <span className="rounded-full border border-bbh-line bg-bbh-surface px-2 py-0.5 text-center font-mono text-xs font-semibold uppercase tracking-wider text-bbh-muted">
+                          {ACTIVITY_KIND_LABEL[a.kind] ?? a.kind}
+                        </span>
+                        <span className="truncate text-bbh-ink">{a.summary}</span>
+                        <span className="text-right font-mono text-xs tabular-nums text-bbh-muted">{formatRelative(a.ts, t)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <p className="text-right font-mono text-xs tabular-nums text-bbh-muted">
+              {t('systemHealth.lastChecked', { time: new Date(data.checked_at).toLocaleTimeString(dateLocale()) })}
+            </p>
+          </div>
+        ) : null}
+      </section>
     </div>
   )
 }

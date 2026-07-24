@@ -25,6 +25,8 @@ _RULE_COLUMNS = (
 
 
 def list_rules(*, enabled_only: bool = False) -> list[dict[str, Any]]:
+    """คืน alert rule ทั้งหมดจาก admin_alert_rules เรียงตาม category/rule_key.
+    enabled_only=True = เอาเฉพาะ rule ที่เปิดใช้ (evaluator ใช้ตอน scan)."""
     where = "WHERE enabled = 1" if enabled_only else ""
     with mysql_db() as conn:
         with conn.cursor() as cur:
@@ -37,6 +39,7 @@ def list_rules(*, enabled_only: bool = False) -> list[dict[str, Any]]:
 
 
 def get_rule(rule_key: str) -> dict[str, Any] | None:
+    """ดึง rule เดียวด้วย rule_key (คืน None ถ้าไม่เจอ)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -49,6 +52,7 @@ def get_rule(rule_key: str) -> dict[str, Any] | None:
 
 
 def update_rule_enabled(rule_key: str, enabled: bool) -> int:
+    """เปิด/ปิด rule (คอลัมน์ enabled). คืนจำนวนแถวที่อัปเดต."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -62,6 +66,7 @@ def update_rule_enabled(rule_key: str, enabled: bool) -> int:
 def update_rule_threshold(
     rule_key: str, threshold: dict[str, Any]
 ) -> int:
+    """อัปเดต threshold_json ของ rule (เก็บ dict เป็น JSON). คืนจำนวนแถวที่แก้."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -184,6 +189,8 @@ def count_open_alerts_by_severity() -> dict[str, int]:
 
 
 def get_alert(alert_id: int) -> dict[str, Any] | None:
+    """ดึง alert 1 ใบด้วย alert_id พร้อม join rule เอา category/display_name/
+    ack_policy มาด้วย (คืน None ถ้าไม่เจอ)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -350,6 +357,8 @@ def reopen_acked_alert(alert_id: int) -> int:
 
 
 def resolve_alert(alert_id: int, *, reason: str) -> int:
+    """ปิด alert เป็น status='resolved' พร้อมเหตุผล. WHERE กัน race —
+    ปิดได้เฉพาะที่ยัง open/acknowledged. คืนจำนวนแถวที่อัปเดต."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             rows = cur.execute(
@@ -381,6 +390,8 @@ def insert_event(
     note: str | None = None,
     detail: dict[str, Any] | None = None,
 ) -> int:
+    """บันทึก 1 event ลง admin_alert_events (audit trail ของ alert เช่น สร้าง/
+    ack/resolve) คืน event_id ที่เพิ่ง insert."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -409,6 +420,7 @@ def insert_event(
 def list_events_for_alert(
     alert_id: int, *, limit: int = 50
 ) -> list[dict[str, Any]]:
+    """ดึง event history ของ alert 1 ใบ เรียงใหม่สุดก่อน (ใช้ตอน CRO/admin เปิดดู)."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -455,6 +467,8 @@ def list_recent_events_for_admin(
 # ---------------------------------------------------------------------------
 
 def _decode_json_field(row: dict[str, Any], key: str) -> None:
+    """แปลงค่าคอลัมน์ JSON ในแถวให้เป็น Python object in-place. รองรับกรณี
+    driver คืนเป็น str/bytes (json.loads) หรือ dict/list อยู่แล้ว; parse พังตั้ง None."""
     value = row.get(key)
     if value is None:
         return
@@ -470,6 +484,8 @@ def _decode_json_field(row: dict[str, Any], key: str) -> None:
 
 
 def _decode_rule(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลงแถว rule ให้พร้อมใช้: decode threshold_json/notify_channels เป็น object
+    + cast enabled เป็น bool."""
     _decode_json_field(row, "threshold_json")
     _decode_json_field(row, "notify_channels")
     row["enabled"] = bool(row.get("enabled"))
@@ -477,10 +493,12 @@ def _decode_rule(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _decode_alert(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลงแถว alert: decode detail_json เป็น object."""
     _decode_json_field(row, "detail_json")
     return row
 
 
 def _decode_event(row: dict[str, Any]) -> dict[str, Any]:
+    """แปลงแถว event: decode detail_json เป็น object."""
     _decode_json_field(row, "detail_json")
     return row

@@ -2,13 +2,13 @@
 
 ระบบ LINE chatbot สำหรับ **โรงพยาบาล Better Being Hospital (BBH)** สาย Functional Medicine โดยใช้ n8n เป็นตัว orchestrate, **own-RAG (Python) เป็น AI engine**, และ FastAPI bridge เป็น internal API สำหรับ session, booking, LINE fallback, Google Calendar และงาน background ของโรงพยาบาล
 
-> **หมายเหตุ (2026-07-03): เลิกใช้ Dify แล้ว** — AI/RAG ย้ายมาเป็น Python ของเราเองใน `backend/rag/` (BGE-M3 embedding + MySQL vector store + Gemini via OpenRouter) สลับกลับ Dify ได้ด้วย `USE_OWN_RAG=false` ชื่อ repo ยังเป็น "LINE-Dify Hospital Bridge" ตามประวัติ
+> **หมายเหตุ (2026-07-03): เลิกใช้ Dify แล้ว** — AI/RAG ย้ายมาเป็น Python ของเราเองใน `backend/rag/` (BGE-M3 embedding + MySQL vector store + Gemini via OpenRouter). Dify ถูกถอดออกจากทุก runtime path แล้ว (ไม่มี `USE_OWN_RAG` flag / ไม่มี fallback ไป Dify อีก) — rollback ต้อง revert โค้ด + start Dify container กลับเอง. ชื่อ repo ยังเป็น "LINE-Dify Hospital Bridge" ตามประวัติ
 
 ตอนนี้ `main` เป็น source of truth ของ repo นี้ และ Python backend ทั้งหมดอยู่ใน `backend/`
 
 ---
 
-## ระบบนี้คืออะไร (ฉบับเข้าใจง่าย — ไม่ต้องรู้ tech)
+## ระบบนี้คืออะไร
 
 ระบบนี้คือ **"ผู้ช่วยอัจฉริยะของโรงพยาบาล"** ที่ทำงานผ่าน LINE
 
@@ -56,7 +56,7 @@ LINE Main Bot
    | webhook: /webhook/bbh-line-main
    v
 hospital-n8n
-   |-- reads session + USE_OWN_RAG flag from Bridge
+   |-- reads session + effective AI mode from Bridge
    |-- calls Bridge for the AI answer, then replies/pushes via LINE
    |
    +--> hospital-bridge (FastAPI, http://hospital-bridge:8000)
@@ -66,7 +66,6 @@ hospital-n8n
    |         3. search kb_chunks (MySQL, brute-force cosine, top-5)
    |         4. build prompt (AUTO/CONSULT/BOOKING/ESCALATE:class)
    |         5. Gemini via OpenRouter → parse route prefix
-   |       (USE_OWN_RAG=false → falls back to Dify /chat-messages)
    |
    +--> bbh-embedder (Infinity + BGE-M3, http://bbh-embedder:7997)
    |
@@ -94,7 +93,7 @@ Core containers:
 | `bbh-embedder` | Infinity server running BGE-M3 embedding on CPU (replaces Dify's Ollama) |
 | `docker-db_postgres-1` | legacy `hospital_db` (Dify's Postgres — kept until hospital_db is migrated to MySQL) |
 
-Dify app containers (`docker-api-1`, `docker-nginx-1`, `docker-weaviate-1`, workers, …) were **stopped 2026-07-03** when own-RAG went live. They can be restarted for rollback (`docker start …` + `USE_OWN_RAG=false`).
+Dify app containers (`docker-api-1`, `docker-nginx-1`, `docker-weaviate-1`, workers, …) were **stopped 2026-07-03** when own-RAG went live, and Dify was later removed from every runtime path. Rollback now requires reverting the removal commit (to restore the fallback branch + config) and restarting those containers — there is no longer a runtime flag to flip.
 
 All services join Docker network `docker_default`.
 
@@ -135,7 +134,7 @@ line-dify-bridge/
 │   │   ├── health.py              # root/health endpoints + internal token guard
 │   │   ├── line_webhook.py        # main LINE fallback webhook
 │   │   ├── rag_api.py             # POST /internal/rag/answer (own-RAG entrypoint)
-│   │   └── session.py             # internal session API (+ use_own_rag flag)
+│   │   └── session.py             # internal session API
 │   ├── rag/                       # own-RAG engine (replaces Dify)
 │   │   ├── embedder.py            # HTTP client to bbh-embedder (BGE-M3)
 │   │   ├── vector_store.py        # kb_chunks on MySQL + brute-force cosine
@@ -147,7 +146,7 @@ line-dify-bridge/
 │   │   └── service.py             # answer() — the whole pipeline
 │   ├── core/                      # config, DB helpers, lifespan startup
 │   ├── flows/                     # doctor / patient / CRO fallback logic
-│   ├── integrations/              # LINE, Google Calendar clients (Dify legacy)
+│   ├── integrations/              # LINE, Google Calendar clients
 │   ├── jobs/                      # background jobs, including email poller
 │   ├── migrations/                # DB migration SQL
 │   ├── ops/                       # operational helpers
@@ -165,14 +164,11 @@ line-dify-bridge/
 │   └── tailwind.config.js
 │
 ├── credentials/                   # local credentials mounted into backend container
-├── dify_patches/                  # Dify prompt/workflow patch utilities
-│   └── bbh_staff_assistant/       # versioned source of the Staff Assistant Dify app
 ├── docs/                          # project notes and docs
 ├── outputs/                       # generated outputs
 ├── tools/                         # backup.py, restore.py, ask_patient.py
 ├── backups/                       # backup tar.gz files (gitignored)
 ├── work/                          # temporary/manual debugging scripts and artifacts
-├── _legacy/                       # archived pre-pivot code (do not import)
 ├── docker-compose.bridge.yaml     # bridge compose, build context = ./backend
 ├── .env.example                   # environment template
 └── README.md
@@ -190,9 +186,9 @@ Important variables:
 
 | Variable | Purpose |
 |---|---|
-| `DIFY_API_URL` | Dify API URL used by bridge/n8n |
-| `DIFY_API_KEY` | Dify **Patient Summary** app API key (LINE bot) |
-| `DIFY_STAFF_API_KEY` | Dify **BBH Staff Assistant** app API key (web `/ai`) |
+| `OPENROUTER_API_KEY` | OpenRouter key for the own-RAG / staff LLM (Gemini) |
+| `OPENROUTER_MODEL` | LLM model id (default `google/gemini-2.5-flash-lite`) |
+| `EMBED_MODEL` | own-RAG embedder model id (matches bbh-embedder, `BAAI/bge-m3`) |
 | `BRIDGE_INTERNAL_TOKEN` | Required for Bridge internal APIs via `X-Internal-Token` |
 | `N8N_INTERNAL_BASE_URL` | Internal n8n URL used by bridge fallback |
 | `BOT_OPS_DB_HOST/PORT/NAME/USER/PASSWORD` | MySQL Bot Ops DB |
@@ -212,10 +208,9 @@ So the service account file is expected under `credentials/`.
 
 ## Daily Operation
 
-`start.bat` is the unified 7-step launcher (Docker → Dify → nginx
-restart → Bot Ops MySQL → Bridge → n8n → Frontend). `stop.bat` tears
-everything down in reverse order. Cloudflared runs as a Windows
-service and is not touched.
+`start.bat` is the unified 5-step launcher (Docker → Bot Ops MySQL →
+Bridge → n8n → Frontend). `stop.bat` tears everything down in reverse
+order. Cloudflared runs as a Windows service and is not touched.
 
 Manual start of individual stacks:
 
@@ -279,17 +274,6 @@ The script will prompt for confirmation before overwriting databases,
 volumes, and env files. After restore it prints follow-up commands
 (cloudflared service install + container restart).
 
-If only the Dify `BBH Staff Assistant` app is missing (DB backup lost
-or corrupt for that app only), re-create it from the versioned
-sources:
-
-```powershell
-python dify_patches\bbh_staff_assistant\apply.py
-```
-
-This is idempotent and reads `system_prompt.md` +
-`workflow_graph.json` from the same directory.
-
 ---
 
 ## Setup On A Fresh Machine
@@ -306,14 +290,16 @@ storage.
    git clone https://github.com/langgenius/dify.git
    ```
 
-3. Start Dify so its Postgres and storage volume exist:
+3. Start the legacy Postgres. It ships inside Dify's compose; only the
+   `docker-db_postgres-1` database container is needed now (for legacy
+   `hospital_db`) — the Dify apps themselves are no longer used at runtime:
 
    ```powershell
    cd dify\docker
-   docker compose up -d
+   docker compose up -d db
    ```
 
-   Wait for `docker-db_postgres-1` and `docker-api-1` to be healthy.
+   Wait for `docker-db_postgres-1` to be healthy.
 
 4. Start the Bot Ops MySQL container (so the restore has a target):
 
@@ -336,12 +322,12 @@ storage.
 
    ```powershell
    curl http://localhost:8000/
-   curl http://localhost/v1/info -H "Authorization: Bearer %DIFY_API_KEY%"
+   curl -X POST http://localhost:8000/internal/rag/answer -H "X-Internal-Token: %BRIDGE_INTERNAL_TOKEN%" -H "Content-Type: application/json" -d "{\"text\":\"สวัสดี\"}"
    ```
 
-If you have no backup, fall back to seeding from migrations + creating
-Dify apps manually (LINE Patient Summary in the Dify UI, then
-`dify_patches\bbh_staff_assistant\apply.py` for the staff app).
+If you have no backup, fall back to seeding from migrations and
+re-ingesting the FAQ knowledge base into `kb_chunks` (own-RAG); there
+are no Dify apps to recreate.
 
 ---
 
@@ -463,16 +449,17 @@ git checkout -b feature/<short-name>
 
 ### Own-RAG status (2026-07-03)
 
-- **Live**: `USE_OWN_RAG=true`, embedder = **BGE-M3** via `bbh-embedder` (Infinity, CPU).
-- Dify app containers are **stopped** (own-RAG replaces them); `docker-db_postgres-1`
-  is kept only for legacy `hospital_db`.
+- **Live**: own-RAG only, embedder = **BGE-M3** via `bbh-embedder` (Infinity, CPU).
+- Dify has been **removed from every runtime path** and its app containers are
+  **stopped**; `docker-db_postgres-1` is kept only for legacy `hospital_db`.
 - FAQ knowledge base lives in MySQL `kb_chunks` — rebuild with
   `python -m rag.ingester /app/docs/BBH_MAIN_BOT_FAQ.md` inside the bridge after editing the FAQ.
 - Swapping the embedding model is config-only: set `EMBED_MODEL`, recreate
   `bbh-embedder` with the matching `--model-id`, and re-ingest (dimension may change).
 - Open follow-ups: migrate `hospital_db` (Postgres) → MySQL then drop Postgres;
-  add a retrieval score threshold + reranker (Phase 2); fully purge stopped Dify
-  once confident; re-open the public web (Cloudflare WAF rule currently blocks it for dev).
+  add a retrieval score threshold + reranker (Phase 2); remove the stopped Dify
+  containers/volumes now that the code is purged; re-open the public web
+  (Cloudflare WAF rule currently blocks it for dev).
 
 ---
 
@@ -484,4 +471,4 @@ Internal use only. Do not publish or use outside the BBH hospital project withou
 
 ## Maintainer
 
-Wisarut — wisrutyaemprayur@gmail.com
+BBH Hospital — internal project. Contact via hospital IT.

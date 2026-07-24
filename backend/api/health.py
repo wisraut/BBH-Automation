@@ -1,4 +1,5 @@
 """Health and service metadata endpoints."""
+import hmac
 import time
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -15,6 +16,8 @@ router = APIRouter()
 
 @router.get("/")
 def health(request: Request):
+    """health check สาธารณะ — คืนสถานะ bridge + public url + webhook url
+    ให้ระบบภายนอก (Cloudflare/monitor) ตรวจว่าบริการพร้อม; คืน 503 ระหว่าง draining"""
     base = getattr(request.app.state, "public_url", "")
     if is_draining():
         raise HTTPException(
@@ -30,12 +33,15 @@ def health(request: Request):
 
 
 def _require_internal_token(x_internal_token: str | None) -> None:
+    """ตรวจ internal token ของ endpoint ภายใน (n8n เรียก) แบบ constant-time
+    กัน timing attack; raise 401 ถ้า token ไม่ตรง, 503 ถ้ายังไม่ตั้งค่า token"""
     if not BRIDGE_INTERNAL_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="BRIDGE_INTERNAL_TOKEN is not configured",
         )
-    if x_internal_token != BRIDGE_INTERNAL_TOKEN:
+    # Constant-time compare — avoid leaking the token via response timing.
+    if not x_internal_token or not hmac.compare_digest(x_internal_token, BRIDGE_INTERNAL_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid internal token",
@@ -47,6 +53,8 @@ def internal_health_full(
     request: Request,
     x_internal_token: str | None = Header(default=None),
 ):
+    """health check ละเอียด (token-protected, monitor ภายในเรียก) — ตรวจ bridge +
+    DB (พร้อมสถิติ reports ready/analyzing/stale) + tunnel; คืน overall ok/degraded/error"""
     _require_internal_token(x_internal_token)
 
     checks = {

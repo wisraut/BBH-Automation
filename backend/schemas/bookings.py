@@ -1,8 +1,10 @@
 """Booking request/response schemas."""
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+Gender = Literal["male", "female", "other", "unknown"]
 
 BookingStatus = Literal[
     "draft", "pending_approval", "approved", "rejected", "cancelled", "expired", "no_show"
@@ -12,6 +14,7 @@ AppointmentType = Literal["new", "followup", "procedure", "consult"]
 
 
 class BookingListItem(BaseModel):
+    """แถวสรุป booking สำหรับ list view (field ที่จำเป็นต่อการแสดงในตาราง)"""
     request_uid: str
     status: BookingStatus
     patient_name: str | None = None
@@ -20,10 +23,25 @@ class BookingListItem(BaseModel):
     symptom: str | None = None
     booking_source: BookingSource
     appointment_type: AppointmentType
+    assigned_doctor_id: int | None = None
     created_at: datetime
 
 
+class PatientCandidate(BaseModel):
+    """An existing patient whose normalized phone matches this booking — shown
+    to the CRO at approve time so they confirm identity instead of the system
+    merging on phone alone."""
+    id: int
+    hn: str | None = None
+    display_name: str
+    phone: str | None = None
+    dob: str | None = None
+    latest_visit_at: datetime | None = None
+
+
 class BookingOut(BookingListItem):
+    """response แบบเต็มของ booking หนึ่งใบ (ต่อยอดจาก list item เพิ่มข้อมูล calendar,
+    การ approve, patient link, และ candidate คนไข้ที่เบอร์ตรงกัน) — ใช้ในหน้า detail"""
     channel: str
     external_user_id: str
     requested_date: str | None = None
@@ -42,9 +60,13 @@ class BookingOut(BookingListItem):
     updated_at: datetime
     reminder_24h_sent_at: datetime | None = None
     reminder_1h_sent_at: datetime | None = None
+    # Populated only for a pending booking with no linked patient yet: existing
+    # charts sharing this phone. Empty = no collision (approve auto-creates).
+    patient_candidates: list[PatientCandidate] = []
 
 
 class PaginationMeta(BaseModel):
+    """meta การแบ่งหน้ามาตรฐาน (หน้าปัจจุบัน/จำนวนต่อหน้า/ยอดรวม/จำนวนหน้า)"""
     page: int
     limit: int
     total: int
@@ -52,11 +74,13 @@ class PaginationMeta(BaseModel):
 
 
 class BookingListResponse(BaseModel):
+    """response ของ GET booking list แบบแบ่งหน้า"""
     data: list[BookingListItem]
     pagination: PaginationMeta
 
 
 class BookingCreateRequest(BaseModel):
+    """request body ตอน CRO สร้าง booking เอง (เช่นรับนัดทางโทรศัพท์)"""
     patient_name: str = Field(min_length=1, max_length=120)
     phone: str = Field(min_length=1, max_length=40)
     requested_date: str = Field(min_length=1, max_length=20)
@@ -66,12 +90,58 @@ class BookingCreateRequest(BaseModel):
 
 
 class BookingCreateResponse(BaseModel):
+    """response หลังสร้าง booking — คืน request_uid ของนัดใหม่"""
     ok: bool
     request_uid: str
 
 
+class PatientIntake(BaseModel):
+    """ประวัติคนไข้ที่ CRO กรอกตอน approve — บันทึกลง patient record ที่ link/สร้างใหม่
+    (บังคับ required ฝั่ง UI; API รับทุก field แบบ optional เก็บเท่าที่ส่งมา)"""
+    display_name: str | None = Field(default=None, max_length=120)
+    gender: Gender | None = None
+    dob: date | None = None
+    national_id: str | None = Field(default=None, max_length=30)
+    blood_type: str | None = Field(default=None, max_length=6)
+    phone: str | None = Field(default=None, max_length=20)
+    phone2: str | None = Field(default=None, max_length=20)
+    phone3: str | None = Field(default=None, max_length=20)
+    phone4: str | None = Field(default=None, max_length=20)
+    email: str | None = Field(default=None, max_length=191)
+    address: str | None = Field(default=None, max_length=2000)
+    intake_by: str | None = Field(default=None, max_length=120)
+    # Optional health-record extras (paper "บันทึกประวัติ") — CRO may fill at approve
+    # time but usually defers; persisted to the patient chart like the rest.
+    english_name: str | None = Field(default=None, max_length=120)
+    religion: str | None = Field(default=None, max_length=60)
+    marital_status: str | None = Field(default=None, max_length=30)
+    occupation: str | None = Field(default=None, max_length=120)
+    father_name: str | None = Field(default=None, max_length=120)
+    father_phone: str | None = Field(default=None, max_length=20)
+    mother_name: str | None = Field(default=None, max_length=120)
+    mother_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_name: str | None = Field(default=None, max_length=120)
+    emergency_contact_relation: str | None = Field(default=None, max_length=60)
+    emergency_contact_phone: str | None = Field(default=None, max_length=20)
+    emergency_contact_address: str | None = Field(default=None, max_length=500)
+    past_illness: str | None = Field(default=None, max_length=2000)
+    congenital_disease: str | None = Field(default=None, max_length=2000)
+    drugs_supplements: str | None = Field(default=None, max_length=2000)
+    drug_allergy: str | None = Field(default=None, max_length=2000)
+    food_allergy: str | None = Field(default=None, max_length=2000)
+    smoking: bool | None = None
+    smoking_years: int | None = Field(default=None, ge=0, le=120)
+    drinking: bool | None = None
+    drinking_years: int | None = Field(default=None, ge=0, le=120)
+
+
 class ApproveRequest(BaseModel):
+    """request body ตอน CRO อนุมัติ booking — เวลาเริ่ม + แพทย์ + วิธี resolve ตัวตน
+    คนไข้ (link chart เดิม หรือสร้างใหม่เมื่อเบอร์ชนกัน; ดู PatientCandidate)"""
     start_at: datetime = Field(description="ISO 8601 datetime (Asia/Bangkok). Slot start.")
+    # Patient intake the CRO fills before confirming — persisted to the patient
+    # record (created or linked) as part of the approve.
+    patient_intake: PatientIntake | None = None
     duration_min: int = Field(default=60, ge=15, le=240)
     assigned_doctor_id: int | None = Field(
         default=None,
@@ -81,23 +151,40 @@ class ApproveRequest(BaseModel):
             "arrive without one and be assigned later via /assign-doctor."
         ),
     )
+    # Patient identity resolution (see PatientCandidate). When the booking's
+    # phone matches an existing chart, the CRO must pick one of these before
+    # approve succeeds — otherwise the API returns 409 PATIENT_MATCH_REQUIRED.
+    link_patient_id: int | None = Field(
+        default=None,
+        description="Link to this existing patient id (must be one of the candidates).",
+    )
+    create_new_patient: bool = Field(
+        default=False,
+        description="Create a fresh patient even though the phone matches an existing one.",
+    )
 
 
 class AssignDoctorRequest(BaseModel):
+    """request body สำหรับกำหนด/ยกเลิกแพทย์ที่รับผิดชอบ booking (null = unassign) —
+    ใช้แก้ทีหลังกับนัดจาก LINE ที่ยังไม่มีแพทย์ตอน approve"""
     assigned_doctor_id: int | None = Field(
         description="Doctor user id, or null to unassign.",
     )
 
 
 class RejectRequest(BaseModel):
+    """request body ตอนปฏิเสธ booking — เหตุผลประกอบ (ไม่บังคับ)"""
     reason: str = Field(default="", max_length=500)
 
 
 class CancelRequest(BaseModel):
+    """request body ตอนยกเลิก booking ที่อนุมัติไปแล้ว — เหตุผลประกอบ"""
     reason: str = Field(default="Cancelled by CRO", max_length=500)
 
 
 class RescheduleRequest(BaseModel):
+    """request body ตอนเลื่อนนัด — มีเวลาใหม่ = ยืนยันเวลาเลย, ละ new_start_at = ดัน
+    booking กลับ pending_approval (กรณีคนไข้ขอเลื่อนแต่ยังไม่รู้เวลา/TBD)"""
     new_start_at: datetime | None = Field(
         default=None,
         description=(
@@ -111,6 +198,8 @@ class RescheduleRequest(BaseModel):
 
 
 class ApproveResponse(BaseModel):
+    """response หลัง approve สำเร็จ — id/url ของ Google Calendar event ที่สร้าง +
+    คนไข้ที่ผูก (patient_id/hn)"""
     ok: bool
     calendar_event_id: str
     calendar_event_url: str
@@ -119,6 +208,7 @@ class ApproveResponse(BaseModel):
 
 
 class SimpleOkResponse(BaseModel):
+    """response มาตรฐานแบบสั้นสำหรับ action ที่ไม่คืนข้อมูล (แค่บอกว่าสำเร็จ)"""
     ok: bool
 
 

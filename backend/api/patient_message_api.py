@@ -82,6 +82,8 @@ def _slide_auto_pause(uid: str) -> None:
 def send_custom_message(
     patient_id: int, body: CustomMessageRequest, request: Request, user: _CroOrAdmin,
 ) -> dict:
+    """CRO/admin ส่งข้อความเองไปหาคนไข้ทาง LINE — push ข้อความ, log outbound,
+    และ auto-pause AI ชั่วคราวไม่ให้บอทตอบแทรกระหว่าง CRO คุยอยู่; audit ไว้"""
     p = patient_repo.get_by_id(patient_id)
     if not p:
         raise HTTPException(404, {"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้นี้"})

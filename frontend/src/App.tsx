@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -23,7 +24,9 @@ import { Bookings } from './pages/Bookings'
 import { Calendar } from './pages/Calendar'
 import { Documents } from './pages/Documents'
 import { LabResults } from './pages/LabResults'
+import { DoctorCalendar } from './pages/DoctorCalendar'
 import { Patients } from './pages/Patients'
+import { PatientProfilePrint } from './pages/PatientProfilePrint'
 import { Reports } from './pages/Reports'
 import { Schedule } from './pages/Schedule'
 import { Today } from './pages/Today'
@@ -39,36 +42,68 @@ const DEFAULT_PATH_BY_ROLE: Record<Role, string> = {
   lab_staff: '/reports',
 }
 
-const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/admin': { title: 'Admin Dashboard', subtitle: 'Action Required และภาพรวมระบบโรงพยาบาล' },
-  '/bookings': {
-    title: 'การจองทั้งหมด',
-    subtitle: 'จัดการคำขอจองคิวจาก LINE / โทรศัพท์ / Walk-in',
-  },
-  '/calendar': { title: 'ปฏิทิน' },
-  '/today': { title: 'วันนี้', subtitle: 'สรุปงานที่ต้องจัดการวันนี้' },
-  '/schedule': { title: 'ตารางนัด' },
-  '/book': { title: 'ลงนัดเอง', subtitle: 'ลงนัด → ส่งเข้าคิว CRO ยืนยัน' },
-  '/availability': { title: 'ตารางว่างของฉัน', subtitle: 'กำหนดเวลาว่างให้ระบบเสนอเวลาจอง' },
-  '/biomarker': { title: 'Biomarker', subtitle: 'แนวโน้มค่าตรวจเทียบ optimal range' },
-  '/documents': { title: 'กล่องเอกสาร', subtitle: 'เอกสารที่ CRO อัปโหลดและมอบหมายให้คุณ' },
-  '/lab-results': { title: 'ผลแล็บ (ละเอียด)', subtitle: 'ค่าตรวจแตกรายตัว · ค่าอ้างอิง · สถานะ' },
-  '/patients': { title: 'คนไข้' },
-  '/reports': { title: 'ผลแล็บ' },
-  '/ai': { title: 'AI Assistant' },
-  '/users': { title: 'ผู้ใช้ระบบ' },
-  '/system-health': { title: 'สถานะระบบ' },
-  '/alert-rules': { title: 'Alert Rules', subtitle: 'ตั้งกฎเตือนที่ evaluator ใช้สร้าง alert' },
-  '/audit': { title: 'Audit Log', subtitle: 'การเข้าถึงข้อมูลคนไข้ (HIPAA-like)' },
-  '/account': { title: 'บัญชี' },
+// Which roles may open each path — mirrors the <ProtectedRoute allow> lists in
+// AppRoutes. Unlisted paths (e.g. /ai, /account) are open to any authenticated
+// user. Used to reject a stale post-login redirect target the new role can't see
+// (e.g. logout on a doctor page, then log back in as CRO).
+const ROUTE_ALLOW: Record<string, Role[]> = {
+  '/admin': ['admin'],
+  '/bookings': ['cro', 'admin'],
+  '/calendar': ['cro', 'admin'],
+  '/schedule': ['doctor', 'admin', 'nurse'],
+  '/doctor-calendar': ['doctor', 'admin', 'nurse'],
+  // Doctor Workspace pages — mirror <ProtectedRoute allow={['doctor','admin']}> in AppRoutes
+  '/today': ['doctor', 'admin'],
+  '/book': ['doctor', 'admin'],
+  '/availability': ['doctor', 'admin'],
+  '/biomarker': ['doctor', 'admin'],
+  '/documents': ['doctor', 'admin'],
+  '/lab-results': ['doctor', 'admin'],
+  '/reports': ['doctor', 'admin', 'nurse', 'lab_staff'],
+  '/patients': ['cro', 'doctor', 'admin', 'nurse'],
+  '/users': ['admin'],
+  '/system-health': ['admin'],
+  '/alert-rules': ['admin'],
+  '/audit': ['admin'],
+}
+
+function canAccess(path: string, role: Role): boolean {
+  const allow = ROUTE_ALLOW[path]
+  return !allow || allow.includes(role)
+}
+
+// Maps each path to its i18n key base under `pages.*`; hasSubtitle marks the
+// paths that also carry a `.subtitle`. Titles/subtitles are resolved in
+// DashboardLayout via t() so they follow the active language.
+const PAGE_META: Record<string, { key: string; hasSubtitle?: boolean }> = {
+  '/admin': { key: 'admin', hasSubtitle: true },
+  '/bookings': { key: 'bookings', hasSubtitle: true },
+  '/calendar': { key: 'calendar' },
+  '/schedule': { key: 'schedule' },
+  '/doctor-calendar': { key: 'doctorCalendar', hasSubtitle: true },
+  '/today': { key: 'today', hasSubtitle: true },
+  '/book': { key: 'book', hasSubtitle: true },
+  '/availability': { key: 'availability', hasSubtitle: true },
+  '/biomarker': { key: 'biomarker', hasSubtitle: true },
+  '/documents': { key: 'documents', hasSubtitle: true },
+  '/lab-results': { key: 'labResults', hasSubtitle: true },
+  '/patients': { key: 'patients' },
+  '/reports': { key: 'reports' },
+  '/ai': { key: 'ai' },
+  '/users': { key: 'users' },
+  '/system-health': { key: 'systemHealth' },
+  '/alert-rules': { key: 'alertRules', hasSubtitle: true },
+  '/audit': { key: 'audit', hasSubtitle: true },
+  '/account': { key: 'account' },
 }
 
 function NotFound() {
+  const { t } = useTranslation()
   return (
     <main className="grid min-h-screen place-items-center bg-bbh-surface text-bbh-ink">
       <div className="text-center">
         <p className="font-serif text-4xl font-semibold">404</p>
-        <p className="mt-2 text-sm text-bbh-muted">ไม่พบหน้าที่คุณกำลังหา</p>
+        <p className="mt-2 text-sm text-bbh-muted">{t('notFound.message')}</p>
       </div>
     </main>
   )
@@ -76,19 +111,25 @@ function NotFound() {
 
 function LoginPage() {
   const { user, isReady } = useAuth()
+  const { t } = useTranslation()
   const location = useLocation()
   if (!isReady) {
     return (
       <main className="grid min-h-screen place-items-center bg-bbh-surface text-bbh-muted">
-        กำลังโหลด...
+        {t('common.loading')}
       </main>
     )
   }
   if (user) {
     // ProtectedRoute redirected to /login with state.from on auth-required pages;
-    // after successful login, send the user back to where they tried to go.
+    // after successful login, send the user back to where they tried to go — but
+    // only if the new role may actually open it. Otherwise (e.g. logout on a
+    // doctor page, then log in as CRO) go to the new role's home instead of
+    // landing on a "no access" page.
     const from = (location.state as { from?: string } | null)?.from
-    const target = from && from !== '/login' ? from : DEFAULT_PATH_BY_ROLE[user.role]
+    const target = from && from !== '/login' && canAccess(from, user.role)
+      ? from
+      : DEFAULT_PATH_BY_ROLE[user.role]
     return <Navigate to={target} replace />
   }
   return <Login />
@@ -108,6 +149,7 @@ const ROLE_OF_PATH: Record<string, Role> = {
   '/book': 'doctor',
   '/availability': 'doctor',
   '/biomarker': 'doctor',
+  '/doctor-calendar': 'doctor',
 }
 const VALID_VIEW_AS: Role[] = ['cro', 'doctor', 'nurse', 'lab_staff']
 
@@ -120,6 +162,7 @@ function computeViewAs(pathname: string, asParam: string | null, actualRole: Rol
 
 function DashboardLayout() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -129,12 +172,14 @@ function DashboardLayout() {
   }, [location.pathname])
 
   if (!user) return null
-  const meta = PAGE_META[location.pathname] ?? { title: 'BBH Hospital' }
+  const meta = PAGE_META[location.pathname]
+  const title = meta ? t(`pages.${meta.key}.title`) : t('pages.fallbackTitle')
+  const subtitle = meta?.hasSubtitle ? t(`pages.${meta.key}.subtitle`) : undefined
   const viewAs = computeViewAs(location.pathname, searchParams.get('as'), user.role)
   const effectiveRole: Role = viewAs ?? user.role
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-bbh-green-soft/45 to-bbh-surface text-bbh-ink">
+    <div className="flex h-screen overflow-hidden bg-white text-bbh-ink">
       <Sidebar
         role={effectiveRole}
         actualRole={user.role}
@@ -145,8 +190,12 @@ function DashboardLayout() {
         onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar title={meta.title} subtitle={meta.subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
-        <main className="flex-1 overflow-hidden p-4 md:p-7 lg:p-8">
+        <Topbar title={title} subtitle={subtitle} onMenuClick={() => setSidebarOpen(true)} viewAs={viewAs} />
+        {/* Open, edge-to-edge work surface for every route: pages are full-bleed
+            to the sidebar/topbar (which carry their own hairline borders), so no
+            page reads as a floating card on a gradient. Each page owns its own
+            internal scroll and hairline-ruled panels — see AdminDashboard. */}
+        <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>
@@ -154,11 +203,14 @@ function DashboardLayout() {
   )
 }
 
+// นิยาม route ทั้งหมดของ dashboard — ห่อด้วย ProtectedRoute เพื่อคุมสิทธิ์ตาม role
+// และ DashboardLayout (sidebar + topbar); path ที่ role เข้าไม่ได้จะถูก redirect
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
+        <Route path="print/patient/:id" element={<PatientProfilePrint />} />
         <Route element={<DashboardLayout />}>
           <Route index element={<RoleHome />} />
           <Route path="admin" element={<ProtectedRoute allow={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -176,6 +228,7 @@ function AppRoutes() {
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse']} />}>
             <Route path="schedule" element={<Schedule />} />
+            <Route path="doctor-calendar" element={<DoctorCalendar />} />
           </Route>
           <Route element={<ProtectedRoute allow={['doctor', 'admin', 'nurse', 'lab_staff']} />}>
             <Route path="reports" element={<Reports />} />
@@ -196,6 +249,7 @@ function AppRoutes() {
   )
 }
 
+// รากของแอป — ครอบทุกหน้าด้วย provider หลัก (React Query, Auth, Toast) แล้วเรนเดอร์ route
 function App() {
   return (
     <QueryClientProvider client={queryClient}>

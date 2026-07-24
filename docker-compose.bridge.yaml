@@ -7,12 +7,13 @@ services:
     container_name: hospital-bridge
     restart: always
     stop_grace_period: 30s   # docker waits this long after SIGTERM before SIGKILL — gives lifespan shutdown time to drain
+    depends_on:
+      - embedder
     env_file:
       - ./.env
     environment:
       DB_HOST: db_postgres
       DB_PORT: 5432
-      DIFY_API_URL: http://api:5001/v1
       PUBLIC_URL: ${PUBLIC_URL:-https://bridge.bbh-hospital.com}
       N8N_INTERNAL_BASE_URL: ${N8N_INTERNAL_BASE_URL:-http://hospital-n8n:5678}
       GOOGLE_SERVICE_ACCOUNT_FILE: /app/credentials/service_account.json
@@ -25,7 +26,31 @@ services:
     networks:
       - dify_default
 
+  # RAG embedder — BGE-M3 on CPU (Infinity server). The bridge reaches it over
+  # the docker network at http://bbh-embedder:7997 (EMBED_URL in rag/embedder.py).
+  # The model is cached in the bbh_hf_cache volume so it downloads once, not on
+  # every recreate. Host port is loopback-only, for local debugging.
+  embedder:
+    image: michaelf34/infinity:latest
+    container_name: bbh-embedder
+    restart: unless-stopped
+    command: ["v2", "--model-id", "BAAI/bge-m3", "--device", "cpu", "--port", "7997"]
+    ports:
+      - "127.0.0.1:8085:7997"
+    volumes:
+      - bbh_hf_cache:/app/.cache/huggingface
+    networks:
+      - dify_default
+
 networks:
   dify_default:
     name: docker_default
+    external: true
+
+volumes:
+  # Pre-existing named volume holding the downloaded BGE-M3 weights. external so
+  # compose reuses it (never recreates/renames it) — otherwise the model would
+  # re-download on first start.
+  bbh_hf_cache:
+    name: bbh_hf_cache
     external: true

@@ -8,6 +8,7 @@ from rag import service as rag_service
 
 
 def is_patient(user_id: str) -> bool:
+    """เช็คว่า LINE user_id นี้ผูกกับคนไข้ที่ login อยู่ไหม — ใช้ route ข้อความเข้า patient flow"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM patients WHERE line_uid = %s", (user_id,))
@@ -44,7 +45,7 @@ def try_register(line_uid: str, patient_code: str) -> tuple:
 
 
 def handle_message(reply_token: str, line_uid: str, text: str) -> None:
-    """Router: logout → unbind / อื่นๆ → Dify role=patient (graph จัด emergency เอง)"""
+    """Router: logout → unbind / อื่นๆ → own LLM patient advisor (safety gate จัด emergency)"""
     if text.strip().lower() == "logout":
         with get_db() as conn:
             with conn.cursor() as cur:

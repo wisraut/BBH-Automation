@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AuthBrandPanel } from '../components/auth/AuthBrandPanel'
 import { AuthCard } from '../components/auth/AuthCard'
 import { ForgotPasswordForm } from '../components/auth/ForgotPasswordForm'
 import { LoginForm } from '../components/auth/LoginForm'
 import { ResetPasswordForm } from '../components/auth/ResetPasswordForm'
 import { SignedInPreview } from '../components/auth/SignedInPreview'
+import { LanguageToggle } from '../components/LanguageToggle'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 type AuthMode = 'login' | 'forgot' | 'reset' | 'signed-in'
 
+// หน้า login สำหรับ staff ทุก role — สลับ mode ระหว่าง login / ลืมรหัส / รีเซ็ต / signed-in
+// จัดการ submit เข้าสู่ระบบและแสดง notice; หลัง login สำเร็จ App จะ redirect ไปหน้าแรกตาม role
 export function Login() {
+  const { t } = useTranslation()
   const { user, isReady, login, logout } = useAuth()
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
@@ -35,14 +40,14 @@ export function Login() {
       setMode('signed-in')
       setNotice(
         signedInUser.role === 'doctor'
-          ? 'เข้าสู่ระบบสำเร็จ เปิดพื้นที่ทำงานของแพทย์'
-          : 'เข้าสู่ระบบสำเร็จ เปิดพื้นที่ทำงานของ CRO',
+          ? t('login.welcomeDoctor')
+          : t('login.welcomeCro'),
       )
     } catch (error) {
       setNotice(
         error instanceof ApiError
           ? error.message
-          : 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+          : t('login.loginFailed'),
       )
     } finally {
       setIsSubmitting(false)
@@ -51,13 +56,13 @@ export function Login() {
 
   function handleForgot(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setNotice('ตอนนี้ให้ผู้ดูแลระบบเป็นคนรีเซ็ตรหัสผ่านให้พนักงาน')
+    setNotice(t('login.forgotNotice'))
     setMode('reset')
   }
 
   function handleReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setNotice('กรุณาติดต่อผู้ดูแลระบบเพื่อรีเซ็ตรหัสผ่าน')
+    setNotice(t('login.resetNotice'))
     setMode('login')
   }
 
@@ -69,7 +74,10 @@ export function Login() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-bbh-ink">
+    <main className="relative min-h-screen bg-white text-bbh-ink">
+      <div className="absolute right-4 top-4 z-10">
+        <LanguageToggle />
+      </div>
       <section className="grid min-h-screen lg:grid-cols-[1.03fr_0.97fr]">
         <AuthBrandPanel />
         <AuthCard>

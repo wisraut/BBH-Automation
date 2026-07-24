@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -44,4 +44,22 @@ input {
 
 .auth-heading {
   font-family: "Noto Sans Thai", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Accessibility: honor the OS "reduce motion" setting.
+ * Entrance keyframes use fill-mode `both`, so near-zeroing the duration lands
+ * every element on its final (visible) state instead of leaving it hidden.
+ * Ambient/looping motion (beacon, ping, spin) is capped to a single pass.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

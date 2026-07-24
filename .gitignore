@@ -90,8 +90,7 @@ backups/*.tar
 !README.md
 !CLAUDE.md
 !docs/dev-setup-lan.md
-!dify_patches/**/README.md
-!dify_patches/**/system_prompt.md
+!frontend/DESIGN_PRINCIPLES.md
 
 # Graphify knowledge graph (generated)
 graphify-out/

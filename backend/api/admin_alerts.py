@@ -73,6 +73,8 @@ def acknowledge_alert(
     body: AckRequest,
     user=Depends(_admin_only),
 ):
+    """รับทราบ (acknowledge) alert หนึ่งรายการ — admin กดจากหน้า Action Required
+    เพื่อบอกว่ากำลังดูแลอยู่. บันทึกผู้กด + note และ snooze ได้ตาม snooze_hours"""
     return alert_service.acknowledge(
         alert_id,
         user_id=user["id"],
@@ -87,6 +89,8 @@ def resolve_alert(
     body: ResolveRequest,
     user=Depends(_admin_only),
 ):
+    """ปิด (resolve) alert หนึ่งรายการ — admin กดเมื่อจัดการปัญหาเสร็จแล้ว.
+    บันทึกผู้ปิด + เหตุผล (reason) + note ลง event history"""
     return alert_service.resolve(
         alert_id,
         user_id=user["id"],
@@ -102,6 +106,8 @@ rules_router = APIRouter(prefix="/api/admin/alert-rules", tags=["admin-alerts"])
 
 @rules_router.get("", response_model=list[RuleOut])
 def list_rules(_user=Depends(_admin_only)):
+    """คืนรายการ alert rule ทั้งหมด (สถานะเปิด/ปิด + threshold) — admin ใช้แสดง
+    หน้าจัดการ rule"""
     return alert_service.list_rules()
 
 
@@ -109,6 +115,8 @@ def list_rules(_user=Depends(_admin_only)):
 def patch_rule_enabled(
     rule_key: str, body: RuleEnableRequest, _user=Depends(_admin_only)
 ):
+    """เปิด/ปิดการทำงานของ alert rule ตาม rule_key — admin ใช้ปิด rule ที่ noise
+    เกินไปโดยไม่ต้องลบทิ้ง"""
     return alert_service.set_rule_enabled(rule_key, body.enabled)
 
 
@@ -116,4 +124,6 @@ def patch_rule_enabled(
 def patch_rule_threshold(
     rule_key: str, body: RuleThresholdRequest, _user=Depends(_admin_only)
 ):
+    """ปรับค่า threshold ที่ทำให้ rule ยิง alert ตาม rule_key — admin ใช้จูนความไว
+    ของแต่ละ rule"""
     return alert_service.set_rule_threshold(rule_key, body.threshold)

@@ -21,6 +21,8 @@ _CroOrAdmin = Annotated[dict, Depends(require_user(["cro", "admin"]))]
 
 
 def _resolve_line_uid(patient_id: int) -> str | None:
+    """หา LINE user_id ล่าสุดของคนไข้จาก booking_requests ช่องทาง line — ใช้เชื่อม
+    patient_id เข้ากับ bot_session เพื่ออ่าน/ตั้งค่า AI mode; คืน None ถ้าไม่เคยทักผ่าน LINE"""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

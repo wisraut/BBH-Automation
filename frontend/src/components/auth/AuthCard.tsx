@@ -5,6 +5,7 @@ type AuthCardProps = {
   children: ReactNode
 }
 
+// กรอบการ์ดกลางจอสำหรับหน้า auth — ห่อฟอร์ม (login/reset/forgot) ให้อยู่กลาง มี BrandMark บนมือถือ
 export function AuthCard({ children }: AuthCardProps) {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bbh-surface px-4 py-8 sm:px-8">

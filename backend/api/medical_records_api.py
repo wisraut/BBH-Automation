@@ -31,11 +31,16 @@ from services import audit_service
 
 router = APIRouter(tags=["medical-records"])
 
+# CRO can READ the clinical bundle (conditions/allergies/meds/treatments) — at
+# this hospital the CRO coordinates care and needs the clinical context. This is
+# intentional per hospital policy: read-only + audited (record_access); mutations
+# stay doctor/admin only. (Do not "tighten" this to exclude cro — it's on purpose.)
 _StaffUser = Annotated[dict, Depends(require_user(["cro", "doctor", "nurse", "admin"]))]
 _DoctorOrAdmin = Annotated[dict, Depends(require_user(["doctor", "admin"]))]
 
 
 def _require_patient(patient_id: int) -> dict:
+    """ดึงคนไข้ตาม id, raise 404 ถ้าไม่พบ — helper กันซ้ำก่อนทำงานกับ record"""
     p = patient_repo.get_by_id(patient_id)
     if not p:
         raise HTTPException(
@@ -49,6 +54,8 @@ def _require_patient(patient_id: int) -> dict:
 
 @router.get("/api/patients/{patient_id}/medical-bundle", response_model=MedicalBundle)
 def get_bundle(patient_id: int, request: Request, user: _StaffUser) -> dict:
+    """staff (cro/หมอ/พยาบาล/admin) ดึง medical bundle ครบชุดของคนไข้ (โรคประจำตัว/
+    แพ้ยา/ยา/ประวัติรักษา) ในรอบเดียวสำหรับหน้า patient detail; audit ทุกครั้ง"""
     _require_patient(patient_id)
     bundle = {
         "conditions": medical_records_repo.list_conditions(patient_id),
@@ -75,6 +82,7 @@ def add_condition(
     patient_id: int, body: ConditionCreate, request: Request,
     user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin เพิ่มโรคประจำตัวให้คนไข้ แล้วคืนรายการที่เพิ่ง insert; audit ไว้"""
     _require_patient(patient_id)
     new_id = medical_records_repo.insert_condition(
         patient_id=patient_id,
@@ -98,6 +106,7 @@ def add_condition(
 def delete_condition(
     condition_id: int, request: Request, user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin ลบโรคประจำตัวตาม id, raise 404 ถ้าไม่พบ; audit ไว้"""
     if medical_records_repo.delete_condition(condition_id) == 0:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})
     audit_service.record_access(
@@ -117,6 +126,7 @@ def add_allergy(
     patient_id: int, body: AllergyCreate, request: Request,
     user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin เพิ่มประวัติแพ้ (ยา/สาร) ให้คนไข้ แล้วคืนรายการที่เพิ่ง insert; audit ไว้"""
     _require_patient(patient_id)
     new_id = medical_records_repo.insert_allergy(
         patient_id=patient_id,
@@ -139,6 +149,7 @@ def add_allergy(
 def delete_allergy(
     allergy_id: int, request: Request, user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin ลบประวัติแพ้ตาม id, raise 404 ถ้าไม่พบ; audit ไว้"""
     if medical_records_repo.delete_allergy(allergy_id) == 0:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})
     audit_service.record_access(
@@ -158,6 +169,7 @@ def add_medication(
     patient_id: int, body: MedicationCreate, request: Request,
     user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin เพิ่มยาที่คนไข้ใช้อยู่ แล้วคืนรายการที่เพิ่ง insert; audit ไว้"""
     _require_patient(patient_id)
     new_id = medical_records_repo.insert_medication(
         patient_id=patient_id,
@@ -184,6 +196,7 @@ def set_medication_active(
     med_id: int, body: MedicationActiveUpdate, request: Request,
     user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin สลับสถานะยา active/หยุดใช้ ตาม med id, raise 404 ถ้าไม่พบ; audit ไว้"""
     if medical_records_repo.update_medication_active(med_id, is_active=body.is_active) == 0:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})
     audit_service.record_access(
@@ -198,6 +211,7 @@ def set_medication_active(
 def delete_medication(
     med_id: int, request: Request, user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin ลบยาตาม id, raise 404 ถ้าไม่พบ; audit ไว้"""
     if medical_records_repo.delete_medication(med_id) == 0:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})
     audit_service.record_access(
@@ -217,6 +231,7 @@ def add_treatment(
     patient_id: int, body: TreatmentCreate, request: Request,
     user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin เพิ่มประวัติการรักษา/ผ่าตัดให้คนไข้ แล้วคืนรายการที่เพิ่ง insert; audit ไว้"""
     _require_patient(patient_id)
     new_id = medical_records_repo.insert_treatment(
         patient_id=patient_id,
@@ -241,6 +256,7 @@ def add_treatment(
 def delete_treatment(
     treatment_id: int, request: Request, user: _DoctorOrAdmin,
 ) -> dict:
+    """หมอ/admin ลบประวัติการรักษาตาม id, raise 404 ถ้าไม่พบ; audit ไว้"""
     if medical_records_repo.delete_treatment(treatment_id) == 0:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})
     audit_service.record_access(

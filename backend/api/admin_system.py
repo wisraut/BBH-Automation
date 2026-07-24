@@ -31,6 +31,8 @@ _PROCESS_START = time.time()
 # ---------------------------------------------------------------------------
 
 def _probe_mysql() -> dict[str, Any]:
+    """ping ฐานข้อมูล MySQL (bot ops) ด้วย SELECT 1 แล้วคืนสถานะ ok/error พร้อม latency
+    — ใช้ประกอบ snapshot ของ /health"""
     start = time.perf_counter()
     try:
         with mysql_db() as conn:
@@ -52,6 +54,8 @@ def _probe_mysql() -> dict[str, Any]:
 
 
 def _probe_n8n() -> dict[str, Any]:
+    """เรียก /healthz ของ n8n เพื่อเช็คว่ายังตอบอยู่ไหม แล้วคืนสถานะ ok/warn พร้อม
+    latency — เข้าไม่ได้ = warn (ไม่ใช่ error)"""
     start = time.perf_counter()
     try:
         r = httpx.get("http://hospital-n8n:5678/healthz", timeout=3)
@@ -75,6 +79,9 @@ def _probe_n8n() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _collect_db_stats() -> dict[str, Any]:
+    """รวมตัวเลขสถิติจาก MySQL ในการเชื่อมต่อเดียว (จำนวนคนไข้/ผู้ใช้ active/หมอ/
+    booking pending+วันนี้/report วันนี้/alert เปิด/สุขภาพ webhook queue) — ป้อนหน้า
+    dashboard system health"""
     stats: dict[str, Any] = {}
     try:
         with mysql_db() as conn:
@@ -230,6 +237,7 @@ def system_health(_user=Depends(_admin_only)):
 
 
 def _format_uptime(seconds: float) -> str:
+    """แปลงจำนวนวินาที uptime เป็นข้อความสั้นอ่านง่าย เช่น '2d 3h 10m' / '5h 2m' / '10m'"""
     seconds = int(seconds)
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)

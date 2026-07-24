@@ -182,7 +182,7 @@ def list_report_analyses(report_id: int, user: _StaffUser) -> dict:
 
 @router.post("/api/reports/{report_id}/analyze", response_model=AnalyzeResponse)
 def analyze_report(report_id: int, request: Request, user: _DoctorOrAdmin) -> dict:
-    """Run Dify analysis for a report. Patient data crosses out to external
+    """Run AI analysis for a report. Patient data crosses out to external
     LLM here (PII-redacted in ai_service) — audit is mandatory."""
     report = report_service.get_report(report_id)
     result = report_service.analyze_report(report_id=report_id, user=user)

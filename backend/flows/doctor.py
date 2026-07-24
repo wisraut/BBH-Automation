@@ -19,6 +19,7 @@ _DOCTOR_SYSTEM = (
 
 
 def is_doctor(user_id: str) -> bool:
+    """เช็คว่า LINE user_id นี้ผูกกับแพทย์ที่ login อยู่ไหม — ใช้ route ข้อความเข้า doctor flow"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM doctors WHERE line_uid = %s", (user_id,))
@@ -148,6 +149,8 @@ def _save_analysis(report_id: str, doctor_id: str, conv_id: str, summary: str) -
 
 
 def _get_doctor_id(line_uid: str) -> str:
+    """แปลง LINE uid เป็น doctor_id ภายในไว้ลง audit log
+    fallback คืน line_uid เดิมถ้าหาไม่เจอ เพื่อไม่ให้ audit ขาด actor"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT doctor_id FROM doctors WHERE line_uid = %s", (line_uid,))
@@ -177,7 +180,7 @@ def notify_new_report(doctor_id: str, patient_name: str, report_id: str) -> None
 
 
 def analyze_report(reply_token: str, doctor_line_uid: str, report_id: str) -> None:
-    """Pipeline: atomic lock → context → Dify → save → push"""
+    """Pipeline: atomic lock → context → AI → save → push"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

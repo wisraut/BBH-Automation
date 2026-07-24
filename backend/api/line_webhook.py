@@ -1,4 +1,4 @@
-"""Primary LINE webhook: routes all messages to n8n, falls back to Dify CRO flow."""
+"""Primary LINE webhook: routes all messages to n8n, falls back to the CRO flow."""
 import asyncio
 import json
 import time
@@ -14,12 +14,31 @@ from core.config import N8N_INTERNAL_BASE_URL, log
 
 router = APIRouter()
 
+# Human labels for non-text inbound messages (chat-history placeholder).
+_NONTEXT_LABEL = {
+    "image": "รูปภาพ",
+    "audio": "ข้อความเสียง",
+    "video": "วิดีโอ",
+    "file": "ไฟล์",
+    "sticker": "สติกเกอร์",
+    "location": "ตำแหน่ง",
+}
+
+# Canned guide sent when a patient sends a non-text message. The bot handles
+# text only, so we ask them to type instead of leaving them with no reply.
+_UNSUPPORTED_REPLY = (
+    "ขออภัยค่ะ ระบบรองรับเฉพาะข้อความ "
+    "รบกวนพิมพ์เป็นข้อความเข้ามาสอบถามหรือนัดหมายได้เลยนะคะ"
+)
+
 # Module-level singleton — reused across all events so we pay the
 # TCP/TLS/SSL-context cost once instead of per request.
 _n8n_client: httpx.AsyncClient | None = None
 
 
 def _get_n8n_client() -> httpx.AsyncClient:
+    """คืน httpx.AsyncClient แบบ singleton สำหรับยิงไป n8n — สร้างครั้งเดียว
+    เพื่อ reuse TCP/TLS connection แทนสร้างใหม่ทุก request"""
     global _n8n_client
     if _n8n_client is None:
         _n8n_client = httpx.AsyncClient(timeout=20)
@@ -34,10 +53,22 @@ async def close_n8n_client() -> None:
         _n8n_client = None
 
 
+async def _reply_unsupported(reply_token: str) -> None:
+    """Reply the 'please type text' guide for a non-text message. line_client
+    .reply is sync (httpx) so run it off the event loop; never raises."""
+    try:
+        await asyncio.to_thread(line_client.reply, reply_token, _UNSUPPORTED_REPLY)
+    except Exception:
+        log.exception("failed to send unsupported-message guide reply")
+
+
 @router.post("/webhook")
 async def webhook(request: Request, background_tasks: BackgroundTasks):
+    """webhook หลักที่ LINE เรียกเข้ามาทุกข้อความจากคนไข้ — verify signature,
+    log inbound, enqueue แล้ว dispatch งานหนัก (n8n + AI) เป็น background task
+    ต้องคืน 200 เร็วภายใน 1-2 วิ ไม่งั้น LINE retry; non-text ตอบ guide ให้พิมพ์ข้อความ"""
     # LINE webhook must return 200 within ~1-2s or LINE retries the event.
-    # All slow work (n8n + Dify) is scheduled as a background task.
+    # All slow work (n8n + AI) is scheduled as a background task.
     t0 = time.perf_counter()
     body = await request.body()
     signature = request.headers.get("X-Line-Signature", "")
@@ -54,15 +85,30 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
     for event in payload.get("events", []):
         if event.get("type") != "message":
             continue
-        if event["message"].get("type") != "text":
+        msg_type = event["message"].get("type")
+        user_id = event.get("source", {}).get("userId")
+        if msg_type != "text":
+            # Don't ghost the patient on non-text (image/audio/sticker/...):
+            # record it for chat history and reply a short "please type" guide.
+            # Canned reply — no LLM/n8n — scheduled off the webhook hot path.
+            if user_id:
+                message_repo.log_inbound(
+                    channel="line_main",
+                    external_user_id=user_id,
+                    text=f"[{_NONTEXT_LABEL.get(msg_type, msg_type)}]",
+                    raw_payload={"webhookEventId": event.get("webhookEventId"), "type": msg_type},
+                )
+            reply_token = event.get("replyToken")
+            if reply_token:
+                background_tasks.add_task(_reply_unsupported, reply_token)
             continue
-        if not event.get("source", {}).get("userId"):
+        if not user_id:
             continue
         # Log inbound to booking_messages for chat-history render. Best-effort;
         # message_repo swallows exceptions so this never blocks LINE ack.
         message_repo.log_inbound(
             channel="line_main",
-            external_user_id=event["source"]["userId"],
+            external_user_id=user_id,
             text=event.get("message", {}).get("text", ""),
             raw_payload={"webhookEventId": event.get("webhookEventId"), "type": event.get("type")},
         )
@@ -98,7 +144,7 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
 async def _handle_event_async(event: dict) -> None:
     """Process one LINE event off the webhook hot path; never raises.
 
-    The Dify CRO fallback is sync (DB + HTTP + LINE reply) — running it
+    The CRO fallback is sync (DB + HTTP + LINE reply) — running it
     directly here would block the asyncio event loop and starve other
     webhook requests. asyncio.to_thread moves it off the loop.
     """
@@ -144,6 +190,9 @@ async def _handle_event_async_inner(event: dict) -> None:
 
 
 async def _try_handle_public_with_n8n(event: dict) -> bool:
+    """ส่ง event ต่อให้ n8n workflow (bbh-line-main) ตอบลูกค้าผ่าน RAG แล้ว
+    reply กลับ LINE; คืน True ถ้า n8n ตอบสำเร็จ, False ถ้าล้มเหลว/ไม่มี answer
+    เพื่อให้ caller fallback ไป CRO flow"""
     if not N8N_INTERNAL_BASE_URL:
         return False
 
@@ -154,7 +203,7 @@ async def _try_handle_public_with_n8n(event: dict) -> bool:
         resp.raise_for_status()
         result = resp.json()
     except Exception:
-        log.exception("n8n public LINE flow failed; falling back to CRO Dify flow")
+        log.exception("n8n public LINE flow failed; falling back to CRO flow")
         return False
 
     answer = result.get("answer")

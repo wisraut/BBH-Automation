@@ -35,6 +35,8 @@ class CallLogCreate(BaseModel):
 def list_calls(
     patient_id: int, request: Request, user: _StaffUser, limit: int = 50,
 ) -> dict:
+    """คืนประวัติการโทรของคนไข้หนึ่งคน (staff: cro/หมอ/พยาบาล/admin เรียกจากหน้า
+    คนไข้) — บันทึก audit การเข้าดู; ไม่พบคนไข้ = 404"""
     p = patient_repo.get_by_id(patient_id)
     if not p:
         raise HTTPException(404, {"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้นี้"})
@@ -51,6 +53,8 @@ def list_calls(
 def add_call(
     patient_id: int, body: CallLogCreate, request: Request, user: _StaffUser,
 ) -> dict:
+    """บันทึกการโทรใหม่ให้คนไข้ (staff เรียกหลังโทรหาคนไข้) — INSERT call log +
+    บันทึก audit แล้วคืนรายการที่เพิ่งสร้าง; ไม่พบคนไข้ = 404"""
     p = patient_repo.get_by_id(patient_id)
     if not p:
         raise HTTPException(404, {"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้นี้"})
@@ -77,6 +81,8 @@ def add_call(
 
 @router.delete("/api/calls/{call_id}")
 def delete_call(call_id: int, request: Request, user: _StaffUser) -> dict:
+    """ลบรายการบันทึกการโทรตาม call_id (staff เรียกเมื่อบันทึกผิด) — บันทึก audit
+    การลบ; ไม่พบรายการ = 404"""
     rows = call_log_repo.delete(call_id)
     if rows == 0:
         raise HTTPException(404, {"code": "NOT_FOUND", "message": "ไม่พบรายการ"})

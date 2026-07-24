@@ -42,6 +42,8 @@ _pool = PooledDB(
 
 @contextmanager
 def mysql_db() -> Iterator[pymysql.connections.Connection]:
+    """ยืม connection จาก pool ไปใช้ (Bot Ops MySQL) แบบ context manager
+    conn.close() ตอนจบไม่ได้ปิดจริงแต่คืน conn กลับเข้า pool — เรียก with-block เสมอกัน leak"""
     conn = _pool.connection()
     try:
         yield conn
@@ -51,6 +53,8 @@ def mysql_db() -> Iterator[pymysql.connections.Connection]:
 
 # Exposed so admin endpoints / tests can inspect pool state if needed.
 def pool_stats() -> dict[str, int]:
+    """คืนสถานะ connection pool (min/max/idle) ให้ admin endpoint หรือ test ตรวจสุขภาพ pool
+    ค่า idle เป็น best-effort อ่านจาก internal attr ของ PooledDB — คืน -1 ถ้าเวอร์ชันไม่มี attr นั้น"""
     return {
         "min_cached": _POOL_MIN,
         "max_cached": _POOL_MAX,

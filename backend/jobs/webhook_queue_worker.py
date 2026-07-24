@@ -18,6 +18,8 @@ log = logging.getLogger("webhook_queue_worker")
 
 
 async def _process_one(queue_id: int) -> None:
+    """ประมวลผล webhook event หนึ่งแถวจากคิว — กลืน exception ไม่ให้ล้ม
+    เพราะ event เดียวพังต้องไม่ทำให้ worker ทั้งตัวหยุด (แถวอื่นในรอบต้องได้ทำต่อ)"""
     try:
         await _process_queued_event(queue_id)
     except Exception:
@@ -25,6 +27,8 @@ async def _process_one(queue_id: int) -> None:
 
 
 async def _drain_pending() -> int:
+    """หยิบแถว 'pending' (สูงสุด 50) มาประมวลผลจนหมด คืนจำนวนที่ทำ
+    ใช้ทั้งตอน startup (เก็บงานตกค้างจาก process เก่า) และเช็คซ้ำระหว่าง loop"""
     rows = webhook_queue_repo.list_pending(limit=50)
     for r in rows:
         await _process_one(int(r["id"]))
@@ -32,6 +36,8 @@ async def _drain_pending() -> int:
 
 
 async def _requeue_stuck() -> int:
+    """กู้แถวที่ค้าง 'processing' เกิน 5 นาที (server ตายกลาง handler) — reset แล้วทำใหม่
+    คืนจำนวนที่ requeue เพื่อให้ caller log เตือน (ปกติไม่ควรมีในสภาวะปกติ)"""
     stuck = webhook_queue_repo.list_stuck(older_than_minutes=5)
     for r in stuck:
         webhook_queue_repo.reset_for_retry(int(r["id"]))
@@ -40,6 +46,8 @@ async def _requeue_stuck() -> int:
 
 
 async def start_worker(interval_seconds: int = 30) -> None:
+    """async loop ของ webhook queue — drain งานตกค้างตอน startup ทีนึง
+    แล้ววนทุก interval เพื่อ requeue แถวค้าง + drain pending; cancellable ตอน shutdown"""
     log.info("Webhook queue worker started (interval=%ds)", interval_seconds)
     # On startup drain whatever was left behind by the previous process.
     try:

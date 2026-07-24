@@ -10,6 +10,7 @@ TriageDecision = Literal["accept", "reject", "review", "pending"]
 
 
 class ReportListItem(BaseModel):
+    """แถวสรุป report สำหรับ list view (มีไฟล์/มี text/เวลาวิเคราะห์ล่าสุด)"""
     id: int
     patient_id: int
     source: ReportSource
@@ -27,6 +28,8 @@ class ReportListItem(BaseModel):
 
 
 class ReportOut(ReportListItem):
+    """response แบบเต็มของ report หนึ่งใบ (ต่อยอด list item เพิ่ม extracted_text +
+    notes) — ใช้ในหน้า detail"""
     extracted_text: str | None = None
     notes: str | None = None
     created_at: datetime
@@ -34,10 +37,12 @@ class ReportOut(ReportListItem):
 
 
 class NotebookLmUpdateRequest(BaseModel):
+    """request body สำหรับบันทึก/ล้างลิงก์ NotebookLM ของ report (null = ล้าง)"""
     url: str | None = Field(default=None, max_length=500)
 
 
 class ReportUploadResponse(BaseModel):
+    """response หลังอัปโหลด report — id ใหม่, มี text ให้วิเคราะห์ไหม, แจ้งแพทย์สำเร็จไหม"""
     ok: bool
     id: int
     title: str
@@ -46,6 +51,7 @@ class ReportUploadResponse(BaseModel):
 
 
 class AnalysisOut(BaseModel):
+    """response ของผลวิเคราะห์ AI หนึ่งครั้ง (สรุป + triage decision + ใครตัดสิน)"""
     id: int
     report_id: int
     requested_by: int | None = None
@@ -58,14 +64,17 @@ class AnalysisOut(BaseModel):
 
 
 class AnalysisListResponse(BaseModel):
+    """response ของ GET analysis list ของ report หนึ่งใบ"""
     data: list[AnalysisOut]
 
 
 class AnalyzeResponse(BaseModel):
+    """response หลังสั่งวิเคราะห์ report — คืนผลวิเคราะห์ล่าสุดที่เพิ่งสร้าง"""
     ok: bool
     analysis: AnalysisOut
 
 
 class TriageDecideRequest(BaseModel):
+    """request body ตอนแพทย์ตัดสิน triage ของผลวิเคราะห์ (รับ/ปฏิเสธ/ขอตรวจซ้ำ)"""
     decision: Literal["accept", "reject", "review"]
     note: str | None = Field(default=None, max_length=500)

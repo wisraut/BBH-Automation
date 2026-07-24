@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AuthContext } from '../lib/auth'
 import type { AuthContextValue, DashboardUser, Role } from '../lib/auth'
 import { api, clearToken, getToken, setToken } from '../lib/api'
@@ -27,9 +28,12 @@ const DEV_MOCK_USER: DashboardUser | null =
     ? { id: 0, email: `dev+${_devRole}@local`, display_name: 'หมอพรีวิว', role: _devRole as Role }
     : null
 
+// Provider จัดการ auth ทั้งแอป — hydrate user จาก token ตอนโหลด, ให้ login/logout,
+// ผูก AI chat store กับผู้ใช้ปัจจุบัน และ redirect ไป /login เมื่อ session หมดอายุ (401)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DashboardUser | null>(DEV_MOCK_USER)
   const [isReady, setIsReady] = useState(DEV_MOCK_USER !== null)
+  const navigate = useNavigate()
 
   // Scope AI chat history (localStorage) to the current user so switching
   // accounts in the same browser does not leak the previous user's sessions.
@@ -98,10 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } finally {
           clearToken()
           setUser(null)
+          // Land on a clean /login without a `from` intent. Otherwise
+          // ProtectedRoute would stamp the current page as `state.from`, and a
+          // fresh login (possibly as a different role) would be sent back to the
+          // previous role's page instead of the new role's home.
+          navigate('/login', { replace: true })
         }
       },
     }),
-    [user, isReady],
+    [user, isReady, navigate],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

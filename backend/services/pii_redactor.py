@@ -1,57 +1,62 @@
 """PII masking layer for outbound LLM calls (PDPA compliance).
 
-Anything that crosses out of the bridge to Dify (which proxies to OpenRouter →
-Gemini outside Thailand) must pass through `redact_for_llm` first. The goal
-is to strip identifiers the model does not need to give useful medical advice
-while preserving clinical content (lab values, symptoms, drug names).
+Anything that crosses out of the bridge to the LLM (OpenRouter -> Gemini,
+outside Thailand) must pass through `redact_text` first. Strip identifiers the
+model does not need, while preserving medical content (lab values, symptoms,
+drug names).
 
-Strategy:
-- Universal regex patterns (citizen ID, phone, email, HN codes, PT codes,
-  LINE user IDs)
-- Caller-supplied exact strings (patient display_name, nickname) — longest
-  first to avoid partial overlap
-
-What we *don't* try to do here:
-- Detect arbitrary Thai person names in free text (too many false positives
-  on common Thai words). The known-name list from DB is the safety net.
-- Round-trip mapping for un-redaction. The staff assistant replies in
-  general terms and references "คนไข้รายนี้" — not patient names.
+Hardened against the ways real Thai messages evade a naive regex (same class of
+bypass as the emergency safety gate):
+  - `_prep` removes zero-width chars and folds Thai digits ๐-๙ -> 0-9 so a phone
+    typed in Thai numerals still matches. (1:1 / length-preserving, so the
+    redacted output stays readable.)
+  - phone / citizen-id / HN patterns tolerate ANY separator (space, dot, dash)
+    between digits, but are pinned to the real digit counts (10 / 13) so short
+    lab values are NOT over-redacted.
+  - name matching allows flexible whitespace between tokens.
+Errs toward over-redaction on ambiguous digit runs (a wrongly-masked number is
+safe; a leaked ID is not) — but the digit-count anchors keep lab values intact.
 """
 import re
+import unicodedata
+
+_ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿"), None)
+_THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 
 
-# Thai citizen ID: 13 digits, with or without dashes (1-2345-67890-12-3)
-_THAI_ID = re.compile(r"\b\d-?\d{4}-?\d{5}-?\d{2}-?\d\b")
+def _prep(text: str) -> str:
+    """ปรับข้อความก่อน redact ให้ regex จับไม่พลาด: normalize NFC, ลบ zero-width
+    char, และแปลงเลขไทย ๐-๙ เป็น 0-9 (1:1 คงความยาว) กันเทคนิคเลี่ยง PII regex
+    ด้วยการพิมพ์เบอร์/เลขบัตรเป็นเลขไทยหรือแทรกอักขระซ่อน"""
+    t = unicodedata.normalize("NFC", text or "")
+    t = t.translate(_ZERO_WIDTH)
+    t = t.translate(_THAI_DIGITS)
+    return t
 
-# Thai phone: 0x-xxx-xxxx, 02-xxx-xxxx, +66x-xxx-xxxx (mobile + landline)
-_PHONE = re.compile(
-    r"(?<!\d)(?:\+66\s?|0)[2-9]\d{1,2}[-\s]?\d{3,4}[-\s]?\d{3,4}(?!\d)"
-)
+
+_SEP = r"[\s.\-]?"  # optional separator between digits
+
+# Thai citizen ID: 13 digits, any/no separators.
+_THAI_ID = re.compile(rf"(?<!\d)\d(?:{_SEP}\d){{12}}(?!\d)")
+
+# Thai phone: 0 or +66 then 8-9 more digits (9-10 total), any/no separators.
+_PHONE = re.compile(rf"(?<!\d)(?:\+66|0)(?:{_SEP}\d){{8,9}}(?!\d)")
 
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 
-# Hospital number formats:
-#   HN-2024-001, HN-2024-1234
-#   26-0001 (HN counter format)
-_HN = re.compile(r"\bHN-\d{4}-\d+\b|(?<!\d)\d{2}-\d{4,}(?!\d)")
+# HN: HN-2024-001 / HN 2024 001, or the 26-0001 counter (also 260001 / 26 0001).
+_HN = re.compile(rf"\bHN{_SEP}\d{{4}}{_SEP}\d+\b|(?<!\d)\d{{2}}{_SEP}\d{{4,}}(?!\d)")
 
-# Patient code PT001-PT999 used during LINE registration
 _PT_CODE = re.compile(r"\bPT\d{3,}\b")
-
-# LINE user id (32-char hex prefixed with U)
 _LINE_UID = re.compile(r"\bU[a-fA-F0-9]{32}\b")
 
 
 def redact_text(text: str, *, known_names: list[str] | None = None) -> str:
-    """Mask universal PII patterns plus caller-supplied exact names.
-
-    Designed to run on the FINAL prompt string just before it leaves
-    ai_service for Dify. Cheap regex work; safe to run on long bodies.
-    """
+    """Mask universal PII patterns plus caller-supplied exact names."""
     if not text:
         return text
 
-    out = text
+    out = _prep(text)
     out = _THAI_ID.sub("[CITIZEN_ID]", out)
     out = _PHONE.sub("[PHONE]", out)
     out = _EMAIL.sub("[EMAIL]", out)
@@ -60,14 +65,16 @@ def redact_text(text: str, *, known_names: list[str] | None = None) -> str:
     out = _LINE_UID.sub("[LINE_UID]", out)
 
     if known_names:
-        # Longest-first prevents masking "สมชาย" inside "สมชาย สมหญิง" twice.
         seen: set[str] = set()
         for name in sorted(known_names, key=len, reverse=True):
             n = (name or "").strip()
             if len(n) < 2 or n in seen:
                 continue
             seen.add(n)
-            out = out.replace(n, "[PATIENT_NAME]")
+            # Flexible whitespace between name tokens defeats space/zero-width
+            # tricks ("สมชาย​ใจดี" == "สมชาย ใจดี").
+            pat = re.compile(r"\s*".join(re.escape(tok) for tok in n.split()))
+            out = pat.sub("[PATIENT_NAME]", out)
     return out
 
 

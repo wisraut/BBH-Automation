@@ -58,6 +58,9 @@ def list_access(
     page: int = 1,
     limit: int = 50,
 ) -> tuple[list[dict[str, Any]], int]:
+    """ดึง audit log การเข้าถึงข้อมูลคนไข้ พร้อม filter (actor/patient/action/ช่วงวัน)
+    + join ชื่อ+HN คนไข้. คืน (rows, total) สำหรับหน้า audit ที่มี paging.
+    extra_json ถูก decode เป็น object ก่อนคืน."""
     conditions: list[str] = []
     args: list[Any] = []
     if actor_id is not None:

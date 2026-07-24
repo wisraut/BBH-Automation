@@ -14,6 +14,9 @@ router = APIRouter()
 
 @router.post("/webhook/cro")
 async def webhook_cro(request: Request, background_tasks: BackgroundTasks):
+    """Webhook รับ event จาก LINE ช่อง CRO (LINE เรียกเข้ามา) — verify signature แล้ว
+    แยกทาง: ถ้าเป็นทีม CRO ที่ลงทะเบียนแล้วส่งเข้า handle_team_command, ถ้าพิมพ์รหัส
+    CROxxx ให้ลงทะเบียน, นอกนั้นตอบวิธีใช้งาน. ปิดช่อง = 503"""
     if not CRO_CHANNEL_ENABLED:
         raise HTTPException(status_code=503, detail="CRO channel not configured")
 
@@ -58,6 +61,8 @@ async def webhook_cro(request: Request, background_tasks: BackgroundTasks):
 
 
 def _handle_cro_registration(reply_token: str, user_id: str, code: str) -> None:
+    """ลงทะเบียน CRO ด้วยรหัส CROxxx ที่พิมพ์ใน LINE แล้วตอบกลับตามผล (สำเร็จ +
+    เมนูคำสั่ง / ลงทะเบียนแล้ว / รหัสถูกใช้ / ไม่พบรหัส) — ผูก LINE user_id เข้ากับ CRO"""
     status, c = cro.try_register(user_id, code)
     if status == "registered":
         line_client.reply(

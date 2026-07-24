@@ -11,7 +11,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Health */
+        /**
+         * Health
+         * @description health check สาธารณะ — คืนสถานะ bridge + public url + webhook url
+         *     ให้ระบบภายนอก (Cloudflare/monitor) ตรวจว่าบริการพร้อม; คืน 503 ระหว่าง draining
+         */
         get: operations["health__get"];
         put?: never;
         post?: never;
@@ -28,7 +32,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Internal Health Full */
+        /**
+         * Internal Health Full
+         * @description health check ละเอียด (token-protected, monitor ภายในเรียก) — ตรวจ bridge +
+         *     DB (พร้อมสถิติ reports ready/analyzing/stale) + tunnel; คืน overall ok/degraded/error
+         */
         get: operations["internal_health_full_internal_health_full_get"];
         put?: never;
         post?: never;
@@ -182,6 +190,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Conversations
+         * @description The current user's chat conversations for the sidebar (server-side history —
+         *     replaces the old localStorage list, so it follows the user across devices).
+         */
+        get: operations["list_conversations_api_ai_conversations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/conversations/{token}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation Messages
+         * @description Full message history of one conversation (owner-scoped). 404 if the token
+         *     isn't this user's — same IDOR guard as resuming a conversation.
+         */
+        get: operations["conversation_messages_api_ai_conversations__token__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/conversations/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Conversation
+         * @description Delete a conversation and its messages (owner-scoped).
+         */
+        delete: operations["delete_conversation_api_ai_conversations__token__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/conversations/{token}/patient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Pin Patient
+         * @description Pin/unpin the patient context for a conversation (owner-scoped).
+         */
+        patch: operations["pin_patient_api_ai_conversations__token__patient_patch"];
+        trace?: never;
+    };
     "/webhook": {
         parameters: {
             query?: never;
@@ -191,7 +281,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Webhook */
+        /**
+         * Webhook
+         * @description webhook หลักที่ LINE เรียกเข้ามาทุกข้อความจากคนไข้ — verify signature,
+         *     log inbound, enqueue แล้ว dispatch งานหนัก (n8n + AI) เป็น background task
+         *     ต้องคืน 200 เร็วภายใน 1-2 วิ ไม่งั้น LINE retry; non-text ตอบ guide ให้พิมพ์ข้อความ
+         */
         post: operations["webhook_webhook_post"];
         delete?: never;
         options?: never;
@@ -208,7 +303,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Webhook Cro */
+        /**
+         * Webhook Cro
+         * @description Webhook รับ event จาก LINE ช่อง CRO (LINE เรียกเข้ามา) — verify signature แล้ว
+         *     แยกทาง: ถ้าเป็นทีม CRO ที่ลงทะเบียนแล้วส่งเข้า handle_team_command, ถ้าพิมพ์รหัส
+         *     CROxxx ให้ลงทะเบียน, นอกนั้นตอบวิธีใช้งาน. ปิดช่อง = 503
+         */
         post: operations["webhook_cro_webhook_cro_post"];
         delete?: never;
         options?: never;
@@ -225,12 +325,16 @@ export interface paths {
         };
         /**
          * Get Session
-         * @description Return the Dify conversation_id + effective AI mode for this LINE user.
-         *     n8n branches on `effective_mode` before deciding whether to call Dify.
+         * @description Return the cached conversation id + effective AI mode for this LINE user.
+         *     n8n branches on `effective_mode` before deciding whether to call the RAG bot.
          */
         get: operations["get_session_internal_session__channel___user_id__get"];
         put?: never;
-        /** Save Session */
+        /**
+         * Save Session
+         * @description endpoint ภายใน (n8n เรียก) — บันทึก/อัปเดต conversation id + current_state
+         *     ของ session ผู้ใช้ LINE ลง bot_sessions หลังคุยกับ RAG จบรอบ
+         */
         post: operations["save_session_internal_session__channel___user_id__post"];
         delete?: never;
         options?: never;
@@ -270,9 +374,30 @@ export interface paths {
         put?: never;
         /**
          * Log Message
-         * @description n8n calls this after Dify replies so we can render chat history.
+         * @description n8n calls this after the bot replies so we can render chat history.
          */
         post: operations["log_message_internal_message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/rag/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rag Answer
+         * @description endpoint ภายในให้ n8n เรียก — รับข้อความลูกค้าจาก LINE ส่งเข้า RAG
+         *     pipeline แล้วคืน answer + route_prefix ให้ n8n เอาไปตอบ/แตกสาขา
+         */
+        post: operations["rag_answer_internal_rag_answer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -288,7 +413,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Booking */
+        /**
+         * Create Booking
+         * @description สร้าง booking จากบอต LINE (n8n เรียกด้วย internal token) — INSERT ลง
+         *     booking_requests สถานะ pending_approval รอ CRO อนุมัติ. ชื่อ/เบอร์มาจาก free-text คนไข้
+         */
         post: operations["create_booking_internal_booking_post"];
         delete?: never;
         options?: never;
@@ -303,7 +432,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Latest Cro User */
+        /**
+         * Get Latest Cro User
+         * @description คืน LINE user_id ของ CRO ที่ทักล่าสุด (n8n เรียกด้วย internal token) — ใช้เป็น
+         *     ปลายทาง push แจ้ง booking ใหม่; กรอง test user เอาเฉพาะ userId LINE จริง
+         */
         get: operations["get_latest_cro_user_internal_booking_cro_user_latest_get"];
         put?: never;
         post?: never;
@@ -320,7 +453,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Latest Pending */
+        /**
+         * Get Latest Pending
+         * @description คืน booking ที่ pending_approval ล่าสุด (n8n เรียกด้วย internal token) — ใช้ให้ CRO
+         *     ยืนยัน/ปฏิเสธด้วยคำสั่งข้อความโดยไม่ต้องอ้าง uid; ไม่มีรายการค้าง = 404
+         */
         get: operations["get_latest_pending_internal_booking_latest_pending_get"];
         put?: never;
         post?: never;
@@ -337,7 +474,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Booking */
+        /**
+         * Get Booking
+         * @description คืนรายละเอียด booking หนึ่งรายการตาม request_uid (n8n เรียกด้วย internal token)
+         *     — แปลงค่า datetime เป็น ISO ก่อนส่ง; ไม่พบ = 404
+         */
         get: operations["get_booking_internal_booking__request_uid__get"];
         put?: never;
         post?: never;
@@ -356,7 +497,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve Booking */
+        /**
+         * Approve Booking
+         * @description อนุมัติ booking จากฝั่ง LINE (CRO กด CONFIRM ในแชท → n8n เรียกด้วย internal
+         *     token) — mark approved + สร้าง/ผูก patient (gen HN) ผ่าน booking_repo; ไม่ได้ pending = 409
+         */
         post: operations["approve_booking_internal_booking__request_uid__approve_post"];
         delete?: never;
         options?: never;
@@ -373,7 +518,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reject Booking */
+        /**
+         * Reject Booking
+         * @description ปฏิเสธ booking จากฝั่ง LINE (CRO กด REJECT ในแชท → n8n เรียกด้วย internal
+         *     token) — เปลี่ยนสถานะเป็น rejected พร้อมบันทึกเหตุผลลง notes
+         */
         post: operations["reject_booking_internal_booking__request_uid__reject_post"];
         delete?: never;
         options?: never;
@@ -411,7 +560,11 @@ export interface paths {
         };
         /**
          * List Bookings
-         * @description List bookings with optional status filter + pagination.
+         * @description List bookings with pagination.
+         *
+         *     Filter by exact ``status`` (wins if given) or by lifecycle ``group``
+         *     (``active`` = pending_approval/approved, ``history`` = rejected/cancelled/
+         *     expired/no_show). Defaults to ``active`` when neither is provided.
          */
         get: operations["list_bookings_api_bookings_get"];
         put?: never;
@@ -424,6 +577,28 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/bookings/{request_uid}/video-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Video Link
+         * @description Set (or clear) the online-meeting link on an approved booking. Written to
+         *     the booking's Google Calendar event, so the doctor sees a join button and
+         *     Google Calendar reminds at the appointment time.
+         */
+        patch: operations["set_video_link_api_bookings__request_uid__video_link_patch"];
         trace?: never;
     };
     "/api/bookings/{request_uid}": {
@@ -562,6 +737,9 @@ export interface paths {
         /**
          * List Patients
          * @description List patients with optional search (name/HN/phone) + pagination.
+         *
+         *     ``mine=true`` restricts to the caller's care-team panel (only meaningful for
+         *     a doctor; other roles have no panel and get an empty list).
          */
         get: operations["list_patients_api_patients_get"];
         put?: never;
@@ -616,12 +794,57 @@ export interface paths {
         /**
          * Patient Ai Summary
          * @description Generate a short pre-visit Thai brief by passing the medical bundle
-         *     (PII-redacted) to the staff Dify app. Cached client-side per session.
+         *     (PII-redacted) to the staff AI assistant. Cached client-side per session.
          */
         get: operations["patient_ai_summary_api_patients__patient_id__ai_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/care-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Care Team
+         * @description List the patient's care team (active members, primary first).
+         */
+        get: operations["get_care_team_api_patients__patient_id__care_team_get"];
+        put?: never;
+        /**
+         * Add Care Team Member
+         * @description Add a doctor to the care team (or change their role). A `primary` demotes
+         *     the previous primary to `specialist`.
+         */
+        post: operations["add_care_team_member_api_patients__patient_id__care_team_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/care-team/{doctor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Care Team Member
+         * @description Remove a doctor from the care team (soft — history retained).
+         */
+        delete: operations["remove_care_team_member_api_patients__patient_id__care_team__doctor_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -789,7 +1012,7 @@ export interface paths {
         put?: never;
         /**
          * Analyze Report
-         * @description Run Dify analysis for a report. Patient data crosses out to external
+         * @description Run AI analysis for a report. Patient data crosses out to external
          *     LLM here (PII-redacted in ai_service) — audit is mandatory.
          */
         post: operations["analyze_report_api_reports__report_id__analyze_post"];
@@ -813,6 +1036,150 @@ export interface paths {
          * @description Confirm the final triage decision for one analysis.
          */
         post: operations["decide_report_triage_api_reports_analyses__analysis_id__decide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalog
+         * @description Marker catalog (labels, units, reference + optimal ranges) so the
+         *     frontend never hardcodes clinical ranges.
+         */
+        get: operations["get_catalog_api_measurements_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/extract-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Measurements
+         * @description Run LLM extraction over a report's text into draft values. Patient data
+         *     crosses to the external LLM (PII-redacted in the extractor) — audit is
+         *     mandatory.
+         */
+        post: operations["extract_measurements_api_reports__report_id__extract_measurements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Patient Measurements
+         * @description List a patient's measurements. `status` = draft|confirmed|rejected;
+         *     `codes` = comma-separated marker codes.
+         */
+        get: operations["list_patient_measurements_api_patients__patient_id__measurements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{report_id}/measurement-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Report Drafts
+         * @description Draft values extracted from one report, for the review panel.
+         */
+        get: operations["list_report_drafts_api_reports__report_id__measurement_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/{measurement_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirm Measurement
+         * @description Confirm a draft (with optional doctor edits) so it becomes trusted.
+         */
+        put: operations["confirm_measurement_api_measurements__measurement_id__confirm_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/{measurement_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Measurement
+         * @description Discard a draft (kept for audit, never hard-deleted).
+         */
+        post: operations["reject_measurement_api_measurements__measurement_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/measurements/bulk-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Confirm Measurements
+         * @description Confirm many drafts at once (with per-row edits).
+         */
+        post: operations["bulk_confirm_measurements_api_measurements_bulk_confirm_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -846,10 +1213,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Admin List Users */
+        /**
+         * Admin List Users
+         * @description admin ดูรายการ user ทั้งระบบ กรองตาม role/สถานะ/คำค้น พร้อม pagination
+         */
         get: operations["admin_list_users_api_users_get"];
         put?: never;
-        /** Admin Create User */
+        /**
+         * Admin Create User
+         * @description admin สร้าง user ใหม่ (หมอ/พยาบาล/cro/admin) — กันอีเมลซ้ำ, เช็คความแข็งแรง
+         *     รหัสผ่าน, hash แล้ว insert; คืน user ที่เพิ่งสร้าง
+         */
         post: operations["admin_create_user_api_users_post"];
         delete?: never;
         options?: never;
@@ -870,7 +1244,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Admin Update User */
+        /**
+         * Admin Update User
+         * @description admin แก้ไขข้อมูล user (ชื่อ/role/specialty/สถานะ) — กันไม่ให้ admin
+         *     disable หรือลด role ของตัวเอง; คืน user หลังอัปเดต
+         */
         patch: operations["admin_update_user_api_users__user_id__patch"];
         trace?: never;
     };
@@ -883,7 +1261,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Admin Reset Password */
+        /**
+         * Admin Reset Password
+         * @description admin รีเซ็ตรหัสผ่านให้ user คนอื่น — เช็คความแข็งแรงรหัสใหม่แล้ว hash เก็บ;
+         *     raise 404 ถ้าไม่พบ user
+         */
         post: operations["admin_reset_password_api_users__user_id__reset_password_post"];
         delete?: never;
         options?: never;
@@ -980,7 +1362,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Acknowledge Alert */
+        /**
+         * Acknowledge Alert
+         * @description รับทราบ (acknowledge) alert หนึ่งรายการ — admin กดจากหน้า Action Required
+         *     เพื่อบอกว่ากำลังดูแลอยู่. บันทึกผู้กด + note และ snooze ได้ตาม snooze_hours
+         */
         post: operations["acknowledge_alert_api_admin_alerts__alert_id__acknowledge_post"];
         delete?: never;
         options?: never;
@@ -997,7 +1383,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resolve Alert */
+        /**
+         * Resolve Alert
+         * @description ปิด (resolve) alert หนึ่งรายการ — admin กดเมื่อจัดการปัญหาเสร็จแล้ว.
+         *     บันทึกผู้ปิด + เหตุผล (reason) + note ลง event history
+         */
         post: operations["resolve_alert_api_admin_alerts__alert_id__resolve_post"];
         delete?: never;
         options?: never;
@@ -1012,7 +1402,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Rules */
+        /**
+         * List Rules
+         * @description คืนรายการ alert rule ทั้งหมด (สถานะเปิด/ปิด + threshold) — admin ใช้แสดง
+         *     หน้าจัดการ rule
+         */
         get: operations["list_rules_api_admin_alert_rules_get"];
         put?: never;
         post?: never;
@@ -1035,7 +1429,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Patch Rule Enabled */
+        /**
+         * Patch Rule Enabled
+         * @description เปิด/ปิดการทำงานของ alert rule ตาม rule_key — admin ใช้ปิด rule ที่ noise
+         *     เกินไปโดยไม่ต้องลบทิ้ง
+         */
         patch: operations["patch_rule_enabled_api_admin_alert_rules__rule_key__enabled_patch"];
         trace?: never;
     };
@@ -1052,7 +1450,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Patch Rule Threshold */
+        /**
+         * Patch Rule Threshold
+         * @description ปรับค่า threshold ที่ทำให้ rule ยิง alert ตาม rule_key — admin ใช้จูนความไว
+         *     ของแต่ละ rule
+         */
         patch: operations["patch_rule_threshold_api_admin_alert_rules__rule_key__threshold_patch"];
         trace?: never;
     };
@@ -1127,10 +1529,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Blocks */
+        /**
+         * List Blocks
+         * @description staff (cro/หมอ/พยาบาล/admin) ดูรายการ block ตารางแพทย์ (ลา/ไม่อยู่/ประชุม)
+         *     กรองตามแพทย์และช่วงวันได้ — CRO ใช้เลี่ยงจองทับเวลาที่หมอไม่ว่าง
+         */
         get: operations["list_blocks_api_schedule_blocks_get"];
         put?: never;
-        /** Create Block */
+        /**
+         * Create Block
+         * @description หมอ (block ตัวเอง) / admin (block แทนได้) สร้าง block ตารางแพทย์ — บันทึก DB,
+         *     mirror ขึ้น Google Calendar (transparent), และเตือน CRO ทาง LINE ถ้าทับนัดที่ approve แล้ว
+         */
         post: operations["create_block_api_schedule_blocks_post"];
         delete?: never;
         options?: never;
@@ -1148,8 +1558,62 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Block */
+        /**
+         * Delete Block
+         * @description หมอ (ลบได้เฉพาะ block ตัวเอง) / admin ลบ block ตารางแพทย์ — ลบ event ที่ mirror
+         *     บน Google Calendar ก่อน (best-effort) แล้วลบ row; raise 404 ถ้าไม่พบ
+         */
         delete: operations["delete_block_api_schedule_blocks__block_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schedule/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Availability
+         * @description List a doctor's weekly template. Doctors default to their own.
+         */
+        get: operations["get_availability_api_schedule_availability_get"];
+        /**
+         * Put Availability
+         * @description Replace the doctor's whole weekly template.
+         */
+        put: operations["put_availability_api_schedule_availability_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description คืนค่าตั้งค่าส่วนตัวของผู้ใช้ที่ล็อกอิน (NotebookLM link + Google Calendar id) —
+         *     self-scoped อ่านได้เฉพาะของตัวเอง
+         */
+        get: operations["get_settings_api_account_settings_get"];
+        /**
+         * Put Settings
+         * @description บันทึกค่าตั้งค่าส่วนตัวของผู้ใช้ที่ล็อกอิน (NotebookLM link + Google Calendar id) —
+         *     self-scoped; validate รูปแบบ URL/Calendar id ก่อน upsert, ผิด = 422
+         */
+        put: operations["put_settings_api_account_settings_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1162,7 +1626,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Bundle */
+        /**
+         * Get Bundle
+         * @description staff (cro/หมอ/พยาบาล/admin) ดึง medical bundle ครบชุดของคนไข้ (โรคประจำตัว/
+         *     แพ้ยา/ยา/ประวัติรักษา) ในรอบเดียวสำหรับหน้า patient detail; audit ทุกครั้ง
+         */
         get: operations["get_bundle_api_patients__patient_id__medical_bundle_get"];
         put?: never;
         post?: never;
@@ -1181,7 +1649,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Condition */
+        /**
+         * Add Condition
+         * @description หมอ/admin เพิ่มโรคประจำตัวให้คนไข้ แล้วคืนรายการที่เพิ่ง insert; audit ไว้
+         */
         post: operations["add_condition_api_patients__patient_id__conditions_post"];
         delete?: never;
         options?: never;
@@ -1199,7 +1670,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Condition */
+        /**
+         * Delete Condition
+         * @description หมอ/admin ลบโรคประจำตัวตาม id, raise 404 ถ้าไม่พบ; audit ไว้
+         */
         delete: operations["delete_condition_api_conditions__condition_id__delete"];
         options?: never;
         head?: never;
@@ -1215,7 +1689,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Allergy */
+        /**
+         * Add Allergy
+         * @description หมอ/admin เพิ่มประวัติแพ้ (ยา/สาร) ให้คนไข้ แล้วคืนรายการที่เพิ่ง insert; audit ไว้
+         */
         post: operations["add_allergy_api_patients__patient_id__allergies_post"];
         delete?: never;
         options?: never;
@@ -1233,7 +1710,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Allergy */
+        /**
+         * Delete Allergy
+         * @description หมอ/admin ลบประวัติแพ้ตาม id, raise 404 ถ้าไม่พบ; audit ไว้
+         */
         delete: operations["delete_allergy_api_allergies__allergy_id__delete"];
         options?: never;
         head?: never;
@@ -1249,7 +1729,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Medication */
+        /**
+         * Add Medication
+         * @description หมอ/admin เพิ่มยาที่คนไข้ใช้อยู่ แล้วคืนรายการที่เพิ่ง insert; audit ไว้
+         */
         post: operations["add_medication_api_patients__patient_id__medications_post"];
         delete?: never;
         options?: never;
@@ -1270,7 +1753,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Set Medication Active */
+        /**
+         * Set Medication Active
+         * @description หมอ/admin สลับสถานะยา active/หยุดใช้ ตาม med id, raise 404 ถ้าไม่พบ; audit ไว้
+         */
         patch: operations["set_medication_active_api_medications__med_id__active_patch"];
         trace?: never;
     };
@@ -1284,7 +1770,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Medication */
+        /**
+         * Delete Medication
+         * @description หมอ/admin ลบยาตาม id, raise 404 ถ้าไม่พบ; audit ไว้
+         */
         delete: operations["delete_medication_api_medications__med_id__delete"];
         options?: never;
         head?: never;
@@ -1300,7 +1789,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Treatment */
+        /**
+         * Add Treatment
+         * @description หมอ/admin เพิ่มประวัติการรักษา/ผ่าตัดให้คนไข้ แล้วคืนรายการที่เพิ่ง insert; audit ไว้
+         */
         post: operations["add_treatment_api_patients__patient_id__treatments_post"];
         delete?: never;
         options?: never;
@@ -1318,7 +1810,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Treatment */
+        /**
+         * Delete Treatment
+         * @description หมอ/admin ลบประวัติการรักษาตาม id, raise 404 ถ้าไม่พบ; audit ไว้
+         */
         delete: operations["delete_treatment_api_treatments__treatment_id__delete"];
         options?: never;
         head?: never;
@@ -1332,10 +1827,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Calls */
+        /**
+         * List Calls
+         * @description คืนประวัติการโทรของคนไข้หนึ่งคน (staff: cro/หมอ/พยาบาล/admin เรียกจากหน้า
+         *     คนไข้) — บันทึก audit การเข้าดู; ไม่พบคนไข้ = 404
+         */
         get: operations["list_calls_api_patients__patient_id__calls_get"];
         put?: never;
-        /** Add Call */
+        /**
+         * Add Call
+         * @description บันทึกการโทรใหม่ให้คนไข้ (staff เรียกหลังโทรหาคนไข้) — INSERT call log +
+         *     บันทึก audit แล้วคืนรายการที่เพิ่งสร้าง; ไม่พบคนไข้ = 404
+         */
         post: operations["add_call_api_patients__patient_id__calls_post"];
         delete?: never;
         options?: never;
@@ -1353,7 +1856,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Call */
+        /**
+         * Delete Call
+         * @description ลบรายการบันทึกการโทรตาม call_id (staff เรียกเมื่อบันทึกผิด) — บันทึก audit
+         *     การลบ; ไม่พบรายการ = 404
+         */
         delete: operations["delete_call_api_calls__call_id__delete"];
         options?: never;
         head?: never;
@@ -1369,7 +1876,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send Custom Message */
+        /**
+         * Send Custom Message
+         * @description CRO/admin ส่งข้อความเองไปหาคนไข้ทาง LINE — push ข้อความ, log outbound,
+         *     และ auto-pause AI ชั่วคราวไม่ให้บอทตอบแทรกระหว่าง CRO คุยอยู่; audit ไว้
+         */
         post: operations["send_custom_message_api_patients__patient_id__message_post"];
         delete?: never;
         options?: never;
@@ -1426,14 +1937,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AckRequest */
+        /**
+         * AckRequest
+         * @description request body ตอน admin กด acknowledge alert — note ประกอบ และ snooze_hours
+         *     (1 ชม. ถึง 30 วัน) สำหรับเลื่อนเวลากลับมาเตือน
+         */
         AckRequest: {
             /** Note */
             note?: string | null;
             /** Snooze Hours */
             snooze_hours?: number | null;
         };
-        /** AlertOut */
+        /**
+         * AlertOut
+         * @description response ของ alert หนึ่งใบ (รวมข้อมูล rule + สถานะ ack/resolve) — ใช้ที่
+         *     GET alert list/detail ในหน้า admin
+         */
         AlertOut: {
             /** Alert Id */
             alert_id: number;
@@ -1513,7 +2032,10 @@ export interface components {
              */
             total_active: number;
         };
-        /** AllergyCreate */
+        /**
+         * AllergyCreate
+         * @description request body ตอนเพิ่มประวัติแพ้ยา/สารก่อภูมิแพ้ให้คนไข้
+         */
         AllergyCreate: {
             /** Allergen */
             allergen: string;
@@ -1524,7 +2046,10 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /** AllergyOut */
+        /**
+         * AllergyOut
+         * @description response ของประวัติแพ้ยา/สารก่อภูมิแพ้หนึ่งรายการ
+         */
         AllergyOut: {
             /** Id */
             id: number;
@@ -1544,12 +2069,18 @@ export interface components {
              */
             created_at: string;
         };
-        /** AnalysisListResponse */
+        /**
+         * AnalysisListResponse
+         * @description response ของ GET analysis list ของ report หนึ่งใบ
+         */
         AnalysisListResponse: {
             /** Data */
             data: components["schemas"]["AnalysisOut"][];
         };
-        /** AnalysisOut */
+        /**
+         * AnalysisOut
+         * @description response ของผลวิเคราะห์ AI หนึ่งครั้ง (สรุป + triage decision + ใครตัดสิน)
+         */
         AnalysisOut: {
             /** Id */
             id: number;
@@ -1576,11 +2107,29 @@ export interface components {
              */
             created_at: string;
         };
-        /** AnalyzeResponse */
+        /**
+         * AnalyzeResponse
+         * @description response หลังสั่งวิเคราะห์ report — คืนผลวิเคราะห์ล่าสุดที่เพิ่งสร้าง
+         */
         AnalyzeResponse: {
             /** Ok */
             ok: boolean;
             analysis: components["schemas"]["AnalysisOut"];
+        };
+        /** AnswerRequest */
+        AnswerRequest: {
+            /**
+             * Channel
+             * @default line_main
+             */
+            channel: string;
+            /**
+             * External User Id
+             * @default
+             */
+            external_user_id: string;
+            /** Text */
+            text: string;
         };
         /** ApproveBooking */
         ApproveBooking: {
@@ -1600,7 +2149,11 @@ export interface components {
              */
             approved_by: string;
         };
-        /** ApproveRequest */
+        /**
+         * ApproveRequest
+         * @description request body ตอน CRO อนุมัติ booking — เวลาเริ่ม + แพทย์ + วิธี resolve ตัวตน
+         *     คนไข้ (link chart เดิม หรือสร้างใหม่เมื่อเบอร์ชนกัน; ดู PatientCandidate)
+         */
         ApproveRequest: {
             /**
              * Start At
@@ -1608,6 +2161,7 @@ export interface components {
              * @description ISO 8601 datetime (Asia/Bangkok). Slot start.
              */
             start_at: string;
+            patient_intake?: components["schemas"]["PatientIntake"] | null;
             /**
              * Duration Min
              * @default 60
@@ -1618,8 +2172,23 @@ export interface components {
              * @description Optional at the API layer for backwards compatibility. The Web ApproveModal enforces selection; LINE-originated confirms may arrive without one and be assigned later via /assign-doctor.
              */
             assigned_doctor_id?: number | null;
+            /**
+             * Link Patient Id
+             * @description Link to this existing patient id (must be one of the candidates).
+             */
+            link_patient_id?: number | null;
+            /**
+             * Create New Patient
+             * @description Create a fresh patient even though the phone matches an existing one.
+             * @default false
+             */
+            create_new_patient: boolean;
         };
-        /** ApproveResponse */
+        /**
+         * ApproveResponse
+         * @description response หลัง approve สำเร็จ — id/url ของ Google Calendar event ที่สร้าง +
+         *     คนไข้ที่ผูก (patient_id/hn)
+         */
         ApproveResponse: {
             /** Ok */
             ok: boolean;
@@ -1632,7 +2201,11 @@ export interface components {
             /** Hn */
             hn?: string | null;
         };
-        /** AssignDoctorRequest */
+        /**
+         * AssignDoctorRequest
+         * @description request body สำหรับกำหนด/ยกเลิกแพทย์ที่รับผิดชอบ booking (null = unassign) —
+         *     ใช้แก้ทีหลังกับนัดจาก LINE ที่ยังไม่มีแพทย์ตอน approve
+         */
         AssignDoctorRequest: {
             /**
              * Assigned Doctor Id
@@ -1640,7 +2213,10 @@ export interface components {
              */
             assigned_doctor_id: number | null;
         };
-        /** AuditLogItem */
+        /**
+         * AuditLogItem
+         * @description audit log เข้าใช้งานหนึ่งรายการ (login/logout/เปลี่ยนรหัส) — โชว์ประวัติของผู้ใช้
+         */
         AuditLogItem: {
             /** Id */
             id: number;
@@ -1660,10 +2236,29 @@ export interface components {
              */
             created_at: string;
         };
-        /** AuditLogListResponse */
+        /**
+         * AuditLogListResponse
+         * @description response ของ GET auth audit log ของผู้ใช้ตัวเอง
+         */
         AuditLogListResponse: {
             /** Data */
             data: components["schemas"]["AuditLogItem"][];
+        };
+        /** AvailabilityPutRequest */
+        AvailabilityPutRequest: {
+            /** Doctor Id */
+            doctor_id: number;
+            /** Ranges */
+            ranges?: components["schemas"]["AvailabilityRange"][];
+        };
+        /** AvailabilityRange */
+        AvailabilityRange: {
+            /** Day Of Week */
+            day_of_week: number;
+            /** Start Time */
+            start_time: string;
+            /** End Time */
+            end_time: string;
         };
         /** Body_upload_patient_report_api_patients__patient_id__reports_post */
         Body_upload_patient_report_api_patients__patient_id__reports_post: {
@@ -1690,6 +2285,18 @@ export interface components {
             /** Assigned Doctor Id */
             assigned_doctor_id?: number | null;
         };
+        /**
+         * BookSource
+         * @description แหล่งอ้างอิงตำราแพทย์ที่ถูกดึงมา ground คำตอบ — โชว์เป็น footnote ใต้คำตอบ AI
+         */
+        BookSource: {
+            /** Title */
+            title: string;
+            /** Page */
+            page?: number | null;
+            /** Score */
+            score?: number | null;
+        };
         /** BookingCreate */
         BookingCreate: {
             /** User Id */
@@ -1706,12 +2313,17 @@ export interface components {
             symptom: string;
             /** Email */
             email?: string | null;
+            /** Nationality */
+            nationality?: string | null;
             /** Raw Summary */
             raw_summary?: {
                 [key: string]: unknown;
             } | null;
         };
-        /** BookingCreateRequest */
+        /**
+         * BookingCreateRequest
+         * @description request body ตอน CRO สร้าง booking เอง (เช่นรับนัดทางโทรศัพท์)
+         */
         BookingCreateRequest: {
             /** Patient Name */
             patient_name: string;
@@ -1733,14 +2345,20 @@ export interface components {
              */
             booking_source: "line" | "phone" | "whatsapp" | "email" | "walkin";
         };
-        /** BookingCreateResponse */
+        /**
+         * BookingCreateResponse
+         * @description response หลังสร้าง booking — คืน request_uid ของนัดใหม่
+         */
         BookingCreateResponse: {
             /** Ok */
             ok: boolean;
             /** Request Uid */
             request_uid: string;
         };
-        /** BookingListItem */
+        /**
+         * BookingListItem
+         * @description แถวสรุป booking สำหรับ list view (field ที่จำเป็นต่อการแสดงในตาราง)
+         */
         BookingListItem: {
             /** Request Uid */
             request_uid: string;
@@ -1767,19 +2385,28 @@ export interface components {
              * @enum {string}
              */
             appointment_type: "new" | "followup" | "procedure" | "consult";
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
         };
-        /** BookingListResponse */
+        /**
+         * BookingListResponse
+         * @description response ของ GET booking list แบบแบ่งหน้า
+         */
         BookingListResponse: {
             /** Data */
             data: components["schemas"]["BookingListItem"][];
             pagination: components["schemas"]["PaginationMeta"];
         };
-        /** BookingOut */
+        /**
+         * BookingOut
+         * @description response แบบเต็มของ booking หนึ่งใบ (ต่อยอดจาก list item เพิ่มข้อมูล calendar,
+         *     การ approve, patient link, และ candidate คนไข้ที่เบอร์ตรงกัน) — ใช้ในหน้า detail
+         */
         BookingOut: {
             /** Request Uid */
             request_uid: string;
@@ -1806,6 +2433,8 @@ export interface components {
              * @enum {string}
              */
             appointment_type: "new" | "followup" | "procedure" | "consult";
+            /** Assigned Doctor Id */
+            assigned_doctor_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -1831,8 +2460,6 @@ export interface components {
             calendar_event_url?: string | null;
             /** Calendar Status */
             calendar_status: string;
-            /** Assigned Doctor Id */
-            assigned_doctor_id?: number | null;
             /** Patient Id */
             patient_id?: number | null;
             /** Notes */
@@ -1850,6 +2477,44 @@ export interface components {
             reminder_24h_sent_at?: string | null;
             /** Reminder 1H Sent At */
             reminder_1h_sent_at?: string | null;
+            /**
+             * Patient Candidates
+             * @default []
+             */
+            patient_candidates: components["schemas"]["PatientCandidate"][];
+        };
+        /**
+         * BulkConfirmItem
+         * @description หนึ่งรายการใน bulk confirm — id ของ draft ที่จะยืนยัน + field ที่จะแก้ (optional)
+         */
+        BulkConfirmItem: {
+            /** Id */
+            id: number;
+            /** Code */
+            code?: string | null;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * BulkConfirmRequest
+         * @description request body สำหรับยืนยันค่าแล็บหลายตัวพร้อมกัน (1-100 รายการ)
+         */
+        BulkConfirmRequest: {
+            /** Items */
+            items: components["schemas"]["BulkConfirmItem"][];
+        };
+        /** BulkConfirmResponse */
+        BulkConfirmResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Confirmed */
+            confirmed: number;
         };
         /** CalendarEventOut */
         CalendarEventOut: {
@@ -1869,6 +2534,10 @@ export interface components {
             end: string;
             /** All Day */
             all_day: boolean;
+            /** Location */
+            location?: string | null;
+            /** Video Link */
+            video_link?: string | null;
         };
         /** CalendarEventsResponse */
         CalendarEventsResponse: {
@@ -1899,7 +2568,10 @@ export interface components {
             /** Called At */
             called_at?: string | null;
         };
-        /** CancelRequest */
+        /**
+         * CancelRequest
+         * @description request body ตอนยกเลิก booking ที่อนุมัติไปแล้ว — เหตุผลประกอบ
+         */
         CancelRequest: {
             /**
              * Reason
@@ -1907,16 +2579,83 @@ export interface components {
              */
             reason: string;
         };
-        /** ChangePasswordRequest */
+        /** CareTeamAddRequest */
+        CareTeamAddRequest: {
+            /** Doctor Id */
+            doctor_id: number;
+            /**
+             * Role
+             * @default specialist
+             * @enum {string}
+             */
+            role: "primary" | "specialist" | "consultant";
+        };
+        /**
+         * CatalogItem
+         * @description response ของ marker หนึ่งตัวใน catalog (label + หน่วย + ช่วงอ้างอิง/optimal) —
+         *     ให้ frontend ใช้แทนการ hardcode ช่วงค่าเอง
+         */
+        CatalogItem: {
+            /** Code */
+            code: string;
+            /** Label Th */
+            label_th: string;
+            /** Unit */
+            unit: string;
+            /** Panel */
+            panel: string;
+            /** Ref Low */
+            ref_low: number;
+            /** Ref High */
+            ref_high: number;
+            /** Optimal Low */
+            optimal_low: number;
+            /** Optimal High */
+            optimal_high: number;
+        };
+        /**
+         * CatalogResponse
+         * @description response ของ GET marker catalog
+         */
+        CatalogResponse: {
+            /** Data */
+            data: components["schemas"]["CatalogItem"][];
+        };
+        /**
+         * ChangePasswordRequest
+         * @description request body ของเปลี่ยนรหัสผ่าน — รหัสเดิม + รหัสใหม่ (ยาว 10-128; ความแข็งแรง
+         *     เช็คเพิ่มที่ service layer)
+         */
         ChangePasswordRequest: {
             /** Old Password */
             old_password: string;
             /** New Password */
             new_password: string;
         };
-        /** ChatRequest */
+        /**
+         * ChatImage
+         * @description รูปแนบในแชท staff — base64 (ไม่รวม `data:` prefix) + mime; validate ชนิด+ขนาด
+         *     ฝั่ง server เสมอ (ห้ามเชื่อ client). `data` (รูปเต็ม) ส่งให้ LLM แล้วทิ้งไม่เก็บ;
+         *     `thumb` (data URL ย่อ) คือสิ่งที่เก็บลง DB เพื่อโชว์ประวัติ
+         */
+        ChatImage: {
+            /** Mime Type */
+            mime_type: string;
+            /** Data */
+            data: string;
+            /** Thumb */
+            thumb?: string | null;
+        };
+        /**
+         * ChatRequest
+         * @description request body ของ staff AI chat (/ai) — ข้อความ + conversation_id (ต่อบทสนทนา)
+         *     + patient_id ที่ pin ไว้ (ถ้ามี backend จะ prepend context คนไข้) + image (ถ้าแนบรูป)
+         */
         ChatRequest: {
-            /** Message */
+            /**
+             * Message
+             * @default
+             */
             message: string;
             /**
              * Conversation Id
@@ -1925,15 +2664,28 @@ export interface components {
             conversation_id: string;
             /** Patient Id */
             patient_id?: number | null;
+            image?: components["schemas"]["ChatImage"] | null;
         };
-        /** ChatResponse */
+        /**
+         * ChatResponse
+         * @description response ของ staff AI chat — คำตอบ + conversation_id ให้ client ใช้ต่อเทิร์นถัดไป
+         *     + book_sources (ถ้าคำตอบ ground ด้วยตำราแพทย์)
+         */
         ChatResponse: {
             /** Answer */
             answer: string;
             /** Conversation Id */
             conversation_id: string;
+            /**
+             * Book Sources
+             * @default []
+             */
+            book_sources: components["schemas"]["BookSource"][];
         };
-        /** ConditionCreate */
+        /**
+         * ConditionCreate
+         * @description request body ตอนเพิ่มโรคประจำตัวให้คนไข้
+         */
         ConditionCreate: {
             /** Condition Name */
             condition_name: string;
@@ -1950,7 +2702,10 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /** ConditionOut */
+        /**
+         * ConditionOut
+         * @description response ของโรคประจำตัวหนึ่งรายการในบันทึกเวชระเบียนคนไข้
+         */
         ConditionOut: {
             /** Id */
             id: number;
@@ -1980,17 +2735,40 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * ConfirmRequest
+         * @description request body ตอนแพทย์ยืนยันค่าแล็บทีละตัว — ทุก field optional (ยืนยันค่าที่
+         *     สกัดได้เลย หรือแก้ก่อนยืนยัน)
+         */
+        ConfirmRequest: {
+            /** Code */
+            code?: string | null;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
         /** CustomMessageRequest */
         CustomMessageRequest: {
             /** Message */
             message: string;
         };
-        /** DoctorListResponse */
+        /**
+         * DoctorListResponse
+         * @description response ของ GET รายชื่อแพทย์ (ใช้เติม dropdown assign แพทย์)
+         */
         DoctorListResponse: {
             /** Data */
             data: components["schemas"]["DoctorOut"][];
         };
-        /** DoctorOut */
+        /**
+         * DoctorOut
+         * @description ข้อมูลแพทย์แบบย่อสำหรับ dropdown เลือกแพทย์ (id + ชื่อ + สาขา)
+         */
         DoctorOut: {
             /** Id */
             id: number;
@@ -1998,6 +2776,22 @@ export interface components {
             display_name: string;
             /** Specialty */
             specialty?: string | null;
+        };
+        /**
+         * ExtractResponse
+         * @description response หลังสกัดค่าแล็บด้วย AI — คืน draft ที่สกัดได้ + parse_error (true ถ้า
+         *     LLM คืน JSON ไม่ถูกรูป จึงได้ 0 แถว ให้กรอกเอง)
+         */
+        ExtractResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Data */
+            data: components["schemas"]["MeasurementOut"][];
+            /**
+             * Parse Error
+             * @default false
+             */
+            parse_error: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2023,14 +2817,20 @@ export interface components {
             /** Route Prefix */
             route_prefix?: string | null;
         };
-        /** LoginRequest */
+        /**
+         * LoginRequest
+         * @description request body ของ POST login — email + password
+         */
         LoginRequest: {
             /** Email */
             email: string;
             /** Password */
             password: string;
         };
-        /** LoginResponse */
+        /**
+         * LoginResponse
+         * @description response ของ login สำเร็จ — JWT token + ข้อมูล user + เวลาหมดอายุ token
+         */
         LoginResponse: {
             /** Token */
             token: string;
@@ -2041,11 +2841,70 @@ export interface components {
              */
             expires_at: string;
         };
-        /** MeResponse */
+        /**
+         * MeResponse
+         * @description response ของ GET me — ข้อมูล user ที่ล็อกอินอยู่
+         */
         MeResponse: {
             user: components["schemas"]["schemas__auth__UserOut"];
         };
-        /** MedicalBundle */
+        /**
+         * MeasurementListResponse
+         * @description response ของ GET measurement list
+         */
+        MeasurementListResponse: {
+            /** Data */
+            data: components["schemas"]["MeasurementOut"][];
+        };
+        /**
+         * MeasurementOut
+         * @description response ของค่าแล็บ/biomarker หนึ่งค่า (draft/confirmed/rejected) พร้อมข้อมูล
+         *     ผู้ยืนยัน — ใช้ในหน้า LabResults/Biomarker
+         */
+        MeasurementOut: {
+            /** Id */
+            id: number;
+            /** Patient Id */
+            patient_id: number;
+            /** Report Id */
+            report_id?: number | null;
+            /** Code */
+            code: string;
+            /** Value */
+            value: number;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Measured At
+             * Format: date
+             */
+            measured_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "confirmed" | "rejected";
+            /** Raw Label */
+            raw_label?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Created By */
+            created_by?: number | null;
+            /** Confirmed By */
+            confirmed_by?: number | null;
+            /** Confirmed At */
+            confirmed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * MedicalBundle
+         * @description response รวมเวชระเบียนคนไข้ทุกส่วน (โรค/แพ้ยา/ยา/ประวัติรักษา) ในก้อนเดียว —
+         *     ให้หน้าเวชระเบียนดึงครบทีเดียว
+         */
         MedicalBundle: {
             /** Conditions */
             conditions: components["schemas"]["ConditionOut"][];
@@ -2056,12 +2915,18 @@ export interface components {
             /** Treatments */
             treatments: components["schemas"]["TreatmentOut"][];
         };
-        /** MedicationActiveUpdate */
+        /**
+         * MedicationActiveUpdate
+         * @description request body สำหรับ toggle สถานะยา (กำลังใช้/หยุดใช้) โดยไม่แตะ field อื่น
+         */
         MedicationActiveUpdate: {
             /** Is Active */
             is_active: boolean;
         };
-        /** MedicationCreate */
+        /**
+         * MedicationCreate
+         * @description request body ตอนเพิ่มยาที่คนไข้ใช้
+         */
         MedicationCreate: {
             /** Drug Name */
             drug_name: string;
@@ -2081,7 +2946,10 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /** MedicationOut */
+        /**
+         * MedicationOut
+         * @description response ของยาที่คนไข้ใช้หนึ่งรายการ (is_active บอกว่ายังใช้อยู่หรือหยุดแล้ว)
+         */
         MedicationOut: {
             /** Id */
             id: number;
@@ -2125,12 +2993,18 @@ export interface components {
              */
             reason: string;
         };
-        /** NotebookLmUpdateRequest */
+        /**
+         * NotebookLmUpdateRequest
+         * @description request body สำหรับบันทึก/ล้างลิงก์ NotebookLM ของ report (null = ล้าง)
+         */
         NotebookLmUpdateRequest: {
             /** Url */
             url?: string | null;
         };
-        /** PaginationMeta */
+        /**
+         * PaginationMeta
+         * @description meta การแบ่งหน้ามาตรฐาน (หน้าปัจจุบัน/จำนวนต่อหน้า/ยอดรวม/จำนวนหน้า)
+         */
         PaginationMeta: {
             /** Page */
             page: number;
@@ -2141,12 +3015,38 @@ export interface components {
             /** Total Pages */
             total_pages: number;
         };
-        /** PasswordResetRequest */
+        /**
+         * PasswordResetRequest
+         * @description request body ตอน admin รีเซ็ตรหัสผ่านให้ user คนอื่น (รหัสใหม่ยาว 10-128)
+         */
         PasswordResetRequest: {
             /** New Password */
             new_password: string;
         };
-        /** PatientCreateRequest */
+        /**
+         * PatientCandidate
+         * @description An existing patient whose normalized phone matches this booking — shown
+         *     to the CRO at approve time so they confirm identity instead of the system
+         *     merging on phone alone.
+         */
+        PatientCandidate: {
+            /** Id */
+            id: number;
+            /** Hn */
+            hn?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /** Latest Visit At */
+            latest_visit_at?: string | null;
+        };
+        /**
+         * PatientCreateRequest
+         * @description request body ตอนสร้างคนไข้ใหม่ (HN ถูก assign ฝั่ง server ไม่รับจาก client)
+         */
         PatientCreateRequest: {
             /** Display Name */
             display_name: string;
@@ -2158,10 +3058,144 @@ export interface components {
             dob?: string | null;
             /** Gender */
             gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Nationality */
+            nationality?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
             /** Notes */
             notes?: string | null;
+            /** English Name */
+            english_name?: string | null;
+            /** Religion */
+            religion?: string | null;
+            /** Marital Status */
+            marital_status?: string | null;
+            /** Occupation */
+            occupation?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Father Phone */
+            father_phone?: string | null;
+            /** Mother Name */
+            mother_name?: string | null;
+            /** Mother Phone */
+            mother_phone?: string | null;
+            /** Emergency Contact Name */
+            emergency_contact_name?: string | null;
+            /** Emergency Contact Relation */
+            emergency_contact_relation?: string | null;
+            /** Emergency Contact Phone */
+            emergency_contact_phone?: string | null;
+            /** Emergency Contact Address */
+            emergency_contact_address?: string | null;
+            /** Past Illness */
+            past_illness?: string | null;
+            /** Congenital Disease */
+            congenital_disease?: string | null;
+            /** Drugs Supplements */
+            drugs_supplements?: string | null;
+            /** Drug Allergy */
+            drug_allergy?: string | null;
+            /** Food Allergy */
+            food_allergy?: string | null;
+            /** Smoking */
+            smoking?: boolean | null;
+            /** Smoking Years */
+            smoking_years?: number | null;
+            /** Drinking */
+            drinking?: boolean | null;
+            /** Drinking Years */
+            drinking_years?: number | null;
         };
-        /** PatientListItem */
+        /**
+         * PatientIntake
+         * @description ประวัติคนไข้ที่ CRO กรอกตอน approve — บันทึกลง patient record ที่ link/สร้างใหม่
+         *     (บังคับ required ฝั่ง UI; API รับทุก field แบบ optional เก็บเท่าที่ส่งมา)
+         */
+        PatientIntake: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Gender */
+            gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Dob */
+            dob?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
+            /** English Name */
+            english_name?: string | null;
+            /** Religion */
+            religion?: string | null;
+            /** Marital Status */
+            marital_status?: string | null;
+            /** Occupation */
+            occupation?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Father Phone */
+            father_phone?: string | null;
+            /** Mother Name */
+            mother_name?: string | null;
+            /** Mother Phone */
+            mother_phone?: string | null;
+            /** Emergency Contact Name */
+            emergency_contact_name?: string | null;
+            /** Emergency Contact Relation */
+            emergency_contact_relation?: string | null;
+            /** Emergency Contact Phone */
+            emergency_contact_phone?: string | null;
+            /** Emergency Contact Address */
+            emergency_contact_address?: string | null;
+            /** Past Illness */
+            past_illness?: string | null;
+            /** Congenital Disease */
+            congenital_disease?: string | null;
+            /** Drugs Supplements */
+            drugs_supplements?: string | null;
+            /** Drug Allergy */
+            drug_allergy?: string | null;
+            /** Food Allergy */
+            food_allergy?: string | null;
+            /** Smoking */
+            smoking?: boolean | null;
+            /** Smoking Years */
+            smoking_years?: number | null;
+            /** Drinking */
+            drinking?: boolean | null;
+            /** Drinking Years */
+            drinking_years?: number | null;
+        };
+        /**
+         * PatientListItem
+         * @description แถวสรุปคนไข้สำหรับ list view (รวมยอด booking/report เพื่อโชว์ในตาราง)
+         */
         PatientListItem: {
             /** Id */
             id: number;
@@ -2173,6 +3207,8 @@ export interface components {
             phone?: string | null;
             /** Gender */
             gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Dob */
+            dob?: string | null;
             /** Latest Visit At */
             latest_visit_at?: string | null;
             /**
@@ -2191,13 +3227,19 @@ export interface components {
              */
             created_at: string;
         };
-        /** PatientListResponse */
+        /**
+         * PatientListResponse
+         * @description response ของ GET patient list แบบแบ่งหน้า
+         */
         PatientListResponse: {
             /** Data */
             data: components["schemas"]["PatientListItem"][];
             pagination: components["schemas"]["PaginationMeta"];
         };
-        /** PatientOut */
+        /**
+         * PatientOut
+         * @description response แบบเต็มของคนไข้หนึ่งราย — ใช้ในหน้า detail/หลังสร้าง-แก้ไข
+         */
         PatientOut: {
             /** Id */
             id: number;
@@ -2213,8 +3255,66 @@ export interface components {
             dob?: string | null;
             /** Gender */
             gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Nationality */
+            nationality?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
             /** Notes */
             notes?: string | null;
+            /** English Name */
+            english_name?: string | null;
+            /** Religion */
+            religion?: string | null;
+            /** Marital Status */
+            marital_status?: string | null;
+            /** Occupation */
+            occupation?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Father Phone */
+            father_phone?: string | null;
+            /** Mother Name */
+            mother_name?: string | null;
+            /** Mother Phone */
+            mother_phone?: string | null;
+            /** Emergency Contact Name */
+            emergency_contact_name?: string | null;
+            /** Emergency Contact Relation */
+            emergency_contact_relation?: string | null;
+            /** Emergency Contact Phone */
+            emergency_contact_phone?: string | null;
+            /** Emergency Contact Address */
+            emergency_contact_address?: string | null;
+            /** Past Illness */
+            past_illness?: string | null;
+            /** Congenital Disease */
+            congenital_disease?: string | null;
+            /** Drugs Supplements */
+            drugs_supplements?: string | null;
+            /** Drug Allergy */
+            drug_allergy?: string | null;
+            /** Food Allergy */
+            food_allergy?: string | null;
+            /** Smoking */
+            smoking?: boolean | null;
+            /** Smoking Years */
+            smoking_years?: number | null;
+            /** Drinking */
+            drinking?: boolean | null;
+            /** Drinking Years */
+            drinking_years?: number | null;
             /** Created By */
             created_by?: number | null;
             /**
@@ -2228,7 +3328,10 @@ export interface components {
              */
             updated_at: string;
         };
-        /** PatientUpdateRequest */
+        /**
+         * PatientUpdateRequest
+         * @description request body ตอนแก้ไขคนไข้ — ทุก field optional, ส่งมาเฉพาะ field ที่จะเปลี่ยน
+         */
         PatientUpdateRequest: {
             /** Display Name */
             display_name?: string | null;
@@ -2240,8 +3343,66 @@ export interface components {
             dob?: string | null;
             /** Gender */
             gender?: ("male" | "female" | "other" | "unknown") | null;
+            /** Nationality */
+            nationality?: string | null;
+            /** National Id */
+            national_id?: string | null;
+            /** Blood Type */
+            blood_type?: string | null;
+            /** Phone2 */
+            phone2?: string | null;
+            /** Phone3 */
+            phone3?: string | null;
+            /** Phone4 */
+            phone4?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Intake By */
+            intake_by?: string | null;
             /** Notes */
             notes?: string | null;
+            /** English Name */
+            english_name?: string | null;
+            /** Religion */
+            religion?: string | null;
+            /** Marital Status */
+            marital_status?: string | null;
+            /** Occupation */
+            occupation?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Father Phone */
+            father_phone?: string | null;
+            /** Mother Name */
+            mother_name?: string | null;
+            /** Mother Phone */
+            mother_phone?: string | null;
+            /** Emergency Contact Name */
+            emergency_contact_name?: string | null;
+            /** Emergency Contact Relation */
+            emergency_contact_relation?: string | null;
+            /** Emergency Contact Phone */
+            emergency_contact_phone?: string | null;
+            /** Emergency Contact Address */
+            emergency_contact_address?: string | null;
+            /** Past Illness */
+            past_illness?: string | null;
+            /** Congenital Disease */
+            congenital_disease?: string | null;
+            /** Drugs Supplements */
+            drugs_supplements?: string | null;
+            /** Drug Allergy */
+            drug_allergy?: string | null;
+            /** Food Allergy */
+            food_allergy?: string | null;
+            /** Smoking */
+            smoking?: boolean | null;
+            /** Smoking Years */
+            smoking_years?: number | null;
+            /** Drinking */
+            drinking?: boolean | null;
+            /** Drinking Years */
+            drinking_years?: number | null;
         };
         /** PauseRequest */
         PauseRequest: {
@@ -2252,6 +3413,14 @@ export interface components {
              * @default cro_reply
              */
             trigger_reason: string;
+        };
+        /**
+         * PinRequest
+         * @description ตั้ง/ยกเลิกคนไข้ที่ pin กับ conversation — patient_id=None คือยกเลิก pin
+         */
+        PinRequest: {
+            /** Patient Id */
+            patient_id?: number | null;
         };
         /** RejectBooking */
         RejectBooking: {
@@ -2266,7 +3435,10 @@ export interface components {
              */
             rejected_by: string;
         };
-        /** RejectRequest */
+        /**
+         * RejectRequest
+         * @description request body ตอนปฏิเสธ booking — เหตุผลประกอบ (ไม่บังคับ)
+         */
         RejectRequest: {
             /**
              * Reason
@@ -2274,7 +3446,10 @@ export interface components {
              */
             reason: string;
         };
-        /** ReportListItem */
+        /**
+         * ReportListItem
+         * @description แถวสรุป report สำหรับ list view (มีไฟล์/มี text/เวลาวิเคราะห์ล่าสุด)
+         */
         ReportListItem: {
             /** Id */
             id: number;
@@ -2319,7 +3494,11 @@ export interface components {
             /** Data */
             data: components["schemas"]["ReportListItem"][];
         };
-        /** ReportOut */
+        /**
+         * ReportOut
+         * @description response แบบเต็มของ report หนึ่งใบ (ต่อยอด list item เพิ่ม extracted_text +
+         *     notes) — ใช้ในหน้า detail
+         */
         ReportOut: {
             /** Id */
             id: number;
@@ -2373,7 +3552,10 @@ export interface components {
              */
             updated_at: string;
         };
-        /** ReportUploadResponse */
+        /**
+         * ReportUploadResponse
+         * @description response หลังอัปโหลด report — id ใหม่, มี text ให้วิเคราะห์ไหม, แจ้งแพทย์สำเร็จไหม
+         */
         ReportUploadResponse: {
             /** Ok */
             ok: boolean;
@@ -2389,7 +3571,11 @@ export interface components {
              */
             notified_doctor: boolean;
         };
-        /** RescheduleRequest */
+        /**
+         * RescheduleRequest
+         * @description request body ตอนเลื่อนนัด — มีเวลาใหม่ = ยืนยันเวลาเลย, ละ new_start_at = ดัน
+         *     booking กลับ pending_approval (กรณีคนไข้ขอเลื่อนแต่ยังไม่รู้เวลา/TBD)
+         */
         RescheduleRequest: {
             /**
              * New Start At
@@ -2426,19 +3612,29 @@ export interface components {
              */
             current_status: "draft" | "pending_approval" | "approved" | "rejected" | "cancelled" | "expired" | "no_show";
         };
-        /** ResolveRequest */
+        /**
+         * ResolveRequest
+         * @description request body ตอน admin กดปิด (resolve) alert — reason บังคับ, note ประกอบ
+         */
         ResolveRequest: {
             /** Reason */
             reason: string;
             /** Note */
             note?: string | null;
         };
-        /** RuleEnableRequest */
+        /**
+         * RuleEnableRequest
+         * @description request body สำหรับเปิด/ปิด alert rule
+         */
         RuleEnableRequest: {
             /** Enabled */
             enabled: boolean;
         };
-        /** RuleOut */
+        /**
+         * RuleOut
+         * @description response ของ alert rule หนึ่งตัว (config + threshold + สถานะเปิด/ปิด) —
+         *     ใช้ที่ GET rules ในหน้า admin
+         */
         RuleOut: {
             /** Rule Key */
             rule_key: string;
@@ -2484,7 +3680,10 @@ export interface components {
              */
             updated_at: string;
         };
-        /** RuleThresholdRequest */
+        /**
+         * RuleThresholdRequest
+         * @description request body สำหรับแก้ค่า threshold (เกณฑ์ trigger) ของ alert rule
+         */
         RuleThresholdRequest: {
             /** Threshold */
             threshold: {
@@ -2498,8 +3697,9 @@ export interface components {
             /**
              * Block Type
              * @default vacation
+             * @enum {string}
              */
-            block_type: string;
+            block_type: "vacation" | "off_hours" | "conference" | "sick" | "other";
             /**
              * Start At
              * Format: date-time
@@ -2512,6 +3712,8 @@ export interface components {
             end_at: string;
             /** Reason */
             reason?: string | null;
+            /** Video Link */
+            video_link?: string | null;
         };
         /** SessionUpdate */
         SessionUpdate: {
@@ -2526,7 +3728,31 @@ export interface components {
              */
             current_state: string;
         };
-        /** SimpleOk */
+        /** SetVideoLinkRequest */
+        SetVideoLinkRequest: {
+            /** Video Link */
+            video_link?: string | null;
+        };
+        /** SettingsOut */
+        SettingsOut: {
+            /** Notebooklm Url */
+            notebooklm_url?: string | null;
+            /** Google Calendar Id */
+            google_calendar_id?: string | null;
+            /** Service Account Email */
+            service_account_email?: string | null;
+        };
+        /** SettingsPut */
+        SettingsPut: {
+            /** Notebooklm Url */
+            notebooklm_url?: string | null;
+            /** Google Calendar Id */
+            google_calendar_id?: string | null;
+        };
+        /**
+         * SimpleOk
+         * @description response มาตรฐานแบบสั้นสำหรับ action ที่ไม่คืนข้อมูล (แค่บอกว่าสำเร็จ)
+         */
         SimpleOk: {
             /**
              * Ok
@@ -2534,12 +3760,18 @@ export interface components {
              */
             ok: boolean;
         };
-        /** SimpleOkResponse */
+        /**
+         * SimpleOkResponse
+         * @description response มาตรฐานแบบสั้นสำหรับ action ที่ไม่คืนข้อมูล (แค่บอกว่าสำเร็จ)
+         */
         SimpleOkResponse: {
             /** Ok */
             ok: boolean;
         };
-        /** TreatmentCreate */
+        /**
+         * TreatmentCreate
+         * @description request body ตอนเพิ่มประวัติการรักษา/ผ่าตัดให้คนไข้
+         */
         TreatmentCreate: {
             /** Treatment Type */
             treatment_type: string;
@@ -2554,7 +3786,10 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /** TreatmentOut */
+        /**
+         * TreatmentOut
+         * @description response ของประวัติการรักษา/ผ่าตัดหนึ่งรายการ
+         */
         TreatmentOut: {
             /** Id */
             id: number;
@@ -2578,7 +3813,10 @@ export interface components {
              */
             created_at: string;
         };
-        /** TriageDecideRequest */
+        /**
+         * TriageDecideRequest
+         * @description request body ตอนแพทย์ตัดสิน triage ของผลวิเคราะห์ (รับ/ปฏิเสธ/ขอตรวจซ้ำ)
+         */
         TriageDecideRequest: {
             /**
              * Decision
@@ -2588,7 +3826,10 @@ export interface components {
             /** Note */
             note?: string | null;
         };
-        /** UserCreateRequest */
+        /**
+         * UserCreateRequest
+         * @description request body ตอน admin สร้าง user ใหม่ — email ต้องผ่าน pattern, รหัสยาว 10-128
+         */
         UserCreateRequest: {
             /** Email */
             email: string;
@@ -2604,7 +3845,10 @@ export interface components {
             /** Specialty */
             specialty?: string | null;
         };
-        /** UserListResponse */
+        /**
+         * UserListResponse
+         * @description response ของ GET user list แบบแบ่งหน้า (หน้าจัดการ user ของ admin)
+         */
         UserListResponse: {
             /** Data */
             data: components["schemas"]["schemas__users__UserOut"][];
@@ -2613,7 +3857,10 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** UserUpdateRequest */
+        /**
+         * UserUpdateRequest
+         * @description request body ตอน admin แก้ไข user — ทุก field optional (รวม toggle is_active)
+         */
         UserUpdateRequest: {
             /** Display Name */
             display_name?: string | null;
@@ -2633,7 +3880,10 @@ export interface components {
             /** Error Type */
             type: string;
         };
-        /** UserOut */
+        /**
+         * UserOut
+         * @description ข้อมูลผู้ใช้ที่ปลอดภัยส่งออก client (ไม่มี password_hash) — ใช้ใน login/me response
+         */
         schemas__auth__UserOut: {
             /** Id */
             id: number;
@@ -2653,7 +3903,10 @@ export interface components {
             /** Last Login At */
             last_login_at?: string | null;
         };
-        /** UserOut */
+        /**
+         * UserOut
+         * @description response ของผู้ใช้หนึ่งรายในหน้าจัดการ user ของ admin (รวม is_active/timestamps)
+         */
         schemas__users__UserOut: {
             /** Id */
             id: number;
@@ -2944,6 +4197,131 @@ export interface operations {
             };
         };
     };
+    list_conversations_api_ai_conversations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    conversation_messages_api_ai_conversations__token__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_conversation_api_ai_conversations__token__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pin_patient_api_ai_conversations__token__patient_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     webhook_webhook_post: {
         parameters: {
             query?: never;
@@ -3116,6 +4494,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rag_answer_internal_rag_answer_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-internal-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -3369,6 +4784,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                group?: string | null;
                 page?: number;
                 limit?: number;
             };
@@ -3418,6 +4834,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_video_link_api_bookings__request_uid__video_link_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVideoLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3641,8 +5092,12 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string | null;
+                /** @description Only patients in the caller's care-team panel. */
+                mine?: boolean;
                 page?: number;
                 limit?: number;
+                sort?: string;
+                direction?: string;
             };
             header?: never;
             path?: never;
@@ -3808,6 +5263,110 @@ export interface operations {
             header?: never;
             path: {
                 patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_care_team_api_patients__patient_id__care_team_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_care_team_member_api_patients__patient_id__care_team_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareTeamAddRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_care_team_member_api_patients__patient_id__care_team__doctor_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+                doctor_id: number;
             };
             cookie?: never;
         };
@@ -4186,6 +5745,221 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_catalog_api_measurements_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogResponse"];
+                };
+            };
+        };
+    };
+    extract_measurements_api_reports__report_id__extract_measurements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_patient_measurements_api_patients__patient_id__measurements_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                codes?: string | null;
+            };
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_report_drafts_api_reports__report_id__measurement_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_measurement_api_measurements__measurement_id__confirm_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                measurement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_measurement_api_measurements__measurement_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                measurement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimpleOkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_confirm_measurements_api_measurements_bulk_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkConfirmResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4812,6 +6586,127 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_availability_api_schedule_availability_get: {
+        parameters: {
+            query?: {
+                doctor_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_availability_api_schedule_availability_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityPutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_api_account_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    put_settings_api_account_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
                 };
             };
             /** @description Validation Error */

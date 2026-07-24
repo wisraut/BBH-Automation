@@ -1,4 +1,5 @@
 ﻿import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 type ForgotPasswordFormProps = {
   email: string
@@ -7,25 +8,27 @@ type ForgotPasswordFormProps = {
   onBackToLogin: () => void
 }
 
+// ฟอร์มขอรีเซ็ตรหัสผ่าน — รับอีเมลแล้วส่งลิงก์รีเซ็ต; เป็น controlled component (state อยู่ที่หน้าแม่)
 export function ForgotPasswordForm({
   email,
   onEmailChange,
   onSubmit,
   onBackToLogin,
 }: ForgotPasswordFormProps) {
+  const { t } = useTranslation()
   return (
     <section>
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-bbh-green">
-        Account recovery
+        {t('forgotPasswordForm.eyebrow')}
       </p>
-      <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">รีเซ็ตรหัสผ่าน</h2>
+      <h2 className="auth-heading mt-2 text-3xl font-semibold text-bbh-ink">{t('forgotPasswordForm.heading')}</h2>
       <p className="mt-3 text-sm leading-6 text-bbh-muted">
-        ใส่อีเมลบัญชีเจ้าหน้าที่เพื่อรับขั้นตอนรีเซ็ตจากระบบ
+        {t('forgotPasswordForm.subtitle')}
       </p>
 
       <form className="mt-7 space-y-5" onSubmit={onSubmit}>
         <label className="block">
-          <span className="text-sm font-semibold text-bbh-ink">อีเมล</span>
+          <span className="text-sm font-semibold text-bbh-ink">{t('forgotPasswordForm.emailLabel')}</span>
           <input
             type="email"
             value={email}
@@ -40,14 +43,14 @@ export function ForgotPasswordForm({
           type="submit"
           className="h-12 w-full rounded-2xl bg-bbh-green px-5 text-base font-semibold text-white shadow-lg shadow-bbh-green/20 transition hover:bg-bbh-green-dark"
         >
-          ส่งคำขอรีเซ็ต
+          {t('forgotPasswordForm.submit')}
         </button>
         <button
           type="button"
           onClick={onBackToLogin}
           className="h-12 w-full rounded-2xl border border-bbh-line px-5 text-base font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
         >
-          กลับไปหน้าเข้าสู่ระบบ
+          {t('forgotPasswordForm.backToLogin')}
         </button>
       </form>
     </section>

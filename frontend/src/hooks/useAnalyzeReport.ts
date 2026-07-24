@@ -1,4 +1,4 @@
-﻿// Trigger Dify analysis for a report and refresh analysis caches.
+﻿// Trigger AI analysis for a report and refresh analysis caches.
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '../lib/api'

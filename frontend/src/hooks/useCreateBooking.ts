@@ -16,6 +16,8 @@ export type BookingCreateResponse = {
   request_uid: string
 }
 
+// สร้างการจองใหม่ด้วยตนเอง (POST /api/bookings) สำหรับ CRO ที่รับนัดผ่านช่องทางอื่น
+// (โทร/walk-in/whatsapp/email) ไม่ได้มาจาก LINE bot; หลังสำเร็จ refetch รายการจอง
 export function useCreateBooking() {
   const qc = useQueryClient()
   return useMutation({

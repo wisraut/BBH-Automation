@@ -12,6 +12,7 @@ AllergySeverity = Literal["mild", "moderate", "severe", "life_threatening"]
 # ─── Conditions ───────────────────────────────────────────────────────────
 
 class ConditionOut(BaseModel):
+    """response ของโรคประจำตัวหนึ่งรายการในบันทึกเวชระเบียนคนไข้"""
     id: int
     condition_name: str
     icd10: str | None = None
@@ -24,6 +25,7 @@ class ConditionOut(BaseModel):
 
 
 class ConditionCreate(BaseModel):
+    """request body ตอนเพิ่มโรคประจำตัวให้คนไข้"""
     condition_name: str = Field(min_length=1, max_length=255)
     icd10: str | None = Field(default=None, max_length=20)
     diagnosed_year: int | None = Field(default=None, ge=1900, le=2200)
@@ -34,6 +36,7 @@ class ConditionCreate(BaseModel):
 # ─── Allergies ────────────────────────────────────────────────────────────
 
 class AllergyOut(BaseModel):
+    """response ของประวัติแพ้ยา/สารก่อภูมิแพ้หนึ่งรายการ"""
     id: int
     allergen: str
     reaction: str | None = None
@@ -44,6 +47,7 @@ class AllergyOut(BaseModel):
 
 
 class AllergyCreate(BaseModel):
+    """request body ตอนเพิ่มประวัติแพ้ยา/สารก่อภูมิแพ้ให้คนไข้"""
     allergen: str = Field(min_length=1, max_length=255)
     reaction: str | None = Field(default=None, max_length=255)
     severity: AllergySeverity | None = None
@@ -53,6 +57,7 @@ class AllergyCreate(BaseModel):
 # ─── Medications ──────────────────────────────────────────────────────────
 
 class MedicationOut(BaseModel):
+    """response ของยาที่คนไข้ใช้หนึ่งรายการ (is_active บอกว่ายังใช้อยู่หรือหยุดแล้ว)"""
     id: int
     drug_name: str
     dose: str | None = None
@@ -67,6 +72,7 @@ class MedicationOut(BaseModel):
 
 
 class MedicationCreate(BaseModel):
+    """request body ตอนเพิ่มยาที่คนไข้ใช้"""
     drug_name: str = Field(min_length=1, max_length=255)
     dose: str | None = Field(default=None, max_length=100)
     frequency: str | None = Field(default=None, max_length=100)
@@ -77,12 +83,14 @@ class MedicationCreate(BaseModel):
 
 
 class MedicationActiveUpdate(BaseModel):
+    """request body สำหรับ toggle สถานะยา (กำลังใช้/หยุดใช้) โดยไม่แตะ field อื่น"""
     is_active: bool
 
 
 # ─── Treatments ───────────────────────────────────────────────────────────
 
 class TreatmentOut(BaseModel):
+    """response ของประวัติการรักษา/ผ่าตัดหนึ่งรายการ"""
     id: int
     treatment_type: str
     description: str
@@ -95,6 +103,7 @@ class TreatmentOut(BaseModel):
 
 
 class TreatmentCreate(BaseModel):
+    """request body ตอนเพิ่มประวัติการรักษา/ผ่าตัดให้คนไข้"""
     treatment_type: str = Field(min_length=1, max_length=100)
     description: str = Field(min_length=1, max_length=2000)
     hospital: str | None = Field(default=None, max_length=255)
@@ -106,6 +115,8 @@ class TreatmentCreate(BaseModel):
 # ─── Bundle ───────────────────────────────────────────────────────────────
 
 class MedicalBundle(BaseModel):
+    """response รวมเวชระเบียนคนไข้ทุกส่วน (โรค/แพ้ยา/ยา/ประวัติรักษา) ในก้อนเดียว —
+    ให้หน้าเวชระเบียนดึงครบทีเดียว"""
     conditions: list[ConditionOut]
     allergies: list[AllergyOut]
     medications: list[MedicationOut]
@@ -113,4 +124,5 @@ class MedicalBundle(BaseModel):
 
 
 class SimpleOk(BaseModel):
+    """response มาตรฐานแบบสั้นสำหรับ action ที่ไม่คืนข้อมูล (แค่บอกว่าสำเร็จ)"""
     ok: bool = True

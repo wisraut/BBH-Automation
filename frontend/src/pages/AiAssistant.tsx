@@ -1,47 +1,36 @@
-﻿import { useEffect, useRef, useState } from 'react'
-import type { LucideIcon } from 'lucide-react'
-import {
-  Activity, FlaskConical, HeartPulse, MessageSquare, Pill,
-  Send, ShieldAlert, User, X,
-} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { dateLocale } from '../i18n/datetime'
+import { useTranslation } from 'react-i18next'
+import { AlertTriangle, BookOpen, MessageSquare, Paperclip, Send, User, X } from 'lucide-react'
+
+import type { BookSource } from '../lib/aiStore'
 
 import { AiSessionsList } from '../components/ai/AiSessionsList'
 import { PatientPickerModal } from '../components/ai/PatientPickerModal'
 import { useAiChat } from '../hooks/useAiChat'
 import { useAuth } from '../lib/auth'
+import { prepareImage, validateImage, type PreparedImage } from '../lib/image'
+import { Eyebrow } from '../components/ui/Eyebrow'
 
-const ROLE_CONTEXT: Record<string, { label: string; hint: string }> = {
-  doctor: {
-    label: 'โหมดแพทย์',
-    hint: 'ผู้ช่วยด้านสุขภาพ — วิเคราะห์ผลแล็บและข้อมูลคนไข้ทางการแพทย์',
-  },
-  cro: {
-    label: 'โหมด CRO',
-    hint: 'ผู้ช่วยด้านสุขภาพ — ตอบคำถามสุขภาพ การแพทย์ และข้อมูลคนไข้',
-  },
-  admin: {
-    label: 'โหมดผู้ดูแล',
-    hint: 'ผู้ช่วยด้านสุขภาพ — ตอบคำถามสุขภาพ การแพทย์ และข้อมูลคนไข้',
-  },
+// Human-readable file size for the staged-image chip.
+function formatSize(bytes: number): string {
+  return bytes < 1024 * 1024
+    ? `${Math.round(bytes / 1024)} KB`
+    : `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-type QuickPrompt = { icon: LucideIcon; text: string }
+// Shared focus treatment so every interactive element gets a visible,
+// on-brand keyboard ring without repeating the class list everywhere.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bbh-green focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
-// Shown when a patient is pinned — one tap asks about that patient's record.
-const PATIENT_PROMPTS: QuickPrompt[] = [
-  { icon: FlaskConical, text: 'สรุปผลแล็บล่าสุดของคนไข้คนนี้' },
-  { icon: Pill, text: 'ตอนนี้คนไข้ใช้ยาอะไรอยู่บ้าง' },
-  { icon: ShieldAlert, text: 'คนไข้มีประวัติแพ้ยาอะไรไหม' },
-  { icon: Activity, text: 'สรุปโรคประจำตัวและความเสี่ยงของคนไข้' },
-]
-
-// Shown when no patient is pinned — general health starters.
-const GENERAL_PROMPTS: QuickPrompt[] = [
-  { icon: Activity, text: 'ความดันโลหิตสูงควรปรับพฤติกรรมอย่างไร' },
-  { icon: FlaskConical, text: 'ค่า SGOT / SGPT สูง หมายความว่าอะไร' },
-  { icon: HeartPulse, text: 'แนวทางดูแลผู้ป่วยเบาหวานเบื้องต้น' },
-  { icon: Pill, text: 'ยาที่กินคู่กันแล้วควรระวังมีอะไรบ้าง' },
-]
+// Role keys map to i18n entries under `aiAssistant.roleContext.*`
+// (resolved via t() inside the component so labels/hints localize).
+const ROLE_CONTEXT_KEYS: Record<string, string> = {
+  doctor: 'doctor',
+  cro: 'cro',
+  admin: 'admin',
+}
 
 function TypingDots() {
   return (
@@ -63,69 +52,169 @@ function TypingDots() {
   )
 }
 
-function MessageBubble({ role, text, ts }: { role: 'user' | 'assistant'; text: string; ts: Date }) {
+// Source footnote — textbook citations that grounded an assistant answer
+// (answer-level, not per-sentence). Kept visually quiet: subtle surface, smaller
+// type, distinct from the answer body so it reads as supporting evidence and
+// does not interrupt the answer itself.
+function SourceFootnote({ sources }: { sources: BookSource[] }) {
+  const { t } = useTranslation()
+  return (
+    <div className="mt-1 rounded-xl border border-bbh-line bg-bbh-green-soft/30 px-3 py-2">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-bbh-green-dark">
+        <BookOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span>{t('aiAssistant.sources.label')}</span>
+      </div>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {sources.map((s, i) => (
+          <li key={i} className="flex items-baseline gap-1.5 text-xs text-bbh-ink">
+            <span className="text-bbh-muted tabular-nums">{i + 1}.</span>
+            <span className="min-w-0">
+              {s.title}
+              {typeof s.page === 'number' && (
+                <span className="text-bbh-muted"> · {t('aiAssistant.sources.page', { page: s.page })}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function MessageBubble(
+  { role, text, ts, imageThumb, bookSources, onExpand }:
+  { role: 'user' | 'assistant'; text: string; ts: Date; imageThumb?: string; bookSources?: BookSource[]; onExpand?: (src: string) => void },
+) {
+  const { t } = useTranslation()
   const isUser = role === 'user'
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`animate-rise flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
         <div className="mr-2 mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-bbh-green-soft">
           <span className="font-serif text-sm font-semibold text-bbh-green-dark">B</span>
         </div>
       )}
       <div className={`max-w-[85%] md:max-w-[72%] ${isUser ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-        <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-            isUser
-              ? 'rounded-tr-sm bg-bbh-green text-white'
-              : 'rounded-tl-sm border border-bbh-line bg-white text-bbh-ink'
-          }`}
-        >
-          {text.split('\n').map((line, i) => (
-            <span key={i}>
-              {line}
-              {i < text.split('\n').length - 1 && <br />}
-            </span>
-          ))}
-        </div>
-        <p className="px-1 text-[11px] text-bbh-muted">
-          {ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+        {imageThumb && (
+          <button
+            type="button"
+            onClick={() => onExpand?.(imageThumb)}
+            className={`${isUser ? 'self-end' : 'self-start'} block cursor-zoom-in overflow-hidden rounded-2xl border border-bbh-line ${FOCUS_RING}`}
+          >
+            <img src={imageThumb} alt={t('aiAssistant.image.expanded')} className="max-h-56 w-auto object-contain" />
+          </button>
+        )}
+        {text && (
+          <div
+            className={`px-4 py-3 text-sm leading-relaxed ${
+              isUser
+                ? 'rounded-2xl rounded-tr-sm bg-bbh-green text-white'
+                : 'rounded-2xl rounded-tl-sm border border-bbh-line bg-white text-bbh-ink'
+            }`}
+          >
+            {text.split('\n').map((line, i) => (
+              <span key={i}>
+                {line}
+                {i < text.split('\n').length - 1 && <br />}
+              </span>
+            ))}
+          </div>
+        )}
+        {!isUser && bookSources && bookSources.length > 0 && (
+          <SourceFootnote sources={bookSources} />
+        )}
+        <p className="px-1 font-mono text-xs tabular-nums text-bbh-muted">
+          {ts.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
     </div>
   )
 }
 
+// หน้าแชท AI ผู้ช่วยสำหรับ staff (CRO/หมอ/admin) — คุยแบบ free-form, pin คนไข้เพื่อให้ AI
+// เห็น context, จัดการหลาย session แชท (เก็บใน localStorage ต่อผู้ใช้)
 export function AiAssistant() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const {
     messages, isLoading, error, send,
-    sessions, current, currentId, createNew, switchTo, remove, patchById,
+    sessions, current, currentId, createNew, switchTo, remove, setPinned,
   } = useAiChat()
   const [input, setInput] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [sessionsOpen, setSessionsOpen] = useState(false)
+  const [staged, setStaged] = useState<PreparedImage | null>(null)
+  const [imgError, setImgError] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function stageFile(file: File | null | undefined) {
+    if (!file) return
+    const err = validateImage(file)
+    if (err) {
+      setImgError(t(`aiAssistant.image.${err}`))
+      return
+    }
+    setImgError(null)
+    try {
+      setStaged(await prepareImage(file))
+    } catch {
+      setImgError(t('aiAssistant.image.readError'))
+    }
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    void stageFile(e.target.files?.[0])
+    e.target.value = '' // let the same file be picked again after removing
+  }
+
+  // Paste an image straight from the clipboard (screenshot -> paste -> send).
+  function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const imageItem = Array.from(e.clipboardData.items).find((it) => it.type.startsWith('image/'))
+    const file = imageItem?.getAsFile()
+    if (file) {
+      e.preventDefault()
+      void stageFile(file)
+    }
+  }
+
+  function clearStaged() {
+    setStaged(null)
+    setImgError(null)
+  }
 
   const role = user?.role ?? 'cro'
-  const ctx = ROLE_CONTEXT[role] ?? ROLE_CONTEXT.cro
+  const ctxKey = ROLE_CONTEXT_KEYS[role] ?? ROLE_CONTEXT_KEYS.cro
+  const ctx = {
+    label: t(`aiAssistant.roleContext.${ctxKey}.label`),
+    hint: t(`aiAssistant.roleContext.${ctxKey}.hint`),
+  }
   const pinned = current?.pinnedPatient ?? null
-  const quickPrompts = pinned ? PATIENT_PROMPTS : GENERAL_PROMPTS
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
-  function handleSend() {
-    if (!input.trim()) return
-    void send(input)
-    setInput('')
-    inputRef.current?.focus()
-  }
+  // Close the image lightbox on Escape.
+  useEffect(() => {
+    if (!lightbox) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setLightbox(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightbox])
 
-  function handleQuick(text: string) {
-    if (isLoading) return
-    void send(text)
+  function handleSend() {
+    if (!input.trim() && !staged) return
+    void send(
+      input,
+      staged ? { mime: staged.mime, data: staged.data, thumb: staged.thumb } : undefined,
+    )
+    setInput('')
+    clearStaged()
     inputRef.current?.focus()
   }
 
@@ -148,9 +237,9 @@ export function AiAssistant() {
   }
 
   return (
-    <div className="relative flex h-full min-w-0 overflow-hidden">
-      {/* Desktop sessions panel — collapsible + resizable */}
-      <div className="hidden w-72 shrink-0 lg:block">
+    <div className="relative flex h-full min-w-0 overflow-hidden bg-white">
+      {/* Desktop sessions panel — flush to the chat column via its own border-r */}
+      <div className="hidden w-64 shrink-0 lg:block">
         <AiSessionsList
           sessions={sessions}
           currentId={currentId}
@@ -162,7 +251,7 @@ export function AiAssistant() {
 
       <button
         type="button"
-        aria-label="ปิดประวัติสนทนา"
+        aria-label={t('aiAssistant.closeHistory')}
         onClick={() => setSessionsOpen(false)}
         className={`fixed inset-0 z-30 bg-bbh-ink/40 backdrop-blur-[2px] transition-opacity lg:hidden ${sessionsOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       />
@@ -178,29 +267,25 @@ export function AiAssistant() {
 
       <div className="flex h-full min-w-0 flex-1 flex-col">
 
-      {/* Top bar */}
+      {/* Top bar — instrument masthead, flush to the topbar chrome via border-b */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bbh-line bg-white px-4 py-3 md:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={() => setSessionsOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-2 text-xs font-semibold text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green lg:hidden"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark lg:hidden ${FOCUS_RING}`}
           >
             <MessageSquare size={15} />
-            ประวัติสนทนา
+            {t('aiAssistant.history')}
           </button>
-          <div className="hidden h-9 w-9 place-items-center rounded-xl bg-bbh-green-soft sm:grid">
+          <div className="hidden h-9 w-9 place-items-center rounded-lg bg-bbh-green-soft sm:grid">
             <span className="font-serif text-base font-semibold text-bbh-green-dark">AI</span>
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bbh-green-soft px-2 py-0.5 text-[10px] font-semibold text-bbh-green-dark">
-                <HeartPulse size={11} />
-                เฉพาะสุขภาพ
-              </span>
-            </div>
-            <p className="truncate text-xs text-bbh-muted">{ctx.label} · ผู้ช่วยด้านสุขภาพ</p>
+            <p className="font-serif text-sm font-semibold text-bbh-ink">BBH AI Assistant</p>
+            <Eyebrow className="truncate">
+              {ctx.label} · Gemini Flash
+            </Eyebrow>
           </div>
         </div>
 
@@ -208,13 +293,14 @@ export function AiAssistant() {
           <div className="flex max-w-full items-center gap-2 rounded-full border border-bbh-green/40 bg-bbh-green-soft px-3 py-1.5 text-xs font-semibold text-bbh-green-dark">
             <User size={14} />
             <span>
-              {pinned.hn ? `HN ${pinned.hn} · ` : ''}{pinned.display_name}
+              {pinned.hn ? <span className="font-mono tabular-nums">HN {pinned.hn}</span> : null}
+              {pinned.hn ? ' · ' : ''}{pinned.display_name}
             </span>
             <button
               type="button"
-              onClick={() => currentId && patchById(currentId, () => ({ pinnedPatient: null }))}
-              className="ml-1 rounded-full p-0.5 transition hover:bg-white/60"
-              aria-label="ยกเลิก">
+              onClick={() => currentId && setPinned(currentId, null)}
+              className={`ml-1 rounded-full p-0.5 transition hover:bg-white/60 ${FOCUS_RING}`}
+              aria-label={t('common.cancel')}>
               <X size={12} />
             </button>
           </div>
@@ -222,75 +308,36 @@ export function AiAssistant() {
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-bbh-line px-3 py-1.5 text-xs font-medium text-bbh-muted transition-all duration-200 hover:border-bbh-green hover:text-bbh-green"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-bbh-line bg-white px-3 py-1.5 text-xs font-medium text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark ${FOCUS_RING}`}
           >
             <User size={14} />
-            เลือกคนไข้
+            {t('aiAssistant.selectPatient')}
           </button>
         )}
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-5">
+      <div className="flex-1 overflow-y-auto bg-white px-3 py-4 md:px-6 md:py-5">
         {messages.length === 0 ? (
           /* Welcome state */
-          <div className="flex h-full flex-col items-center justify-center gap-6 py-6">
-            <div className="text-center">
+          <div className="flex h-full flex-col items-center justify-center gap-6">
+            <div className="animate-rise text-center">
               <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-bbh-green-soft">
                 <span className="font-serif text-3xl font-semibold text-bbh-green-dark">AI</span>
               </div>
               <p className="font-serif text-xl font-semibold text-bbh-ink">
                 BBH AI Assistant
               </p>
-              <p className="mt-1 text-sm text-bbh-muted">{ctx.hint}</p>
-              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-bbh-green-soft px-3 py-1 text-xs font-medium text-bbh-green-dark">
-                <HeartPulse size={13} />
-                ตอบเฉพาะเรื่องสุขภาพ การแพทย์ และข้อมูลคนไข้
-              </p>
-              {pinned ? (
-                <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-bbh-ink">
-                  <User size={13} className="text-bbh-green" />
-                  กำลังคุยเรื่องคนไข้:{' '}
-                  <span className="font-semibold">
-                    {pinned.hn ? `HN ${pinned.hn} · ` : ''}{pinned.display_name}
-                  </span>
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen(true)}
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-bbh-green transition hover:text-bbh-green-dark"
-                >
-                  <User size={13} />
-                  เลือกคนไข้เพื่อคุยเจาะข้อมูลรายบุคคล
-                </button>
-              )}
-            </div>
-
-            <div className="w-full max-w-md">
-              <p className="mb-2 px-1 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-bbh-muted">
-                {pinned ? 'ถามเรื่องคนไข้คนนี้' : 'เริ่มด้วยคำถามสุขภาพ'}
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {quickPrompts.map((p) => (
-                  <button
-                    key={p.text}
-                    type="button"
-                    onClick={() => handleQuick(p.text)}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 rounded-xl border border-bbh-line bg-white px-3 py-2.5 text-left text-xs font-medium text-bbh-ink transition-all duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-50"
-                  >
-                    <p.icon size={15} className="shrink-0 text-bbh-green" />
-                    <span>{p.text}</span>
-                  </button>
-                ))}
-              </div>
+              <p className="mt-1 text-sm leading-relaxed text-bbh-muted">{ctx.hint}</p>
+              <Eyebrow className="mt-4">
+                {t('aiAssistant.startHint')}
+              </Eyebrow>
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-2xl space-y-4">
+          <div className="max-w-3xl space-y-4">
             {messages.map((m) => (
-              <MessageBubble key={m.id} role={m.role} text={m.text} ts={m.ts} />
+              <MessageBubble key={m.id} role={m.role} text={m.text} ts={m.ts} imageThumb={m.imageThumb} bookSources={m.bookSources} onExpand={setLightbox} />
             ))}
 
             {isLoading && (
@@ -305,7 +352,7 @@ export function AiAssistant() {
             )}
 
             {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -315,54 +362,91 @@ export function AiAssistant() {
         )}
       </div>
 
-      {/* Contextual patient shortcuts during an ongoing chat */}
-      {pinned && messages.length > 0 && (
-        <div className="border-t border-bbh-line bg-bbh-surface/60 px-3 py-2 md:px-6">
-          <div className="mx-auto flex max-w-2xl gap-2 overflow-x-auto">
-            {PATIENT_PROMPTS.map((p) => (
-              <button
-                key={p.text}
-                type="button"
-                onClick={() => handleQuick(p.text)}
-                disabled={isLoading}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-bbh-line bg-white px-3 py-1.5 text-[11px] font-medium text-bbh-muted transition hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-50"
-              >
-                <p.icon size={12} className="text-bbh-green" />
-                {p.text}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Input bar */}
       <div className="border-t border-bbh-line bg-white px-3 py-3 md:px-6 md:py-4">
-        <div className="mx-auto flex max-w-2xl items-end gap-2 md:gap-3">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="พิมพ์คำถาม... (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)"
-            rows={1}
-            disabled={isLoading}
-            className="flex-1 resize-none rounded-2xl border border-bbh-line bg-bbh-surface px-4 py-3 text-sm text-bbh-ink placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none disabled:opacity-50"
-            style={{ maxHeight: '120px', overflowY: 'auto' }}
-            onInput={(e) => {
-              const el = e.currentTarget
-              el.style.height = 'auto'
-              el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-            }}
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bbh-green text-white transition hover:bg-bbh-green-dark disabled:opacity-40"
-            aria-label="ส่งข้อความ"
-          >
-            <Send size={18} />
-          </button>
+        <div className="max-w-3xl">
+          {/* Staged image: preview chip + PDPA warning (shown before sending) */}
+          {staged && (
+            <div className="mb-2 space-y-2">
+              <div className="flex items-center gap-3 rounded-lg border border-bbh-line bg-bbh-surface p-2">
+                <button
+                  type="button"
+                  onClick={() => setLightbox(staged.thumb)}
+                  className={`h-14 w-14 shrink-0 cursor-zoom-in overflow-hidden rounded-md ${FOCUS_RING}`}
+                >
+                  <img src={staged.thumb} alt="" className="h-full w-full object-cover" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-bbh-ink">{staged.name}</p>
+                  <p className="font-mono text-xs tabular-nums text-bbh-muted">{formatSize(staged.size)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearStaged}
+                  aria-label={t('common.cancel')}
+                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-md text-bbh-muted transition-colors hover:bg-white hover:text-bbh-ink ${FOCUS_RING}`}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>{t('aiAssistant.image.warning')}</span>
+              </div>
+            </div>
+          )}
+          {imgError && (
+            <p className="mb-2 flex items-center gap-1.5 text-[12px] text-red-600">
+              <AlertTriangle size={13} className="shrink-0" />
+              {imgError}
+            </p>
+          )}
+
+          <div className="flex items-end gap-2 md:gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={onFileChange}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              aria-label={t('aiAssistant.image.attach')}
+              title={t('aiAssistant.image.attach')}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-bbh-line text-bbh-muted transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
+            >
+              <Paperclip size={18} />
+            </button>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={onPaste}
+              placeholder={t('aiAssistant.inputPlaceholder')}
+              rows={1}
+              disabled={isLoading}
+              className="flex-1 resize-none rounded-lg border border-bbh-line bg-white px-4 py-3 text-sm text-bbh-ink transition-colors duration-200 placeholder:text-bbh-muted focus:border-bbh-green focus:outline-none focus:ring-2 focus:ring-bbh-green/30 disabled:opacity-50"
+              style={{ maxHeight: '120px', overflowY: 'auto' }}
+              onInput={(e) => {
+                const el = e.currentTarget
+                el.style.height = 'auto'
+                el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={(!input.trim() && !staged) || isLoading}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-bbh-green text-white transition-colors duration-200 hover:bg-bbh-green-dark disabled:opacity-40 ${FOCUS_RING}`}
+              aria-label={t('aiAssistant.sendMessage')}
+            >
+              <Send size={18} />
+            </button>
+          </div>
         </div>
       </div>
       </div>
@@ -372,11 +456,36 @@ export function AiAssistant() {
         onClose={() => setPickerOpen(false)}
         onPick={(p) => {
           const sid = currentId ?? createNew()
-          patchById(sid, () => ({
-            pinnedPatient: { id: p.id, hn: p.hn ?? null, display_name: p.display_name },
-          }))
+          setPinned(sid, { id: p.id, hn: p.hn ?? null, display_name: p.display_name })
         }}
       />
+
+      {/* Image lightbox — click a sent image to view it enlarged. Backdrop or Esc
+          closes; clicking the image itself does not. */}
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('aiAssistant.image.expanded')}
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bbh-ink/80 p-4 backdrop-blur-sm"
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            aria-label={t('common.cancel')}
+            className={`absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20 ${FOCUS_RING}`}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={lightbox}
+            alt={t('aiAssistant.image.expanded')}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   )
 }

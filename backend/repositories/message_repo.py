@@ -13,6 +13,8 @@ from core.mysql import mysql_db
 
 
 def _get_or_create_session(channel: str, external_user_id: str) -> int:
+    """หา bot_sessions ของ (channel, external_user_id) ถ้าไม่มีสร้างใหม่ (upsert
+    ด้วย ON DUPLICATE KEY) + bump last_message_at คืน session id ไว้ผูก message."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

@@ -18,12 +18,13 @@ from core.config import log
 from core.db import get_db
 from integrations import calendar_client, line_client
 from flows import routing
-from rag import service as rag_service
+from rag import service as rag_service, safety
 
 
 # ─── DB ops ────────────────────────────────────────────────────────────────────
 
 def is_cro_team(line_uid: str) -> bool:
+    """เช็คว่า LINE uid นี้เป็นทีม CRO ที่ active อยู่ไหม — ใช้แยกว่าเป็น command CRO (LINE #2) หรือลูกค้าทั่วไป"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -63,6 +64,8 @@ def try_register(line_uid: str, cro_code: str) -> tuple:
 
 
 def _get_or_create_conversation(patient_uid: str) -> dict:
+    """หา conversation ที่ยัง active/taken_over ของลูกค้าคนนี้ ไม่มีก็สร้างใหม่
+    ถ้ามีอยู่แล้วจะ bump last_activity ด้วย เพื่อให้ลิสต์ CRO เรียงตามล่าสุดถูกต้อง"""
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -157,6 +160,8 @@ def _try_auto_book(data: dict) -> tuple:
 def _save_message(conv_id: int, sender: str, text: str,
                   classifier: str = None, confidence: int = None,
                   cro_id: int = None) -> None:
+    """บันทึกข้อความหนึ่งบรรทัดลง conversation_messages (customer/bot/cro)
+    เก็บ classifier/confidence ของ AI ไว้ด้วยเพื่อให้ CRO ดูประวัติแล้วเข้าใจว่า bot ตัดสินใจยังไง"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -205,6 +210,8 @@ def _take_over(cro_line_uid: str, conv_id: int) -> tuple:
 
 
 def _end_take_over(cro_line_uid: str, conv_id: int = None) -> tuple:
+    """คืน conversation กลับให้ AI ดูแล — ปลด status 'taken_over' ของ CRO คนนี้
+    ไม่ส่ง conv_id = จบทุก session ที่ตัวเองถืออยู่; คืน (จำนวน, list patient_uid) เพื่อไปแจ้งลูกค้า"""
     with get_db() as conn:
         with conn.cursor() as cur:
             if conv_id is None:
@@ -231,6 +238,8 @@ def _end_take_over(cro_line_uid: str, conv_id: int = None) -> tuple:
 
 
 def _list_active(limit: int = 10) -> list:
+    """ดึง conversation ที่ยัง active/taken_over พร้อมข้อความล่าสุด + ชื่อ CRO ที่ถืออยู่
+    ใช้ตอบคำสั่ง active/list/queue ของ CRO เรียงตาม last_activity ล่าสุดก่อน"""
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -248,6 +257,8 @@ def _list_active(limit: int = 10) -> list:
 
 
 def _get_history(conv_id: int, limit: int = 10) -> list:
+    """ดึงประวัติข้อความล่าสุดของ conversation แล้ว reverse ให้เรียงเก่า→ใหม่
+    (query เอา DESC เพื่อ limit ที่แถวใหม่สุด แล้วค่อยกลับด้านให้อ่านตามลำดับเวลา)"""
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -263,6 +274,8 @@ def _get_history(conv_id: int, limit: int = 10) -> list:
 
 
 def _conv_owned_by(cro_line_uid: str) -> int:
+    """หา conv_id ที่ CRO คนนี้กำลัง take-over อยู่ (ล่าสุด) — คืน None ถ้าไม่มี
+    ใช้ตัดสินว่าข้อความที่ CRO พิมพ์เข้ามาควร forward ให้ลูกค้าใน session ไหน"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -277,6 +290,7 @@ def _conv_owned_by(cro_line_uid: str) -> int:
 
 
 def _patient_uid_for(conv_id: int) -> str:
+    """คืน LINE uid ของลูกค้าใน conversation นั้น เพื่อใช้เป็นปลายทาง forward ข้อความจาก CRO"""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT patient_uid FROM conversations WHERE conv_id = %s", (conv_id,))
@@ -285,6 +299,8 @@ def _patient_uid_for(conv_id: int) -> str:
 
 
 def _notify_team(conv_id: int, patient_uid: str, first_msg: str, escalated: bool = False) -> None:
+    """push แจ้งทีม CRO ทุกคนที่ online (LINE #2) ว่ามี conversation ใหม่/ต้อง escalate
+    best-effort ต่อคน — คนใดคนหนึ่ง push พังจะ log แล้วส่งต่อคนอื่น ไม่หยุด loop"""
     icon = "URGENT" if escalated else "New"
     label = "ตอบไม่ได้" if escalated else "AI ตอบอยู่"
     text = (
@@ -306,6 +322,41 @@ def _notify_team(conv_id: int, patient_uid: str, first_msg: str, escalated: bool
             line_client.push(uid, text, ch=line_client.CRO)
         except Exception:
             log.exception("Failed to push convo notification to CRO %s", uid)
+
+
+def notify_cro_block_conflicts(
+    *, uids: list[str], doctor_name: str, block_label: str, start_at, end_at,
+    conflicts: list[dict],
+) -> None:
+    """Informational LINE push (no action buttons) to the given CRO line_uids
+    when a doctor's new time-off block clashes with already-confirmed
+    appointments — so the CRO can reschedule the affected patients. Best-effort.
+    uids come from bot_sessions (line_cro), the same reachable source the booking
+    notifications use — not cro_users, whose line_uid is often unset."""
+    if not conflicts or not uids:
+        return
+    lines = [
+        "[แจ้งเตือน] แพทย์เพิ่งลงเวลาไม่ว่าง ทับกับนัดที่ยืนยันแล้ว",
+        f"แพทย์: {doctor_name} ({block_label})",
+        f"ช่วงไม่ว่าง: {start_at:%d/%m/%Y %H:%M} - {end_at:%H:%M}",
+        "",
+        f"นัดที่ได้รับผลกระทบ ({len(conflicts)}):",
+    ]
+    for c in conflicts:
+        tm = str(c.get("requested_time") or "")[:5]
+        lines.append(
+            f"- {c.get('patient_name') or '-'} "
+            f"({c.get('phone') or '-'}) {c.get('requested_date')} {tm}"
+        )
+    lines.append("")
+    lines.append("กรุณาติดต่อคนไข้เพื่อเลื่อนนัด")
+    text = "\n".join(lines)
+
+    for uid in uids:
+        try:
+            line_client.push(uid, text, ch=line_client.CRO)
+        except Exception:
+            log.exception("Failed to push block-conflict alert to CRO %s", uid)
 
 
 # ─── Handlers ──────────────────────────────────────────────────────────────────
@@ -357,8 +408,16 @@ def handle_public_inquiry(reply_token: str, patient_uid: str, text: str) -> None
 
     if decision == "escalate":
         _save_message(conv_id, "bot", body or text, classifier=classifier, confidence=0)
+        # Emergency must get the 1669 message, never the generic "staff will call
+        # back" line — the safety gate already forced ESCALATE:emergency upstream.
+        if (classifier or "").lower() == "emergency":
+            notice = (safety.EMERGENCY_ANSWER +
+                      "\n\nรับเรื่องไว้แล้ว เจ้าหน้าที่กำลังติดต่อกลับนะคะ")
+        else:
+            notice = ("เรื่องนี้ขอส่งให้เจ้าหน้าที่ดูแลให้โดยตรงเพื่อความถูกต้องนะคะ "
+                      "รับเรื่องไว้แล้ว เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุดค่ะ")
         try:
-            line_client.push(patient_uid, "รับเรื่องแล้วครับ/ค่ะ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด")
+            line_client.push(patient_uid, notice)
         except Exception:
             log.exception("Failed escalate notice to customer %s", patient_uid)
         _notify_team(conv_id, patient_uid, text, escalated=True)

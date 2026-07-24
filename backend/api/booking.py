@@ -6,7 +6,7 @@ from typing import Optional
 
 import pymysql
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.health import _require_internal_token
 from api.session import _db
@@ -17,13 +17,20 @@ router = APIRouter(prefix="/internal/booking")
 
 
 class BookingCreate(BaseModel):
-    user_id: str
-    name: str
-    phone: str
-    date: str
-    time: str
-    symptom: str
-    email: Optional[str] = None
+    # max_length mirrors the DB columns so an over-long value fails validation
+    # (422) instead of overflowing the INSERT (DataError 1406 -> 500). The
+    # name/phone come from patient free-text via LINE, so this is attacker-facing.
+    user_id: str = Field(max_length=191)
+    name: str = Field(max_length=191)
+    phone: str = Field(max_length=80)
+    date: str = Field(max_length=40)
+    time: str = Field(max_length=40)
+    symptom: str = Field(max_length=2000)
+    email: Optional[str] = Field(default=None, max_length=191)
+    # Optional patient nationality collected during the LINE booking chat. n8n
+    # forwards the full BOOKING_DONE JSON as raw_summary, so nationality rides
+    # along even if not sent as a top-level field (see extraction below).
+    nationality: Optional[str] = Field(default=None, max_length=60)
     raw_summary: Optional[dict] = None
 
 
@@ -40,22 +47,30 @@ class RejectBooking(BaseModel):
 
 @router.post("")
 def create_booking(body: BookingCreate, x_internal_token: str | None = Header(None)):
+    """สร้าง booking จากบอต LINE (n8n เรียกด้วย internal token) — INSERT ลง
+    booking_requests สถานะ pending_approval รอ CRO อนุมัติ. ชื่อ/เบอร์มาจาก free-text คนไข้"""
     _require_internal_token(x_internal_token)
     request_uid = str(uuid.uuid4())
+    # Prefer the explicit field; fall back to the nationality inside raw_summary
+    # (the full BOOKING_DONE JSON n8n forwards) so we capture it without an n8n
+    # change. Empty/whitespace or a too-long value -> NULL (optional field).
+    raw = body.raw_summary or {}
+    nationality = body.nationality or (raw.get("nationality") if isinstance(raw, dict) else None)
+    nationality = (nationality or "").strip()[:60] or None
     with _db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO booking_requests
                     (request_uid, channel, external_user_id, status,
-                     patient_name, phone, email, requested_datetime_text,
+                     patient_name, phone, email, nationality, requested_datetime_text,
                      symptom, raw_summary)
                 VALUES (%s, 'line_main', %s, 'pending_approval',
-                        %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     request_uid, body.user_id, body.name, body.phone,
-                    (body.email or None),
+                    (body.email or None), nationality,
                     f"{body.date} {body.time}", body.symptom,
                     json.dumps(body.raw_summary or {}, ensure_ascii=False),
                 ),
@@ -67,6 +82,8 @@ def create_booking(body: BookingCreate, x_internal_token: str | None = Header(No
 
 @router.get("/cro-user/latest")
 def get_latest_cro_user(x_internal_token: str | None = Header(None)):
+    """คืน LINE user_id ของ CRO ที่ทักล่าสุด (n8n เรียกด้วย internal token) — ใช้เป็น
+    ปลายทาง push แจ้ง booking ใหม่; กรอง test user เอาเฉพาะ userId LINE จริง"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -83,6 +100,8 @@ def get_latest_cro_user(x_internal_token: str | None = Header(None)):
 
 @router.get("/latest-pending")
 def get_latest_pending(x_internal_token: str | None = Header(None)):
+    """คืน booking ที่ pending_approval ล่าสุด (n8n เรียกด้วย internal token) — ใช้ให้ CRO
+    ยืนยัน/ปฏิเสธด้วยคำสั่งข้อความโดยไม่ต้องอ้าง uid; ไม่มีรายการค้าง = 404"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -99,6 +118,8 @@ def get_latest_pending(x_internal_token: str | None = Header(None)):
 
 @router.get("/{request_uid}")
 def get_booking(request_uid: str, x_internal_token: str | None = Header(None)):
+    """คืนรายละเอียด booking หนึ่งรายการตาม request_uid (n8n เรียกด้วย internal token)
+    — แปลงค่า datetime เป็น ISO ก่อนส่ง; ไม่พบ = 404"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:
@@ -122,6 +143,8 @@ def approve_booking(
     body: ApproveBooking,
     x_internal_token: str | None = Header(None),
 ):
+    """อนุมัติ booking จากฝั่ง LINE (CRO กด CONFIRM ในแชท → n8n เรียกด้วย internal
+    token) — mark approved + สร้าง/ผูก patient (gen HN) ผ่าน booking_repo; ไม่ได้ pending = 409"""
     _require_internal_token(x_internal_token)
     hn_year = datetime.now(timezone(timedelta(hours=7))).strftime("%y")
     approved = booking_repo.update_approved(
@@ -144,6 +167,8 @@ def reject_booking(
     body: RejectBooking,
     x_internal_token: str | None = Header(None),
 ):
+    """ปฏิเสธ booking จากฝั่ง LINE (CRO กด REJECT ในแชท → n8n เรียกด้วย internal
+    token) — เปลี่ยนสถานะเป็น rejected พร้อมบันทึกเหตุผลลง notes"""
     _require_internal_token(x_internal_token)
     with _db() as conn:
         with conn.cursor() as cur:

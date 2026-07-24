@@ -187,7 +187,7 @@ export function PatientProfilePrint() {
             <Fill label="ที่อยู่สามารถติดต่อได้ (Address)" value={p.emergency_contact_address} grow={1} />
             <div className="flex items-baseline gap-1.5">
               <span className="shrink-0 whitespace-nowrap">อาการที่ต้องการปรึกษา (Chief complain)</span>
-              <span className="min-w-0 flex-1 border-b border-dotted border-zinc-500 leading-6">{' '}</span>
+              <span className="min-w-0 flex-1 border-b border-dotted border-zinc-500 leading-6 text-black">{p.chief_complaint?.trim() ? p.chief_complaint : ' '}</span>
             </div>
             <div className="border-b border-dotted border-zinc-500 leading-6">{' '}</div>
             <div className="border-b border-dotted border-zinc-500 leading-6">{' '}</div>

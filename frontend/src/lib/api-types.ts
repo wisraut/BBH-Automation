@@ -3110,6 +3110,8 @@ export interface components {
             drug_allergy?: string | null;
             /** Food Allergy */
             food_allergy?: string | null;
+            /** Chief Complaint */
+            chief_complaint?: string | null;
             /** Smoking */
             smoking?: boolean | null;
             /** Smoking Years */
@@ -3183,6 +3185,8 @@ export interface components {
             drug_allergy?: string | null;
             /** Food Allergy */
             food_allergy?: string | null;
+            /** Chief Complaint */
+            chief_complaint?: string | null;
             /** Smoking */
             smoking?: boolean | null;
             /** Smoking Years */
@@ -3307,6 +3311,8 @@ export interface components {
             drug_allergy?: string | null;
             /** Food Allergy */
             food_allergy?: string | null;
+            /** Chief Complaint */
+            chief_complaint?: string | null;
             /** Smoking */
             smoking?: boolean | null;
             /** Smoking Years */
@@ -3395,6 +3401,8 @@ export interface components {
             drug_allergy?: string | null;
             /** Food Allergy */
             food_allergy?: string | null;
+            /** Chief Complaint */
+            chief_complaint?: string | null;
             /** Smoking */
             smoking?: boolean | null;
             /** Smoking Years */

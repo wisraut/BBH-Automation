@@ -39,6 +39,7 @@ export interface IntakeForm {
   drugs_supplements: string
   drug_allergy: string
   food_allergy: string
+  chief_complaint: string
   smoking: string
   smoking_years: string
   drinking: string
@@ -51,7 +52,7 @@ export const EMPTY_INTAKE: IntakeForm = {
   english_name: '', religion: '', marital_status: '', occupation: '',
   father_name: '', father_phone: '', mother_name: '', mother_phone: '',
   emergency_contact_name: '', emergency_contact_relation: '', emergency_contact_phone: '', emergency_contact_address: '',
-  past_illness: '', congenital_disease: '', drugs_supplements: '', drug_allergy: '', food_allergy: '',
+  past_illness: '', congenital_disease: '', drugs_supplements: '', drug_allergy: '', food_allergy: '', chief_complaint: '',
   smoking: '', smoking_years: '', drinking: '', drinking_years: '',
 }
 
@@ -61,7 +62,7 @@ const HEALTH_KEYS: (keyof IntakeForm)[] = [
   'english_name', 'religion', 'marital_status', 'occupation',
   'father_name', 'father_phone', 'mother_name', 'mother_phone',
   'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_phone', 'emergency_contact_address',
-  'past_illness', 'congenital_disease', 'drugs_supplements', 'drug_allergy', 'food_allergy',
+  'past_illness', 'congenital_disease', 'drugs_supplements', 'drug_allergy', 'food_allergy', 'chief_complaint',
   'smoking', 'smoking_years', 'drinking', 'drinking_years',
 ]
 
@@ -89,6 +90,7 @@ export const INTAKE_LABEL_KEY: Record<keyof IntakeForm, string> = {
   past_illness: 'patientFormModal.pastIllness', congenital_disease: 'patientFormModal.congenitalDisease',
   drugs_supplements: 'patientFormModal.drugsSupplements', drug_allergy: 'patientFormModal.drugAllergy',
   food_allergy: 'patientFormModal.foodAllergy',
+  chief_complaint: 'patientFormModal.chiefComplaint',
   smoking: 'patientFormModal.smoking', smoking_years: 'patientFormModal.years',
   drinking: 'patientFormModal.drinking', drinking_years: 'patientFormModal.years',
 }
@@ -337,6 +339,10 @@ export function PatientIntakeFields({ value, onChange, showErrors = false }: Pro
                   <label className="block">
                     <Label k="food_allergy" text={t('patientFormModal.foodAllergy')} />
                     <textarea value={value.food_allergy} onChange={set('food_allergy')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('food_allergy')}`} />
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <Label k="chief_complaint" text={t('patientFormModal.chiefComplaint')} />
+                    <textarea value={value.chief_complaint} onChange={set('chief_complaint')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${cls('chief_complaint')}`} />
                   </label>
                 </div>
               </div>

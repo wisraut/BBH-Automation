@@ -51,6 +51,7 @@ type FormState = {
   drugs_supplements: string
   drug_allergy: string
   food_allergy: string
+  chief_complaint: string
   smoking: YesNo
   smoking_years: string
   drinking: YesNo
@@ -71,7 +72,7 @@ const EMPTY: FormState = {
   english_name: '', religion: '', marital_status: '', occupation: '',
   father_name: '', father_phone: '', mother_name: '', mother_phone: '',
   emergency_contact_name: '', emergency_contact_relation: '', emergency_contact_phone: '', emergency_contact_address: '',
-  past_illness: '', congenital_disease: '', drugs_supplements: '', drug_allergy: '', food_allergy: '',
+  past_illness: '', congenital_disease: '', drugs_supplements: '', drug_allergy: '', food_allergy: '', chief_complaint: '',
   smoking: '', smoking_years: '', drinking: '', drinking_years: '',
 }
 
@@ -127,6 +128,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
       drugs_supplements: patient?.drugs_supplements ?? '',
       drug_allergy: patient?.drug_allergy ?? '',
       food_allergy: patient?.food_allergy ?? '',
+      chief_complaint: patient?.chief_complaint ?? '',
       smoking: toYesNo(patient?.smoking),
       smoking_years: patient?.smoking_years != null ? String(patient.smoking_years) : '',
       drinking: toYesNo(patient?.drinking),
@@ -166,6 +168,7 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
       drugs_supplements: clean(form.drugs_supplements),
       drug_allergy: clean(form.drug_allergy),
       food_allergy: clean(form.food_allergy),
+      chief_complaint: clean(form.chief_complaint),
       // '' (not recorded) leaves the stored value untouched; 'no'/'yes' persist.
       smoking: form.smoking === '' ? null : form.smoking === 'yes',
       smoking_years: form.smoking === 'yes' && form.smoking_years ? Number(form.smoking_years) : null,
@@ -316,6 +319,10 @@ export function PatientFormModal({ open, mode, patient, saving, onClose, onSubmi
           <label className="block text-sm font-medium text-bbh-ink">
             {t('patientFormModal.foodAllergy')}
             <textarea rows={2} value={form.food_allergy} onChange={(e) => update('food_allergy', e.target.value)} placeholder={t('patientFormModal.healthHint')} className={TEXTAREA} />
+          </label>
+          <label className="block text-sm font-medium text-bbh-ink sm:col-span-2">
+            {t('patientFormModal.chiefComplaint')}
+            <textarea rows={2} value={form.chief_complaint} onChange={(e) => update('chief_complaint', e.target.value)} placeholder={t('patientFormModal.healthHint')} className={TEXTAREA} />
           </label>
         </div>
 

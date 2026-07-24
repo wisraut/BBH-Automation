@@ -129,6 +129,7 @@ class PatientIntake(BaseModel):
     drugs_supplements: str | None = Field(default=None, max_length=2000)
     drug_allergy: str | None = Field(default=None, max_length=2000)
     food_allergy: str | None = Field(default=None, max_length=2000)
+    chief_complaint: str | None = Field(default=None, max_length=2000)
     smoking: bool | None = None
     smoking_years: int | None = Field(default=None, ge=0, le=120)
     drinking: bool | None = None

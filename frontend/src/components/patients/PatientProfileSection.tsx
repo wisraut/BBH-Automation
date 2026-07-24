@@ -51,6 +51,7 @@ interface Form {
   drugs_supplements: string
   drug_allergy: string
   food_allergy: string
+  chief_complaint: string
   smoking: string
   smoking_years: string
   drinking: string
@@ -62,7 +63,7 @@ const EMPTY: Form = {
   english_name: '', religion: '', marital_status: '', occupation: '',
   father_name: '', father_phone: '', mother_name: '', mother_phone: '',
   emergency_contact_name: '', emergency_contact_relation: '', emergency_contact_phone: '', emergency_contact_address: '',
-  past_illness: '', congenital_disease: '', drugs_supplements: '', drug_allergy: '', food_allergy: '',
+  past_illness: '', congenital_disease: '', drugs_supplements: '', drug_allergy: '', food_allergy: '', chief_complaint: '',
   smoking: '', smoking_years: '', drinking: '', drinking_years: '',
 }
 
@@ -113,6 +114,7 @@ export function PatientProfileSection({ patientId }: { patientId: number }) {
       emergency_contact_address: p.emergency_contact_address ?? '',
       past_illness: p.past_illness ?? '', congenital_disease: p.congenital_disease ?? '',
       drugs_supplements: p.drugs_supplements ?? '', drug_allergy: p.drug_allergy ?? '', food_allergy: p.food_allergy ?? '',
+      chief_complaint: p.chief_complaint ?? '',
       smoking: p.smoking == null ? '' : p.smoking ? 'yes' : 'no',
       smoking_years: p.smoking_years != null ? String(p.smoking_years) : '',
       drinking: p.drinking == null ? '' : p.drinking ? 'yes' : 'no',
@@ -236,6 +238,7 @@ export function PatientProfileSection({ patientId }: { patientId: number }) {
             <Row label={t('patientFormModal.drugsSupplements')} value={p.drugs_supplements} />
             <Row label={t('patientFormModal.drugAllergy')} value={p.drug_allergy} />
             <Row label={t('patientFormModal.foodAllergy')} value={p.food_allergy} />
+            <Row label={t('patientFormModal.chiefComplaint')} value={p.chief_complaint} />
           </div>
         </div>
 
@@ -435,6 +438,10 @@ export function PatientProfileSection({ patientId }: { patientId: number }) {
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-bbh-ink">{t('patientFormModal.foodAllergy')}</span>
             <textarea value={form.food_allergy} onChange={set('food_allergy')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${BASE}`} />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-xs font-medium text-bbh-ink">{t('patientFormModal.chiefComplaint')}</span>
+            <textarea value={form.chief_complaint} onChange={set('chief_complaint')} rows={2} maxLength={2000} placeholder={t('patientFormModal.healthHint')} className={`resize-none ${BASE}`} />
           </label>
         </div>
       </div>

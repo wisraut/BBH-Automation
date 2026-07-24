@@ -57,6 +57,7 @@ class PatientOut(BaseModel):
     drugs_supplements: str | None = None
     drug_allergy: str | None = None
     food_allergy: str | None = None
+    chief_complaint: str | None = None
     smoking: bool | None = None
     smoking_years: int | None = None
     drinking: bool | None = None
@@ -113,6 +114,7 @@ class PatientCreateRequest(BaseModel):
     drugs_supplements: str | None = Field(default=None, max_length=2000)
     drug_allergy: str | None = Field(default=None, max_length=2000)
     food_allergy: str | None = Field(default=None, max_length=2000)
+    chief_complaint: str | None = Field(default=None, max_length=2000)
     smoking: bool | None = None
     smoking_years: int | None = Field(default=None, ge=0, le=120)
     drinking: bool | None = None
@@ -152,6 +154,7 @@ class PatientUpdateRequest(BaseModel):
     drugs_supplements: str | None = Field(default=None, max_length=2000)
     drug_allergy: str | None = Field(default=None, max_length=2000)
     food_allergy: str | None = Field(default=None, max_length=2000)
+    chief_complaint: str | None = Field(default=None, max_length=2000)
     smoking: bool | None = None
     smoking_years: int | None = Field(default=None, ge=0, le=120)
     drinking: bool | None = None

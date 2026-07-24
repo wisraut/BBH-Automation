@@ -18,7 +18,7 @@ _HEALTH_TEXT_FIELDS = (
     "emergency_contact_name", "emergency_contact_relation",
     "emergency_contact_phone", "emergency_contact_address",
     "past_illness", "congenital_disease", "drugs_supplements",
-    "drug_allergy", "food_allergy",
+    "drug_allergy", "food_allergy", "chief_complaint",
 )
 _HEALTH_FLAG_FIELDS = ("smoking", "smoking_years", "drinking", "drinking_years")
 

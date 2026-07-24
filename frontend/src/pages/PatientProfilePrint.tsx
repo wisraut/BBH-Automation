@@ -133,7 +133,7 @@ export function PatientProfilePrint() {
         {/* กรอบดำล้อมทั้งฟอร์ม — แถบเขียวชนขอบซ้าย/ขวา, ช่องกรอกมี padding ด้านใน */}
         <div className="border border-black">
           {/* ข้อมูลส่วนตัว */}
-          <div className="space-y-2 px-5 py-4 leading-6">
+          <div className="space-y-2.5 px-3 py-5 leading-7">
             <div className="flex gap-4">
               <Fill label="ชื่อ (Name)" value={p.display_name} grow={2} />
               <Fill label="นามสกุล (Surname)" grow={2} />
@@ -167,17 +167,18 @@ export function PatientProfilePrint() {
               <Fill label="อีเมล์ (E-mail)" value={p.email} grow={2} />
             </div>
             <Fill label="ที่อยู่ที่สามารถติดต่อได้ (Address)" value={p.address} grow={1} />
+            
             <div className="flex gap-4">
               <Fill label="" grow={2} />
               <Fill label="โทรศัพท์ (Telephone Number)" value={p.phone} grow={2} />
             </div>
             <div className="flex gap-4">
               <Fill label="ชื่อบิดา (Father's name)" value={p.father_name} grow={2} />
-              <Fill label="โทรศัพท์ (Telephone Number)" value={p.father_phone} grow={1} />
+              <Fill label="โทรศัพท์ (Telephone Number)" value={p.father_phone} grow={2} />
             </div>
             <div className="flex gap-4">
               <Fill label="ชื่อมารดา (Mother's name)" value={p.mother_name} grow={2} />
-              <Fill label="โทรศัพท์ (Telephone Number)" value={p.mother_phone} grow={1} />
+              <Fill label="โทรศัพท์ (Telephone Number)" value={p.mother_phone} grow={2} />
             </div>
             <div className="flex gap-4">
               <Fill label="บุคคลที่ติดต่อได้ในกรณีฉุกเฉิน (Emergency Contact Person)" value={p.emergency_contact_name} grow={2} />
@@ -185,12 +186,13 @@ export function PatientProfilePrint() {
             </div>
             <Fill label="โทรศัพท์ (Telephone Number)" value={p.emergency_contact_phone} grow={1} />
             <Fill label="ที่อยู่สามารถติดต่อได้ (Address)" value={p.emergency_contact_address} grow={1} />
-            <div className="flex items-baseline gap-1.5">
+            
+            <div className="flex items-baseline gap-2">
               <span className="shrink-0 whitespace-nowrap">อาการที่ต้องการปรึกษา (Chief complain)</span>
-              <span className="min-w-0 flex-1 border-b border-dotted border-zinc-500 leading-6">{' '}</span>
+              <span className="min-w-0 flex-1 border-b border-dotted border-zinc-400 b-0.5 leading-relaxed text-zinc-900 text-black">{p.chief_complaint?.trim() ? p.chief_complaint : ' '}</span>
             </div>
-            <div className="border-b border-dotted border-zinc-500 leading-6">{' '}</div>
-            <div className="border-b border-dotted border-zinc-500 leading-6">{' '}</div>
+            <div className="border-b border-dotted border-zinc-400 h-2">{' '}</div>
+            <div className="border-b border-dotted border-zinc-400 h-4">{' '}</div>
           </div>
 
           {/* ประวัติการเจ็บป่วยในอดีต */}

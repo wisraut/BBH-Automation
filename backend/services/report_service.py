@@ -12,7 +12,8 @@ from fastapi import HTTPException, UploadFile
 from rag import llm
 from services.pii_redactor import redact_text
 from core.config import log
-from core.email_service import REPORT_NOTIFY_EMAIL, send_email
+from core.email_service import MAX_ATTACHMENT_BYTES, REPORT_NOTIFY_EMAIL, send_email
+from core.validation import EMAIL_RE
 from core.email_templates import (
     COLOR_GREEN_DARK,
     COLOR_MUTED,
@@ -23,7 +24,13 @@ from core.email_templates import (
     render_steps_section,
     render_text_shell,
 )
-from repositories import patient_doctor_repo, patient_repo, report_repo, user_repo
+from repositories import (
+    doctor_settings_repo,
+    patient_doctor_repo,
+    patient_repo,
+    report_repo,
+    user_repo,
+)
 
 REPORTS_ROOT = os.getenv("REPORTS_STORAGE_ROOT", "/app/data/reports")
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10MB cap for MVP
@@ -151,6 +158,141 @@ def set_notebooklm_url(report_id: int, url: str | None) -> dict[str, Any]:
         )
     report_repo.update_notebooklm_url(report_id, clean or None)
     return report_repo.get_by_id(report_id)
+
+
+# Subject prefixes the doctor's own email->summary automation keys off. SOAP for
+# now; add more as their pipeline grows (kept as a whitelist so a client can't
+# inject an arbitrary subject prefix).
+ALLOWED_REPORT_FORMATS = ("SOAP",)
+
+
+def _attachment_filename(title: str, ext: str) -> str:
+    """A safe, readable attachment name from the report title."""
+    base = re.sub(r"[^\w\-. ]", "_", title).strip() or "report"
+    return f"{base[:80]}{ext}"
+
+
+def send_reports_to_doctor(
+    *,
+    patient_id: int,
+    report_ids: list[int],
+    format_prefix: str,
+    to_email: str | None,
+    user: dict[str, Any],
+) -> dict[str, Any]:
+    """Email one or more of a patient's report files to a doctor's summary inbox
+    (their own email->summary automation processes anything with a whitelisted
+    subject prefix like "SOAP:"). Destination is the explicit ``to_email`` when
+    given, otherwise the sender's saved summary_email. PHI leaves the system
+    here — the API layer MUST write an audit row."""
+    if format_prefix not in ALLOWED_REPORT_FORMATS:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_FORMAT", "message": "รูปแบบไม่รองรับ"},
+        )
+    if not report_ids:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "NO_REPORTS", "message": "เลือกอย่างน้อย 1 รายงาน"},
+        )
+
+    patient = patient_repo.get_by_id(patient_id)
+    if not patient:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "PATIENT_NOT_FOUND", "message": "ไม่พบคนไข้"},
+        )
+
+    # Destination: explicit override, else the sender's saved inbox. Patients are
+    # many-to-many with doctors (patient_doctors), so there's no single "the
+    # doctor" to default to — the sender's own summary_email is unambiguous, and
+    # the UI lets a CRO type another address.
+    dest = (to_email or "").strip()
+    if not dest:
+        settings = doctor_settings_repo.get(int(user["id"])) or {}
+        dest = (settings.get("summary_email") or "").strip()
+    if not dest:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "NO_RECIPIENT",
+                    "message": "ยังไม่ได้ตั้งอีเมลปลายทาง — ตั้งใน ตั้งค่าบัญชี หรือกรอกอีเมลผู้รับ"},
+        )
+    if not EMAIL_RE.match(dest):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_EMAIL", "message": "อีเมลผู้รับไม่ถูกต้อง"},
+        )
+
+    root = os.path.abspath(REPORTS_ROOT)
+    attachments: list[dict] = []
+    skipped: list[dict] = []
+    total_bytes = 0
+    for rid in report_ids:
+        # get_send_target both scopes to a real row AND excludes soft-deleted
+        # reports (a withdrawn record must not be re-emailed).
+        report = report_repo.get_send_target(rid)
+        # Ownership: the report must belong to THIS patient — guards IDOR and a
+        # cross-patient leak (attacker passing another patient's report id).
+        # 'not_found' is used for both missing and cross-patient on purpose, so
+        # the response can't be used to probe which report ids exist.
+        if not report or report.get("patient_id") != patient_id:
+            skipped.append({"id": rid, "reason": "not_found"})
+            continue
+        fp = report.get("file_path")
+        if not fp:
+            skipped.append({"id": rid, "reason": "no_file"})
+            continue
+        # Path-traversal guard: resolved path must stay under REPORTS_ROOT.
+        abs_path = os.path.abspath(os.path.join(root, str(fp)))
+        if os.path.commonpath([root, abs_path]) != root or not os.path.isfile(abs_path):
+            skipped.append({"id": rid, "reason": "no_file"})
+            continue
+        # Enforce the total-size cap here so the returned/audited 'attached' count
+        # matches what actually goes out (email_service also caps as a backstop).
+        size = os.path.getsize(abs_path)
+        if total_bytes + size > MAX_ATTACHMENT_BYTES:
+            skipped.append({"id": rid, "reason": "too_large"})
+            continue
+        total_bytes += size
+        ext = os.path.splitext(abs_path)[1]
+        attachments.append({
+            "path": abs_path,
+            "filename": _attachment_filename(report.get("title") or f"report-{rid}", ext),
+            "mime": report.get("file_mime"),
+        })
+
+    if not attachments:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "NO_ATTACHABLE_FILES", "message": "รายงานที่เลือกไม่มีไฟล์แนบ"},
+        )
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    pname = patient.get("display_name") or f"patient-{patient_id}"
+    # Strip CR/LF so a patient name can't inject extra email headers into the
+    # Subject (header injection); format_prefix is already whitelisted.
+    subject = re.sub(r"[\r\n]+", " ", f"{format_prefix}: {pname} ({today})")
+    lines = [
+        "เรียนแพทย์,",
+        "",
+        f"แนบรายงานของคนไข้ {pname} (HN {patient.get('hn') or '-'}) จำนวน {len(attachments)} ไฟล์",
+        f"รูปแบบ: {format_prefix}",
+        "",
+        "รายการไฟล์:",
+        *[f"  - {a['filename']}" for a in attachments],
+        "",
+        "ส่งจากระบบ BBH Portal",
+    ]
+    ok = send_email(
+        to=dest, subject=subject, body="\n".join(lines),
+        attachments=attachments, from_name="BBH Portal",
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "EMAIL_FAILED", "message": "ส่งอีเมลไม่สำเร็จ กรุณาลองใหม่"},
+        )
+    return {"sent": True, "to": dest, "attached": len(attachments), "skipped": skipped}
 
 
 async def upload_report(

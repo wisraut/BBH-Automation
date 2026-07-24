@@ -28,29 +28,41 @@ def send_email(
     attachment_path: str | None = None,
     attachment_filename: str | None = None,
     attachment_mime: str | None = None,
+    attachments: list[dict] | None = None,
     from_name: str | None = None,
 ) -> bool:
     """Send an email. When ``html`` is provided the message is sent as
     multipart/alternative so mail clients can pick either the text (body)
-    or the html version. Optionally attaches one file from disk.
+    or the html version. Attaches files from disk — either one via
+    ``attachment_path`` (kept for existing callers) or several via
+    ``attachments`` (a list of ``{"path", "filename"?, "mime"?}`` dicts).
 
     Returns False (logs, never raises) on failure so a notification outage
-    never blocks the caller. Attachment is silently skipped if the file
-    is missing or too large — body still sends.
+    never blocks the caller. Individual attachments are skipped (logged) if
+    missing, and the running total is capped at MAX_ATTACHMENT_BYTES so Gmail
+    won't reject the message — body still sends.
     """
     if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
         log.warning("GMAIL_EMAIL/GMAIL_APP_PASSWORD not configured — skipping email to %s", to)
         return False
 
+    # Normalize the single-attachment shorthand into the list form so there's
+    # one code path for building the message.
+    files = list(attachments or [])
     if attachment_path:
-        msg = _build_with_attachment(
+        files.insert(0, {
+            "path": attachment_path,
+            "filename": attachment_filename,
+            "mime": attachment_mime,
+        })
+
+    if files:
+        msg = _build_with_attachments(
             to=to,
             subject=subject,
             body=body,
             html=html,
-            attachment_path=attachment_path,
-            attachment_filename=attachment_filename,
-            attachment_mime=attachment_mime,
+            attachments=files,
             from_name=from_name,
         )
     elif html:
@@ -86,18 +98,18 @@ def _from_header(from_name: str | None) -> str:
     return GMAIL_EMAIL
 
 
-def _build_with_attachment(
+def _build_with_attachments(
     *,
     to: str,
     subject: str,
     body: str,
     html: str | None,
-    attachment_path: str,
-    attachment_filename: str | None,
-    attachment_mime: str | None,
+    attachments: list[dict],
     from_name: str | None,
 ) -> MIMEMultipart:
-    """multipart/mixed with an alternative sub-part when html is provided."""
+    """multipart/mixed with an alternative sub-part when html is provided.
+    Attaches each file whose running total stays under MAX_ATTACHMENT_BYTES;
+    missing/oversize files are skipped (logged) so the message still sends."""
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = _from_header(from_name)
@@ -110,25 +122,33 @@ def _build_with_attachment(
     else:
         msg.attach(MIMEText(body, "plain", "utf-8"))
 
-    try:
-        size = os.path.getsize(attachment_path)
-    except OSError:
-        log.warning("Attachment not found at %s — sending email without it", attachment_path)
-        return msg
-    if size > MAX_ATTACHMENT_BYTES:
-        log.warning(
-            "Attachment %s too large (%d bytes) — sending email without it",
-            attachment_path, size,
-        )
-        return msg
+    total = 0
+    for att in attachments:
+        path = att.get("path")
+        if not path:
+            continue
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            log.warning("Attachment not found at %s — skipping", path)
+            continue
+        # Cap the running total (not each file) so a multi-file email can't
+        # blow past Gmail's limit.
+        if total + size > MAX_ATTACHMENT_BYTES:
+            log.warning(
+                "Attachment %s (%d bytes) would exceed the %d-byte cap — skipping",
+                path, size, MAX_ATTACHMENT_BYTES,
+            )
+            continue
+        total += size
 
-    mime = attachment_mime or (mimetypes.guess_type(attachment_path)[0] or "application/octet-stream")
-    main, _, sub = mime.partition("/")
-    part = MIMEBase(main or "application", sub or "octet-stream")
-    with open(attachment_path, "rb") as fh:
-        part.set_payload(fh.read())
-    encoders.encode_base64(part)
-    filename = attachment_filename or os.path.basename(attachment_path)
-    part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
-    msg.attach(part)
+        mime = att.get("mime") or (mimetypes.guess_type(path)[0] or "application/octet-stream")
+        main, _, sub = mime.partition("/")
+        part = MIMEBase(main or "application", sub or "octet-stream")
+        with open(path, "rb") as fh:
+            part.set_payload(fh.read())
+        encoders.encode_base64(part)
+        filename = att.get("filename") or os.path.basename(path)
+        part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+        msg.attach(part)
     return msg

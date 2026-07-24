@@ -9,7 +9,7 @@ def get(doctor_id: int) -> dict[str, Any] | None:
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT doctor_id, notebooklm_url, google_calendar_id, updated_at "
+                "SELECT doctor_id, notebooklm_url, summary_email, google_calendar_id, updated_at "
                 "FROM doctor_settings WHERE doctor_id = %s",
                 (doctor_id,),
             )
@@ -17,19 +17,24 @@ def get(doctor_id: int) -> dict[str, Any] | None:
 
 
 def upsert(
-    doctor_id: int, *, notebooklm_url: str | None, google_calendar_id: str | None
+    doctor_id: int,
+    *,
+    notebooklm_url: str | None,
+    summary_email: str | None,
+    google_calendar_id: str | None,
 ) -> None:
     """สร้างหรือแก้ตั้งค่าส่วนตัวของหมอ (upsert ด้วย ON DUPLICATE KEY) — 1 แถวต่อหมอ."""
     with mysql_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO doctor_settings (doctor_id, notebooklm_url, google_calendar_id)
-                VALUES (%s, %s, %s)
+                INSERT INTO doctor_settings (doctor_id, notebooklm_url, summary_email, google_calendar_id)
+                VALUES (%s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     notebooklm_url = VALUES(notebooklm_url),
+                    summary_email = VALUES(summary_email),
                     google_calendar_id = VALUES(google_calendar_id)
                 """,
-                (doctor_id, notebooklm_url, google_calendar_id),
+                (doctor_id, notebooklm_url, summary_email, google_calendar_id),
             )
         conn.commit()

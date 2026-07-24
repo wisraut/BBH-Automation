@@ -6,6 +6,8 @@ import { api } from '../lib/api'
 
 export interface AccountSettings {
   notebooklm_url: string | null
+  // The doctor's summary/automation inbox — destination for "send reports to doctor".
+  summary_email: string | null
   google_calendar_id: string | null
   // Read-only: the address a doctor shares their Google Calendar with.
   service_account_email: string | null
@@ -13,6 +15,7 @@ export interface AccountSettings {
 
 export interface AccountSettingsInput {
   notebooklm_url: string | null
+  summary_email: string | null
   google_calendar_id: string | null
 }
 

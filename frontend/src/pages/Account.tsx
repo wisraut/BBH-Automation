@@ -47,11 +47,13 @@ export function Account() {
   const settingsQ = useAccountSettings()
   const saveSettings = useSaveAccountSettings()
   const [notebookUrl, setNotebookUrl] = useState('')
+  const [summaryEmail, setSummaryEmail] = useState('')
   const [calendarId, setCalendarId] = useState('')
   const [copiedEmail, setCopiedEmail] = useState(false)
   useEffect(() => {
     if (settingsQ.data) {
       setNotebookUrl(settingsQ.data.notebooklm_url ?? '')
+      setSummaryEmail(settingsQ.data.summary_email ?? '')
       setCalendarId(settingsQ.data.google_calendar_id ?? '')
     }
   }, [settingsQ.data])
@@ -63,6 +65,7 @@ export function Account() {
     try {
       await saveSettings.mutateAsync({
         notebooklm_url: notebookUrl.trim() || null,
+        summary_email: summaryEmail.trim() || null,
         google_calendar_id: calendarId.trim() || null,
       })
       toast.show('success', t('account.integrationsSaved'))
@@ -234,6 +237,17 @@ export function Account() {
                     placeholder="https://notebooklm.google.com/notebook/..."
                     className={`${FIELD_CLASS} ${FOCUS_RING}`}
                   />
+                </label>
+                <label className="block">
+                  <span className="text-sm text-bbh-muted">{t('account.summaryEmail')}</span>
+                  <input
+                    type="email"
+                    value={summaryEmail}
+                    onChange={(e) => setSummaryEmail(e.target.value)}
+                    placeholder="soap-inbox@gmail.com"
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  />
+                  <span className="mt-1 block text-xs text-bbh-muted">{t('account.summaryEmailHint')}</span>
                 </label>
                 <label className="block">
                   <span className="text-sm text-bbh-muted">{t('account.calendarId')}</span>

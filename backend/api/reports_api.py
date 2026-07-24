@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.security import require_user
 from schemas.bookings import SimpleOkResponse
@@ -161,6 +161,45 @@ def delete_report(report_id: int, request: Request, user: _DoctorOrAdmin) -> dic
         request, user,
         action="delete_report", subject_type="report", subject_id=report_id,
         patient_id=report.get("patient_id"),
+    )
+    return result
+
+
+class SendReportsRequest(BaseModel):
+    # Cap the batch so one request can't fan out into a huge DB/file/email load.
+    report_ids: list[int] = Field(min_length=1, max_length=50)
+    format_prefix: str = "SOAP"
+    # Optional override; when empty the sender's saved summary_email is used.
+    to_email: str | None = Field(default=None, max_length=255)
+
+
+class SendReportsResponse(BaseModel):
+    sent: bool
+    to: str
+    attached: int
+    skipped: list[dict]
+
+
+@router.post("/api/patients/{patient_id}/reports/send", response_model=SendReportsResponse)
+def send_patient_reports(
+    patient_id: int, body: SendReportsRequest, request: Request, user: _StaffUser
+) -> dict:
+    """Email selected report files to a doctor's summary inbox (their own
+    email->summary automation processes the "SOAP:" subject). Patient data leaves
+    the system by email here — the audit row is mandatory."""
+    result = report_service.send_reports_to_doctor(
+        patient_id=patient_id,
+        report_ids=body.report_ids,
+        format_prefix=body.format_prefix,
+        to_email=body.to_email,
+        user=user,
+    )
+    audit_service.record_access(
+        request, user,
+        action="send_reports_to_doctor", subject_type="patient", subject_id=patient_id,
+        patient_id=patient_id,
+        extra={"report_ids": body.report_ids, "to": result["to"],
+               "attached": result["attached"], "format": body.format_prefix},
     )
     return result
 

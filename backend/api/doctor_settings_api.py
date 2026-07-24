@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from core.security import require_user
+from core.validation import EMAIL_RE
 from integrations import calendar_client
 from repositories import doctor_settings_repo
 
@@ -16,6 +17,9 @@ _User = Annotated[dict, Depends(require_user())]
 
 class SettingsOut(BaseModel):
     notebooklm_url: str | None = None
+    # The doctor's summary/automation inbox — destination for "send reports to
+    # doctor" (their own email->summary pipeline picks it up).
+    summary_email: str | None = None
     google_calendar_id: str | None = None
     # Read-only: the address a doctor shares their Google Calendar with.
     service_account_email: str | None = None
@@ -23,14 +27,16 @@ class SettingsOut(BaseModel):
 
 class SettingsPut(BaseModel):
     notebooklm_url: str | None = Field(default=None, max_length=512)
+    summary_email: str | None = Field(default=None, max_length=255)
     google_calendar_id: str | None = Field(default=None, max_length=255)
 
 
 def _out(row: dict | None) -> dict:
-    """ประกอบ response settings ของผู้ใช้ (notebooklm_url + google_calendar_id) และเติม
-    service_account_email แบบ read-only ที่หมอต้องใช้แชร์ Google Calendar"""
+    """ประกอบ response settings ของผู้ใช้ (notebooklm_url + summary_email + google_calendar_id)
+    และเติม service_account_email แบบ read-only ที่หมอต้องใช้แชร์ Google Calendar"""
     return {
         "notebooklm_url": (row or {}).get("notebooklm_url"),
+        "summary_email": (row or {}).get("summary_email"),
         "google_calendar_id": (row or {}).get("google_calendar_id"),
         "service_account_email": calendar_client.service_account_email(),
     }
@@ -59,5 +65,16 @@ def put_settings(body: SettingsPut, user: _User) -> dict:
             status_code=422,
             detail={"code": "INVALID_CALENDAR_ID", "message": "Calendar ID มักเป็นอีเมล Google ของคุณ"},
         )
-    doctor_settings_repo.upsert(int(user["id"]), notebooklm_url=url, google_calendar_id=cal)
-    return _out({"notebooklm_url": url, "google_calendar_id": cal})
+    summary_email = (body.summary_email or "").strip() or None
+    if summary_email and not EMAIL_RE.match(summary_email):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_EMAIL", "message": "อีเมลไม่ถูกต้อง"},
+        )
+    doctor_settings_repo.upsert(
+        int(user["id"]),
+        notebooklm_url=url,
+        summary_email=summary_email,
+        google_calendar_id=cal,
+    )
+    return _out({"notebooklm_url": url, "summary_email": summary_email, "google_calendar_id": cal})

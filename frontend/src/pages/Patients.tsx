@@ -2,7 +2,7 @@
 import { dateLocale } from '../i18n/datetime'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronLeft, ChevronUp, Download, Edit3, ExternalLink, Link2, MessageCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronUp, Download, Edit3, ExternalLink, Link2, MessageCircle, Plus, Search, Send, Trash2, Upload } from 'lucide-react'
 
 import { openReportFile, downloadReportFile } from '../lib/reportFile'
 import { Eyebrow } from '../components/ui/Eyebrow'
@@ -19,6 +19,7 @@ import { ReportFilterBar } from '../components/reports/ReportFilterBar'
 import { ChatPane } from '../components/patients/ChatPane'
 import { PatientTimeline } from '../components/patients/PatientTimeline'
 import { ReportUploadModal } from '../components/reports/ReportUploadModal'
+import { SendToDoctorModal } from '../components/patients/SendToDoctorModal'
 import { useAllBookings } from '../hooks/useAllBookings'
 import { useCreatePatient } from '../hooks/useCreatePatient'
 import { useDeleteReport } from '../hooks/useDeleteReport'
@@ -149,6 +150,7 @@ export function Patients() {
   const [patientModal, setPatientModal] = useState<'create' | 'edit' | null>(null)
   const [viewMode, setViewMode] = useState<'detail' | 'chat'>('detail')
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const [notebookUrlDraft, setNotebookUrlDraft] = useState('')
   // Secondary report data (raw extracted text + NotebookLM) is collapsed by
   // default so the aside leads with the report list + analysis (Hick's law —
@@ -491,6 +493,10 @@ export function Patients() {
                   <Upload size={16} />
                   {t('patients.uploadReport')}
                 </button>
+                <button type="button" onClick={() => setSendOpen(true)} className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-bbh-line bg-white px-3 py-2 text-sm font-medium text-bbh-ink transition-colors duration-200 hover:border-bbh-green hover:text-bbh-green-dark sm:flex-none ${FOCUS_RING}`}>
+                  <Send size={16} />
+                  {t('sendToDoctor.action')}
+                </button>
               </div>
             </section>
               </div>
@@ -763,6 +769,13 @@ export function Patients() {
         onClose={() => setUploadOpen(false)}
         onSubmit={submitReport}
         patientId={selectedPatient?.id}
+      />
+      <SendToDoctorModal
+        open={sendOpen}
+        onClose={() => setSendOpen(false)}
+        patientId={selectedPatient?.id ?? null}
+        patientName={selectedPatient?.display_name ?? ''}
+        reports={reports}
       />
     </div>
   )

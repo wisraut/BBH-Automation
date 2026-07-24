@@ -143,6 +143,21 @@ def get_by_id(report_id: int) -> dict[str, Any] | None:
             return cur.fetchone()
 
 
+def get_send_target(report_id: int) -> dict[str, Any] | None:
+    """Minimal fields needed to email a report's file out (owner + file). Unlike
+    get_by_id this FILTERS soft-deleted rows — a withdrawn medical record must not
+    be re-exposed by the send-to-doctor flow even though its file is retained on
+    disk for the legal retention window. None if not found or deleted."""
+    with mysql_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, patient_id, title, file_path, file_mime "
+                "FROM patient_reports WHERE id = %s AND deleted_at IS NULL LIMIT 1",
+                (report_id,),
+            )
+            return cur.fetchone()
+
+
 def create(
     *,
     patient_id: int,

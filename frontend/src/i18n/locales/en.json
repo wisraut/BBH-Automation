@@ -14,6 +14,8 @@
     "personalIntegrations": "Personal integrations",
     "integrationsDesc": "Personal items the system uses for you — NotebookLM for the \"Send to NotebookLM\" button on the reports page, and Google Calendar ID so appointments appear on your calendar (saved for now; the system will sync in a later step)",
     "notebookUrl": "My NotebookLM link",
+    "summaryEmail": "Doctor's summary email (for sending reports)",
+    "summaryEmailHint": "The inbox your email-to-summary automation reads — used as the default when you click \"Send to doctor\" on a patient",
     "calendarId": "My Google Calendar ID",
     "calendarShareHint": "How to connect: open your Google Calendar → share the calendar (\"Make changes to events\" permission) with this email, then enter your Google email as the Calendar ID above",
     "copied": "Copied",
@@ -121,6 +123,23 @@
     "noResponse": "AI did not respond — please retry",
     "genericError": "Something went wrong. Please try again.",
     "newChat": "New chat"
+  },
+  "sendToDoctor": {
+    "action": "Send to doctor",
+    "title": "Send reports to doctor",
+    "intro": "Choose which of {{name}}'s reports to send to the doctor's summary inbox (their system summarizes it automatically).",
+    "toEmail": "Send to (email)",
+    "noDefaultHint": "Set a default destination email in Account settings.",
+    "format": "Format",
+    "subjectPreview": "Subject: {{prefix}}: {{name}} (date)",
+    "chooseReports": "Choose reports to attach",
+    "noReports": "This patient has no reports yet",
+    "noFile": "No file attached",
+    "sending": "Sending...",
+    "sendCount": "Send {{count}} report(s)",
+    "sentSuccess": "Sent {{count}} file(s) to {{email}}",
+    "sentPartial": "Sent {{count}} file(s) to {{email}} — skipped {{skipped}} (no file / too large)",
+    "sendFailed": "Failed to send, please try again"
   },
   "aiSessionsList": {
     "history": "History",

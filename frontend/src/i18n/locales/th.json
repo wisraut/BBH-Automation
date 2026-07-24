@@ -14,6 +14,8 @@
     "personalIntegrations": "การเชื่อมต่อส่วนตัว",
     "integrationsDesc": "ของส่วนตัวที่ระบบใช้ให้ — NotebookLM สำหรับปุ่ม \"ส่งต่อไป NotebookLM\" ในหน้ารายงาน และ Google Calendar ID สำหรับให้นัดขึ้นปฏิทินของคุณ (เก็บค่าไว้ก่อน ระบบจะ sync ให้ในขั้นถัดไป)",
     "notebookUrl": "ลิงก์ NotebookLM ของฉัน",
+    "summaryEmail": "อีเมลสรุปของหมอ (สำหรับส่งรายงาน)",
+    "summaryEmailHint": "อีเมลปลายทางที่ระบบสรุปของหมอรับ — ใช้เป็นค่าตั้งต้นเวลากด \"ส่งให้หมอ\" ในหน้าคนไข้",
     "calendarId": "Google Calendar ID ของฉัน",
     "calendarShareHint": "วิธีเชื่อม: เปิด Google Calendar ของคุณ → แชร์ปฏิทิน (สิทธิ์ \"แก้ไขกิจกรรม\") ให้อีเมลนี้ แล้วใส่อีเมล Google ของคุณเป็น Calendar ID ด้านบน",
     "copied": "คัดลอกแล้ว",
@@ -119,6 +121,23 @@
     "noResponse": "AI ไม่ตอบ — ลองใหม่",
     "genericError": "เกิดข้อผิดพลาด กรุณาลองใหม่",
     "newChat": "สนทนาใหม่"
+  },
+  "sendToDoctor": {
+    "action": "ส่งให้หมอ",
+    "title": "ส่งรายงานให้หมอ",
+    "intro": "เลือกรายงานของ {{name}} ที่จะส่งไปยังอีเมลสรุปของหมอ (ระบบของหมอจะสรุปให้อัตโนมัติ)",
+    "toEmail": "ส่งถึง (อีเมล)",
+    "noDefaultHint": "ตั้งอีเมลปลายทางเริ่มต้นได้ที่ ตั้งค่าบัญชี",
+    "format": "รูปแบบ",
+    "subjectPreview": "หัวเรื่อง: {{prefix}}: {{name}} (วันที่)",
+    "chooseReports": "เลือกรายงานที่จะแนบ",
+    "noReports": "คนไข้นี้ยังไม่มีรายงาน",
+    "noFile": "ไม่มีไฟล์แนบ",
+    "sending": "กำลังส่ง...",
+    "sendCount": "ส่ง {{count}} รายงาน",
+    "sentSuccess": "ส่ง {{count}} ไฟล์ ไปที่ {{email}} แล้ว",
+    "sentPartial": "ส่ง {{count}} ไฟล์ ไปที่ {{email}} — ข้าม {{skipped}} รายการ (ไม่มีไฟล์/ไฟล์ใหญ่เกิน)",
+    "sendFailed": "ส่งไม่สำเร็จ กรุณาลองใหม่"
   },
   "aiSessionsList": {
     "history": "ประวัติสนทนา",
